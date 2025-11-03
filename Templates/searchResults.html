@@ -1,0 +1,42 @@
+<html>
+<head>
+	<title>Search results</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<h1>Search results for "<%= query %>"</h1>
+
+<form action="/search" method="get">
+	<input type="text" name="q" value="<%= query %>" style="width:300px">
+	<button type="submit">Search</button>
+</form>
+
+<hr>
+
+<% if (results.n == 0) then %>
+<p>No results found.</p>
+<% else %>
+<table border=1 cellspacing=0>
+<tr><th>ID</th><th>EN Title</th><th> JP Title</th><th>X-JP Title</th><th>Episodes</th><th>Actions</th></tr>
+<% for i = 1, results.n do local r = results[i] %>
+<tr>
+	<td><%= r.aId %></td>
+	<td><%= r.details.enTitle %></td>
+	<td><%= r.details.jpTitle %></td>
+	<td><%= r.details.xjpTitle %></td>
+	<td><%= r.details.episodes.n %></td>
+	<td>
+		<a href="/anime/<%= r.aId %>">Details</a> |
+		<form action="/seen/add" method="post" style="display:inline">
+			<input type="hidden" name="aId" value="<%= r.aId %>">
+			<button type="submit">Add as Seen</button>
+		</form>
+	</td>
+</tr>
+<% end %>
+</table>
+<% end %>
+
+<p><a href="/">Back to home</a></p>
+</body>
+</html>

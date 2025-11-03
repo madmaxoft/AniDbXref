@@ -1,0 +1,58 @@
+<html>
+<head>
+<title>AniDbXref</title>
+<link rel="stylesheet" href="/Static/main.css" />
+</head>
+
+<body>
+<h1>AniDbXref</h1>
+
+<% if not(hasAniDbData) then %>
+	<p>The base AniDB data has not been downloaded yet. <a href="/update-confirm">Update AniDB data now.</a>
+<% else %>
+
+	<table border=1 cellspacing=0>
+	<tr>
+	<th><a href="/update-confirm">Update AniDB data</a></th>
+	<th>
+	<form action="/search" method="get">
+		<input type="text" name="q" placeholder="Enter title keywords" style="width:300px">
+		<button type="submit">Search</button>
+	</form>
+	</th>
+	</tr>
+	</table>
+
+	<% if (seenAnime.n == 0) then %>
+		<p>No anime marked as seen yet.</p>
+	<% else %>
+		<p>
+		<table border=1 cellspacing=0>
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>EN Title</th>
+					<th>JP Title</th>
+					<th>X-JP Title</th>
+					<th>Seen Date</th>
+					<th>Action</th>
+				</tr>
+			</thead>
+			<tbody>
+				<% for i = 1, seenAnime.n do
+					local a = seenAnime[i] %>
+					<tr>
+						<td><%= a.aId %></td>
+						<td><%= a.details.enTitle or "" %></td>
+						<td><%= a.details.jpTitle or "" %></td>
+						<td><%= a.details.xjpTitle or "" %></td>
+						<td><%= a.seenDate %></td>
+						<td><a href="/anime/<%= a.aId %>">Details</a></td>
+					</tr>
+				<% end %>
+			</tbody>
+		</table>
+		</p>
+	<% end %>
+<% end %>
+</body>

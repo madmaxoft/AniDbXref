@@ -1,0 +1,751 @@
+-- db.lua
+-- Database access module
+
+local sqlite3 = require("lsqlite3")
+
+local db = {}
+local dbFile = "anime.sqlite"
+local conn = nil
+
+
+
+
+
+--- Ensures an open DB connection
+local function ensureDb()
+	if (not conn) then
+		conn = sqlite3.open(dbFile)
+		conn:busy_timeout(1000)
+		conn:exec("PRAGMA foreign_keys = ON;")
+	end
+	return conn
+end
+
+
+
+
+
+--- Checks SQLite result codes and throws errors
+local function checkSql(aConn, aResult, aContext)
+	if (aResult ~= sqlite3.OK and aResult ~= sqlite3.DONE and aResult ~= sqlite3.ROW) then
+		error(string.format("SQLite error in %s: %s", aContext or "unknown", aConn:errmsg()))
+	end
+end
+
+
+
+
+
+--- Closes the DB connection
+function db.close()
+	if (conn) then
+		conn:close()
+		conn = nil
+	end
+end
+
+
+
+
+
+--- Ensures DB schema exists and upgrades if needed
+function db.createSchema()
+	-- If connection is already open, close before backup
+	if (conn) then
+		conn:close()
+		conn = nil
+	end
+
+	-- Open new connection (not yet upgraded)
+	local tempConn = sqlite3.open(dbFile)
+	tempConn:busy_timeout(1000)
+	tempConn:exec("PRAGMA foreign_keys = ON;")
+
+	-- Backup safely before upgrade
+	local dbUpgrade = require("dbUpgrade")
+	dbUpgrade.backupDbFile(dbFile)  -- expose backup as public
+
+	-- Reopen fresh connection after backup
+	tempConn:close()
+	conn = sqlite3.open(dbFile)
+	conn:busy_timeout(1000)
+	conn:exec("PRAGMA foreign_keys = ON;")
+
+	-- Now safely run the upgrade
+	dbUpgrade.upgradeIfNeeded(conn, dbFile)
+end
+
+
+
+
+
+--- Executes the specified statement, binding the specified values to it.
+-- aDescription is used for error logging.
+function db.execBoundStatement(aStatement, aValues, aDescription)
+	local c = ensureDb()
+	local stmt = c:prepare(aStatement)
+	if not(stmt) then
+		error("Failed to prepare statement (" .. aDescription .. "): " .. c:errmsg())
+	end
+	checkSql(c, stmt:bind_values(table.unpack(aValues)), aDescription .. ".bind")
+	checkSql(c, stmt:step(), aDescription .. ".step")
+	checkSql(c, stmt:finalize(), aDescription .. ".finalize")
+end
+
+
+
+
+
+--- Returns an array-table of all seen Anime
+-- Each item is a table {aId = ..., seenDate = ...}
+function db.getSeenAnime(aLang)
+	local c = ensureDb()
+	local items = { n = 0 }
+
+	local stmt = c:prepare("SELECT aId, seenDate FROM Seen")
+	if not(stmt) then error("SQL prepare failed (getSeenAnime): " .. c:errmsg()) end
+	for row in stmt:nrows() do
+		items.n = items.n + 1
+		items[items.n] = row
+	end
+	checkSql(c, stmt:finalize(), "getSeenAnime.finalize")
+	return items
+end
+
+
+
+
+
+--- Returns true if the base AniDB data (Anime, AnimeTitle tables) have been populated
+function db.hasBaseAniDbData()
+	local c = ensureDb()
+	local stmt = c:prepare("SELECT COUNT(aId) as cnt FROM Anime")
+	if not(stmt) then error("SQL prepare failed (hasBaseAniDbData): " .. c:errmsg()) end
+	for row in stmt:nrows() do
+		if (row.cnt > 0) then
+			return true
+		end
+	end
+	checkSql(c, stmt:finalize(), "hasBaseAniDbData.finalize")
+	return false
+end
+
+
+
+
+
+--- Returns true if the specified Anime has an entry in the AnimeDetails table (and so is supposed
+-- to have had its details queried from AniDB previously)
+function db.hasDetails(aId)
+	assert(type(aId) == "number")
+	local c = ensureDb()
+	local stmt = c:prepare("SELECT COUNT(aId) as cnt FROM AnimeDetails WHERE aId = ?")
+	if not(stmt) then error("SQL prepare failed (hasBaseAniDbData): " .. c:errmsg()) end
+	checkSql(c, stmt:bind_values(aId), "hasDetails.bind")
+	for row in stmt:nrows() do
+		if (row.cnt > 0) then
+			return true
+		end
+	end
+	checkSql(c, stmt:finalize(), "hasDetails.finalize")
+	return false
+end
+
+
+
+
+
+--- Marks an anime as seen
+function db.markAnimeSeen(aId)
+	db.execBoundStatement(
+		"INSERT OR REPLACE INTO Seen (aId, seenDate) VALUES (?, datetime('now'))",
+		{aId},
+		"markAnimeSeen"
+	)
+end
+
+
+
+
+
+--- Returns the title of the specified anime in the specified language
+-- Returns nil if none found.
+-- Prefers official title to synonyms
+function db.getAnimeTitle(aId, aLang)
+	local c = ensureDb()
+
+	-- Get all titles in the language in the DB:
+	local stmt = c:prepare("SELECT title, kind from AnimeTitle WHERE aId = ? AND language = ?")
+	if not(stmt) then
+		error("Cannot prepare statement for getAnimeTitle: " .. c:errmsg())
+	end
+	checkSql(c, stmt:bind_values(aId, aLang), "getAnimeTitle.bind")
+	local titles = {}
+	for row in stmt:nrows() do
+		titles[row.kind] = row.title
+	end
+	return titles["official"] or titles["syn"] or titles["short"]
+end
+
+
+
+
+
+--- Gets full details for a single anime
+function db.getAnimeDetails(aId)
+	local c = ensureDb()
+	local result =
+	{
+		aId = aId,
+		titles = {n = 0},
+		episodes = { n = 0 },
+		characters = { n = 0 }
+	}
+
+	local sql = [[
+		SELECT startDate, endDate, numEpisodes, pictureId, lastUpdated
+		FROM AnimeDetails
+		WHERE aId = ? LIMIT 1;
+	]]
+
+	local stmt = c:prepare(sql)
+	if (not stmt) then error("SQL prepare failed (getAnimeDetails): " .. c:errmsg()) end
+	checkSql(c, stmt:bind_values(aId), "getAnimeDetails.bind")
+
+	for row in stmt:nrows() do
+		result.startDate = row.startDate
+		result.endDate = row.endDate
+		result.episodes = {n = row.numEpisodes}
+		result.pictureId = row.pictureId
+		result.lastUpdated = row.lastUpdated
+	end
+	if not(result.episodes) then
+		return
+	end
+
+	checkSql(c, stmt:finalize(), "getAnimeDetails.finalize")
+
+	result.enTitle = db.getAnimeTitle(aId, "en")
+	result.jpTitle = db.getAnimeTitle(aId, "ja")
+	result.xjpTitle = db.getAnimeTitle(aId, "x-jat")
+
+	local tSql = "SELECT title, language, kind FROM AnimeTitle WHERE aId = ?"
+	local tStmt = c:prepare(tSql)
+	if not(tStmt) then
+		error("SQL prepare failed (getAnimeDetails titles): " .. c:errmsg())
+	end
+	for row in tStmt:nrows() do
+		result.titles.n = result.titles.n + 1
+		result.titles[result.titles.n] = row
+	end
+
+	local epSql = "SELECT episodeNumber, title FROM AnimeEpisode WHERE aId = ? ORDER BY episodeNumber;"
+	local epStmt = c:prepare(epSql)
+	if (not epStmt) then error("SQL prepare failed (getAnimeDetails ep): " .. c:errmsg()) end
+	checkSql(c, epStmt:bind_values(aId), "getAnimeDetails.ep.bind")
+
+	for row in epStmt:nrows() do
+		result.episodes.n = result.episodes.n + 1
+		result.episodes[result.episodes.n] = { number = row.episodeNumber, title = row.title }
+	end
+	checkSql(c, epStmt:finalize(), "getAnimeDetails.ep.finalize")
+
+	local charSql = [[
+		SELECT
+			c.name AS charName, c.pictureId AS charPic,
+			v.name AS vaName, v.pictureId AS vaPic
+		FROM AnimeCharacter c
+		LEFT JOIN AnimeVoiceActor v ON v.vaId = c.voiceActorId
+		WHERE c.aId = ?;
+	]]
+	local charStmt = c:prepare(charSql)
+	if (not charStmt) then error("SQL prepare failed (getAnimeDetails char): " .. c:errmsg()) end
+	checkSql(c, charStmt:bind_values(aId), "getAnimeDetails.char.bind")
+
+	for row in charStmt:nrows() do
+		result.characters.n = result.characters.n + 1
+		result.characters[result.characters.n] = {
+			name = row.charName,
+			pictureId = row.charPic,
+			voiceActor = {
+				name = row.vaName,
+				pictureId = row.vaPic
+			}
+		}
+	end
+	checkSql(c, charStmt:finalize(), "getAnimeDetails.char.finalize")
+
+	return result
+end
+
+
+
+
+
+--- Updates Anime and AnimeTitle tables from a dump
+function db.updateAniDbDataFromDump(aDumpFunction)
+	local c = ensureDb()
+
+	checkSql(c, c:exec("BEGIN;"), "updateAniDbDataFromDump.begin")
+	checkSql(c, c:exec("PRAGMA foreign_keys = OFF;"), "updateAniDbDataFromDump.fkoff")
+
+	checkSql(c, c:exec("DELETE FROM AnimeTitle;"), "updateAniDbDataFromDump.clearTitle")
+	checkSql(c, c:exec("DELETE FROM Anime;"), "updateAniDbDataFromDump.clearAnime")
+
+	if (aDumpFunction) then
+		aDumpFunction(c)
+	end
+
+	checkSql(c, c:exec("PRAGMA foreign_keys = ON;"), "updateAniDbDataFromDump.fkon")
+	checkSql(c, c:exec("COMMIT;"), "updateAniDbDataFromDump.commit")
+end
+
+
+
+
+
+--- Stores or updates details retrieved from AniDB
+-- The details are a full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeDetails(aDetails)
+	assert(type(aDetails) == "table")
+
+	local c = ensureDb()
+	-- TODO: Cannot use transaction until all the stores are implemented
+	-- checkSql(c, c:exec("BEGIN TRANSACTION"), "storeAnimeDetails.begin")
+	db.storeAnimeBaseDetails(aDetails)
+	db.storeAnimeRelated(aDetails)
+	db.storeAnimeSimilar(aDetails)
+	db.storeAnimeRecommendations(aDetails)
+	db.storeAnimeCreators(aDetails)
+	db.storeAnimeCharacters(aDetails)
+	db.storeAnimeTags(aDetails)
+	db.storeAnimeEpisodes(aDetails)
+	-- checkSql(c, c:exec("COMMIT TRANSACTION"), "storeAnimeDetails.commit")
+end
+
+
+
+
+
+--- Stores or updates the base details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeBaseDetails(aDetails)
+	assert(type(aDetails) == "table")
+	assert(type(aDetails.episodes) == "table")
+	
+	local c = ensureDb()
+	local stmt = c:prepare([[
+		INSERT INTO AnimeBaseDetails(aId, startDate, endDate, numEpisodes, url, kind, description, pictureId, lastUpdated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+		ON CONFLICT(aId) DO UPDATE SET
+			startDate = excluded.startDate,
+			endDate = excluded.endDate,
+			numEpisodes = excluded.numEpisodes,
+			url = excluded.url,
+			description = excluded.description,
+			pictureId = excluded.pictureId,
+			lastUpdated = datetime('now');
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeBaseDetails: " .. c:errmsg())
+	end
+	checkSql(c, stmt:bind_values(
+		aDetails.aId,
+		aDetails.startDate,
+		aDetails.endDate,
+		aDetails.episodes.n,
+		aDetails.url,
+		aDetails.kind,
+		aDetails.description,
+		aDetails.pictureId
+	), "storeAnimeBaseDetails.bind")
+	checkSql(c, stmt:step(), "storeAnimeBaseDetails.step")
+	checkSql(c, stmt:finalize(), "storeAnimeBaseDetails.finalize")
+end
+
+
+
+
+
+--- Stores or updates the relatedAnime details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeRelated(aDetails)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	assert(type(aDetails.relatedAnime) == "table")
+
+	local c = ensureDb()
+	db.execBoundStatement("DELETE FROM AnimeRelated WHERE aId = ?", {aDetails.aId}, "storeAnimeRelated")
+	local stmt = c:prepare([[
+		INSERT OR IGNORE INTO AnimeRelated(aId, relatedAid, relation)
+		VALUES (?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeRelated: " .. c:errmsg())
+	end
+	for _, rel in ipairs(aDetails.relatedAnime) do
+		assert(tonumber(rel.aId))
+		checkSql(c, stmt:bind_values(aDetails.aId, rel.aId, rel.relation), "storeAnimeRelated.bind")
+		checkSql(c, stmt:step(), "storeAnimeRelated.step")
+		checkSql(c, stmt:reset(), "storeAnimeRelated.reset")
+	end
+	checkSql(c, stmt:finalize(), "storeAnimeRelated.finalize")
+end
+
+
+
+
+
+--- Stores or updates the similarAnime details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeSimilar(aDetails)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	assert(type(aDetails.similarAnime) == "table")
+
+	local c = ensureDb()
+	db.execBoundStatement("DELETE FROM AnimeSimilar WHERE aId = ?", {aDetails.aId}, "storeAnimeSimilar")
+	local stmt = c:prepare([[
+		INSERT OR IGNORE INTO AnimeSimilar(aId, similarAid)
+		VALUES (?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeSimilar: " .. c:errmsg())
+	end
+	for _, rel in ipairs(aDetails.similarAnime) do
+		assert(tonumber(rel.aId))
+		checkSql(c, stmt:bind_values(aDetails.aId, rel.aId), "storeAnimeSimilar.bind")
+		checkSql(c, stmt:step(), "storeAnimeSimilar.step")
+		checkSql(c, stmt:reset(), "storeAnimeSimilar.reset")
+	end
+	checkSql(c, stmt:finalize(), "storeAnimeSimilar.finalize")
+end
+
+
+
+
+
+--- Stores or updates the recommendations details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeRecommendations(aDetails)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	assert(type(aDetails.recommendations) == "table")
+
+	local c = ensureDb()
+	db.execBoundStatement("DELETE FROM AnimeRecommendation WHERE aId = ?", {aDetails.aId}, "storeAnimeRecommendations")
+	local stmt = c:prepare([[
+		INSERT OR IGNORE INTO AnimeRecommendation(aId, uId, kind, text)
+		VALUES (?, ?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeRecommendations: " .. c:errmsg())
+	end
+	for _, rec in ipairs(aDetails.recommendations) do
+		assert(tonumber(rec.uId))
+		checkSql(c, stmt:bind_values(aDetails.aId, rec.uId, rec.kind, rec.text), "storeAnimeRecommendations.bind")
+		checkSql(c, stmt:step(), "storeAnimeRecommendations.step")
+		checkSql(c, stmt:reset(), "storeAnimeRecommendations.reset")
+	end
+	checkSql(c, stmt:finalize(), "storeAnimeRecommendations.finalize")
+end
+
+
+
+
+
+--- Stores or updates the creators details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeCreators(aDetails)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	assert(type(aDetails.creators) == "table")
+
+	local c = ensureDb()
+	db.execBoundStatement("DELETE FROM AnimeCreator WHERE aId = ?", {aDetails.aId}, "storeAnimeCreators")
+	local stmt = c:prepare([[
+		INSERT OR IGNORE INTO AnimeCreator(aId, id, kind, name)
+		VALUES (?, ?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeCreators: " .. c:errmsg())
+	end
+	for _, c in ipairs(aDetails.creators) do
+		assert(tonumber(c.id))
+		checkSql(c, stmt:bind_values(aDetails.aId, c.id, c.kind, c.name), "storeAnimeCreators.bind")
+		checkSql(c, stmt:step(), "storeAnimeCreators.step")
+		checkSql(c, stmt:reset(), "storeAnimeCreators.reset")
+	end
+	checkSql(c, stmt:finalize(), "storeAnimeCreators.finalize")
+end
+
+
+
+
+
+--- Stores or updates the characters details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeCharacters(aDetails)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	assert(type(aDetails.characters) == "table")
+
+	local c = ensureDb()
+	db.execBoundStatement("DELETE FROM AnimeCharacter WHERE aId = ?", {aDetails.aId}, "storeAnimeCharacters")
+	local stmt = c:prepare([[
+		INSERT OR IGNORE INTO AnimeCharacter(aId, characterTypeId, name, gender, description, voiceActorId, pictureId, ratingNumVotes, ratingValue)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeCharacters: " .. c:errmsg())
+	end
+	for _, ch in ipairs(aDetails.characters) do
+		assert(ch.name)
+		checkSql(c, stmt:bind_values(
+			aDetails.aId,
+			ch.characterTypeId,
+			ch.name,
+			ch.gender,
+			ch.description,
+			(ch.voiceActor or {}).id,
+			ch.pictureId,
+			(ch.rating or {}).numVotes,
+			(ch.rating or {}).value
+		), "storeAnimeCharacters.bind")
+		checkSql(c, stmt:step(), "storeAnimeCharacters.step")
+		checkSql(c, stmt:reset(), "storeAnimeCharacters.reset")
+	end
+	checkSql(c, stmt:finalize(), "storeAnimeCharacters.finalize")
+end
+
+
+
+
+
+--- Stores or updates the tags details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeTags(aDetails)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	assert(type(aDetails.tags) == "table")
+
+	local c = ensureDb()
+	db.execBoundStatement("DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
+	local stmt = c:prepare([[
+		INSERT OR IGNORE INTO AnimeTag(aId, id, weight)
+		VALUES (?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeTags: " .. c:errmsg())
+	end
+	for _, tag in ipairs(aDetails.tags) do
+		assert(tonumber(tag.id))
+		local weight = tonumber(tag.weight) or 0
+		if (weight > 0) then
+			checkSql(c, stmt:bind_values(aDetails.aId, tag.id, weight), "storeAnimeTags.bind")
+			checkSql(c, stmt:step(), "storeAnimeTags.step")
+			checkSql(c, stmt:reset(), "storeAnimeTags.reset")
+		end
+	end
+	checkSql(c, stmt:finalize(), "storeAnimeTags.finalize")
+	
+	-- TODO: Store the tags in the global tags table, for the parentId information
+end
+
+
+
+
+
+--- Stores or updates the episodes details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeEpisodes(aDetails)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	assert(type(aDetails.episodes) == "table")
+
+	local c = ensureDb()
+	db.execBoundStatement("DELETE FROM AnimeEpisodeTitle WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.title")
+	db.execBoundStatement("DELETE FROM AnimeEpisode WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.episode")
+	local stmt = c:prepare([[
+		INSERT OR IGNORE INTO AnimeEpisode(aId, id, kind, episodeNumber, length, airDate)
+		VALUES (?, ?, ?, ?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeEpisodes: " .. c:errmsg())
+	end
+	local stmtTitles = c:prepare([[
+		INSERT OR IGNORE INTO AnimeEpisodeTitle(aId, episodeId, language, title)
+		VALUES (?, ?, ?, ?)
+	]])
+	if not(stmtTitles) then
+		error("Failed to prepare titles statement for storeAnimeEpisodes: " .. c:errmsg())
+	end
+	for _, epi in ipairs(aDetails.episodes) do
+		assert(tonumber(epi.id))
+		checkSql(c, stmt:bind_values(aDetails.aId, epi.id, epi.kind, epi.episodeNumber, epi.length, epi.airDate), "storeAnimeEpisodes.bind")
+		checkSql(c, stmt:step(), "storeAnimeEpisodes.step")
+		checkSql(c, stmt:reset(), "storeAnimeEpisodes.reset")
+		for _, title in ipairs(epi.titles) do
+			checkSql(c, stmtTitles:bind_values(aDetails.aId, epi.id, title.language, title.title), "storeAnimeEpisodesT.bind")
+			checkSql(c, stmtTitles:step(), "storeAnimeEpisodesT.step")
+			checkSql(c, stmtTitles:reset(), "storeAnimeEpisodesT.reset")
+		end
+	end
+	checkSql(c, stmtTitles:finalize(), "storeAnimeEpisodesT.finalize")
+	checkSql(c, stmt:finalize(), "storeAnimeEpisodes.finalize")
+end
+
+
+
+
+
+--- Returns the last DB update timestamp, or 0 if none
+function db.getLastAniDbUpdate()
+	local c = ensureDb()
+	local stmt = c:prepare("SELECT value FROM KeyValue WHERE key = 'lastAniDbUpdate';")
+	if (not stmt) then
+		return 0
+	end
+	local ts = 0
+	for row in stmt:nrows() do
+		ts = tonumber(row.value) or 0
+	end
+	stmt:finalize()
+	return ts
+end
+
+
+
+
+--- Sets the last DB update timestamp
+function db.setLastAniDbUpdate(aTimestamp)
+	local c = ensureDb()
+	local stmt = c:prepare("INSERT OR REPLACE INTO KeyValue (key, value) VALUES ('lastAniDbUpdate', ?);")
+	checkSql(c, stmt:bind_values(tostring(aTimestamp)), "setLastAniDbUpdate.bind")
+	checkSql(c, stmt:step(), "setLastAniDbUpdate.step")
+	checkSql(c, stmt:finalize(), "setLastAniDbUpdate.finalize")
+end
+
+
+
+
+--- Updates the Anime and AnimeTitle tables from an AniDB dump
+function db.updateAniDbDataFromDump(aXmlString)
+	-- Disable foreign keys during replacement
+	local c = ensureDb()
+	checkSql(c, c:exec("BEGIN TRANSACTION"),          "updateAniDb.begin")
+	checkSql(c, c:exec("PRAGMA foreign_keys = OFF;"), "updateAniDb.fkoff")
+	checkSql(c, c:exec("DELETE FROM AnimeTitle;"),    "updateAniDb.delTitle")
+	checkSql(c, c:exec("DELETE FROM Anime;"),         "updateAniDb.delAnime")
+
+	local lxp = require("lxp")
+	local stmtInsertAnime = assert(c:prepare("INSERT INTO Anime(aId) VALUES(?);"))
+	local stmtInsertTitle = assert(c:prepare([[
+		INSERT INTO AnimeTitle(aId, language, kind, title, titleLower)
+		VALUES(?, ?, ?, ?, ?);
+	]]))
+
+	local curAnimeId
+	local curTitleLang, curTitleKind, curTitleText
+	local insideTitle = false
+
+	local parser = lxp.new({
+		StartElement = function(_, aName, aAttr)
+			if (aName == "anime") then
+				curAnimeId = tonumber(aAttr.aid)
+				checkSql(c, stmtInsertAnime:bind_values(curAnimeId), "updateAniDb.insertAnime.bind")
+				checkSql(c, stmtInsertAnime:step(),  "updateAniDb.insertAnime.step")
+				checkSql(c, stmtInsertAnime:reset(), "updateAniDb.insertAnime.reset")
+			elseif (aName == "title") then
+				curTitleLang = aAttr["xml:lang"]
+				curTitleKind = aAttr.type
+				curTitleText = ""
+				insideTitle = true
+			end
+		end,
+
+		EndElement = function(_, aName)
+			if (aName == "title" and insideTitle and curAnimeId) then
+				checkSql(c, stmtInsertTitle:bind_values(
+					curAnimeId, curTitleLang, curTitleKind,
+					curTitleText, curTitleText:lower()
+				), "updateAniDb.insertTitle.bind")
+				checkSql(c, stmtInsertTitle:step(), "updateAniDb.insertTitle.step")
+				checkSql(c, stmtInsertTitle:reset(), "updateAniDb.insertTitle.reset")
+				insideTitle = false
+			end
+		end,
+
+		CharacterData = function(_, aData)
+			if (insideTitle) then
+				curTitleText = curTitleText .. aData
+			end
+		end
+	})
+
+	parser:parse(aXmlString)
+	parser:close()
+
+	stmtInsertAnime:finalize()
+	stmtInsertTitle:finalize()
+
+	-- Re-enable foreign keys
+	checkSql(c, c:exec("PRAGMA foreign_keys = ON;"), "updateAniDb.fkon")
+	db.setLastAniDbUpdate(os.time())
+	checkSql(c, c:exec("COMMIT TRANSACTION"), "updateAniDb.commit")
+end
+
+
+
+
+
+--- Searches Anime titles containing all given words of length >= 3
+-- Returns an array-table with {aId, title, language} items
+-- Up to 50 items are returned
+function db.searchAnimeTitles(aQuery)
+	local results = { n = 0 }
+	local words = {}
+
+	for word in aQuery:gmatch("%S+") do
+		if (#word >= 3) then
+			words[#words + 1] = "%" .. word:lower() .. "%"
+		end
+	end
+
+	if (#words == 0) then
+		return results
+	end
+
+	local sql = [[
+		SELECT DISTINCT aId
+		FROM AnimeTitle
+		WHERE 1 = 1
+	]]
+
+	for _ = 1, #words do
+		sql = sql .. " AND titleLower LIKE ?"
+	end
+
+	sql = sql .. " LIMIT 50;"
+
+	local stmt = conn:prepare(sql)
+	if (not stmt) then
+		error("Failed to prepare search query: " .. (conn:errmsg() or "unknown error"))
+	end
+
+	stmt:bind_values(table.unpack(words))
+
+	for row in stmt:nrows() do
+		results.n = results.n + 1
+		results[results.n] = { aId = row.aId, details = db.getAnimeDetails(row.aId) }
+	end
+
+	stmt:finalize()
+	return results
+end
+
+
+
+
+
+return db
