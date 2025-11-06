@@ -341,8 +341,7 @@ function db.storeAnimeDetails(aDetails)
 	assert(type(aDetails) == "table")
 
 	local c = ensureDb()
-	-- TODO: Cannot use transaction until all the stores are implemented
-	-- checkSql(c, c:exec("BEGIN TRANSACTION"), "storeAnimeDetails.begin")
+	checkSql(c, c:exec("BEGIN TRANSACTION"), "storeAnimeDetails.begin")
 	db.storeAnimeBaseDetails(aDetails)
 	db.storeAnimeRelated(aDetails)
 	db.storeAnimeSimilar(aDetails)
@@ -351,7 +350,7 @@ function db.storeAnimeDetails(aDetails)
 	db.storeAnimeCharacters(aDetails)
 	db.storeAnimeTags(aDetails)
 	db.storeAnimeEpisodes(aDetails)
-	-- checkSql(c, c:exec("COMMIT TRANSACTION"), "storeAnimeDetails.commit")
+	checkSql(c, c:exec("COMMIT TRANSACTION"), "storeAnimeDetails.commit")
 end
 
 
@@ -362,8 +361,10 @@ end
 -- aDetails is the full details table parsed out of AniDB's HTTP API XML response
 function db.storeAnimeBaseDetails(aDetails)
 	assert(type(aDetails) == "table")
-	assert(type(aDetails.episodes) == "table")
-	
+	if not(aDetails.episodes) then
+		aDetails.episodes = { n = 0 }
+	end
+
 	local c = ensureDb()
 	local stmt = c:prepare([[
 		INSERT INTO AnimeBaseDetails(aId, startDate, endDate, numEpisodes, url, kind, description, pictureId, lastUpdated)
@@ -591,7 +592,7 @@ function db.storeAnimeTags(aDetails)
 		end
 	end
 	checkSql(c, stmt:finalize(), "storeAnimeTags.finalize")
-	
+
 	-- TODO: Store the tags in the global tags table, for the parentId information
 end
 
