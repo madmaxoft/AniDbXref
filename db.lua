@@ -103,13 +103,45 @@ function db.getSeenAnime(aLang)
 	local items = { n = 0 }
 
 	local stmt = c:prepare("SELECT aId, seenDate FROM Seen")
-	if not(stmt) then error("SQL prepare failed (getSeenAnime): " .. c:errmsg()) end
+	if not(stmt) then
+		error("SQL prepare failed (getSeenAnime): " .. c:errmsg())
+	end
 	for row in stmt:nrows() do
 		items.n = items.n + 1
 		items[items.n] = row
 	end
 	checkSql(c, stmt:finalize(), "getSeenAnime.finalize")
 	return items
+end
+
+
+
+
+
+--- Returns an array-table of anime aIds that have been marked as seen but have no details stored in the DB
+function db.getSeenWithoutDetails()
+	local c = ensureDb()
+
+	local stmt = c:prepare([[
+		SELECT s.aId
+		FROM Seen AS s
+		WHERE NOT EXISTS (
+			SELECT 1
+			FROM AnimeBaseDetails AS b
+			WHERE b.aId = s.aId
+		);
+	]])
+	if not(stmt) then
+		error("SQL prepare failed (getSeenWithoutDetails): " .. c:errmsg())
+	end
+	local result = {}
+	local n = 0
+	for row in stmt:nrows() do
+		n = n + 1
+		result[n] = row.aId
+	end
+	result.n = n
+	return result
 end
 
 
@@ -199,12 +231,12 @@ function db.getAnimeDetails(aId)
 		aId = aId,
 		titles = {n = 0},
 		episodes = { n = 0 },
-		characters = { n = 0 }
+		characters = { n = 0 },
 	}
 
 	local sql = [[
 		SELECT startDate, endDate, numEpisodes, pictureId, lastUpdated
-		FROM AnimeDetails
+		FROM AnimeBaseDetails
 		WHERE aId = ? LIMIT 1;
 	]]
 
@@ -215,14 +247,13 @@ function db.getAnimeDetails(aId)
 	for row in stmt:nrows() do
 		result.startDate = row.startDate
 		result.endDate = row.endDate
-		result.episodes = {n = row.numEpisodes}
+		result.episodes = {n = 0}
 		result.pictureId = row.pictureId
 		result.lastUpdated = row.lastUpdated
 	end
 	if not(result.episodes) then
 		return
 	end
-
 	checkSql(c, stmt:finalize(), "getAnimeDetails.finalize")
 
 	result.enTitle = db.getAnimeTitle(aId, "en")
@@ -372,7 +403,9 @@ end
 function db.storeAnimeRelated(aDetails)
 	assert(type(aDetails) == "table")
 	assert(tonumber(aDetails.aId))
-	assert(type(aDetails.relatedAnime) == "table")
+	if not(aDetails.relatedAnime) then
+		return
+	end
 
 	local c = ensureDb()
 	db.execBoundStatement("DELETE FROM AnimeRelated WHERE aId = ?", {aDetails.aId}, "storeAnimeRelated")
@@ -401,7 +434,9 @@ end
 function db.storeAnimeSimilar(aDetails)
 	assert(type(aDetails) == "table")
 	assert(tonumber(aDetails.aId))
-	assert(type(aDetails.similarAnime) == "table")
+	if not(aDetails.similarAnime) then
+		return
+	end
 
 	local c = ensureDb()
 	db.execBoundStatement("DELETE FROM AnimeSimilar WHERE aId = ?", {aDetails.aId}, "storeAnimeSimilar")
@@ -430,7 +465,9 @@ end
 function db.storeAnimeRecommendations(aDetails)
 	assert(type(aDetails) == "table")
 	assert(tonumber(aDetails.aId))
-	assert(type(aDetails.recommendations) == "table")
+	if not(aDetails.recommendations) then
+		return
+	end
 
 	local c = ensureDb()
 	db.execBoundStatement("DELETE FROM AnimeRecommendation WHERE aId = ?", {aDetails.aId}, "storeAnimeRecommendations")
@@ -459,7 +496,9 @@ end
 function db.storeAnimeCreators(aDetails)
 	assert(type(aDetails) == "table")
 	assert(tonumber(aDetails.aId))
-	assert(type(aDetails.creators) == "table")
+	if not(aDetails.creators) then
+		return
+	end
 
 	local c = ensureDb()
 	db.execBoundStatement("DELETE FROM AnimeCreator WHERE aId = ?", {aDetails.aId}, "storeAnimeCreators")
@@ -488,7 +527,9 @@ end
 function db.storeAnimeCharacters(aDetails)
 	assert(type(aDetails) == "table")
 	assert(tonumber(aDetails.aId))
-	assert(type(aDetails.characters) == "table")
+	if not(aDetails.characters) then
+		return
+	end
 
 	local c = ensureDb()
 	db.execBoundStatement("DELETE FROM AnimeCharacter WHERE aId = ?", {aDetails.aId}, "storeAnimeCharacters")
@@ -527,7 +568,9 @@ end
 function db.storeAnimeTags(aDetails)
 	assert(type(aDetails) == "table")
 	assert(tonumber(aDetails.aId))
-	assert(type(aDetails.tags) == "table")
+	if not(aDetails.tags) then
+		return
+	end
 
 	local c = ensureDb()
 	db.execBoundStatement("DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
@@ -561,7 +604,9 @@ end
 function db.storeAnimeEpisodes(aDetails)
 	assert(type(aDetails) == "table")
 	assert(tonumber(aDetails.aId))
-	assert(type(aDetails.episodes) == "table")
+	if not(aDetails.episodes) then
+		return
+	end
 
 	local c = ensureDb()
 	db.execBoundStatement("DELETE FROM AnimeEpisodeTitle WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.title")

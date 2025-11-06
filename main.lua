@@ -49,8 +49,10 @@ print = require("logger")
 require("Templates")
 require("httpResponse")
 require("httpRequest")
-require("db").createSchema()
+local db = require("db")
+db.createSchema()
 require("aniDbDetails")
+local requestQueue = require("requestQueue").new()
 local router = require("router")
 
 
@@ -125,5 +127,24 @@ end
 
 
 
+--- Queues requesting details through AniDB API
+local function startRequestingDetails()
+	-- Start the background requester thread:
+	copas.addthread(function()
+		requestQueue:run()
+	end)
+
+	-- Add those that are marked as seen but have no details stored:
+	local seenWithoutDetails = db.getSeenWithoutDetails()
+	for _, aid in ipairs(seenWithoutDetails) do
+		requestQueue:add(aid)
+	end
+end
+
+
+
+
+
 --- Entry point
+startRequestingDetails()
 startServer()

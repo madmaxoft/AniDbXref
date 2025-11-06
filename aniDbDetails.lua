@@ -572,24 +572,4 @@ end
 
 
 
---- Fetches, parses, and stores details for the specified aId
--- Returns the parsed details
-function M.updateAnimeDetails(aId)
-	assert(tonumber(aId))
-
-	local xml, err = M.fetchXml(aId)
-	if not(xml) then
-		return nil, err
-	end
-
-	local parsedLom = require("lxp.lom").parse(xml)
-	local details = M.transformParsedIntoDetails(parsedLom)
-	db.storeAnimeDetails(aId, details)
-	return details
-end
-
-
-
-
-
 return M
