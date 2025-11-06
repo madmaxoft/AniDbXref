@@ -6,6 +6,8 @@
 
 
 
+local aId = 17001
+
 local db = require("db")
 db.createSchema()
 
@@ -13,4 +15,5 @@ db.createSchema()
 
 
 
-print("aid 11167 en: " .. tostring(db.getAnimeTitle(11167, "en")))
+local details = db.getAnimeDetails(aId)
+print("aid " .. tostring(aId) .. " en: " .. details.enTitle)

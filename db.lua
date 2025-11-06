@@ -81,13 +81,13 @@ end
 
 --- Executes the specified statement, binding the specified values to it.
 -- aDescription is used for error logging.
-function db.execBoundStatement(aStatement, aValues, aDescription)
+function db.execBoundStatement(aSql, aValuesToBind, aDescription)
 	local c = ensureDb()
-	local stmt = c:prepare(aStatement)
+	local stmt = c:prepare(aSql)
 	if not(stmt) then
 		error("Failed to prepare statement (" .. aDescription .. "): " .. c:errmsg())
 	end
-	checkSql(c, stmt:bind_values(table.unpack(aValues)), aDescription .. ".bind")
+	checkSql(c, stmt:bind_values(table.unpack(aValuesToBind)), aDescription .. ".bind")
 	checkSql(c, stmt:step(), aDescription .. ".step")
 	checkSql(c, stmt:finalize(), aDescription .. ".finalize")
 end
@@ -96,22 +96,37 @@ end
 
 
 
+--- Runs the specified SQL query, binding the specified values to it, and returns the results as an array-table of dict-tables
+-- aDescription is used for error logging.
+function db.getArrayFromQuery(aSql, aValuesToBind, aDescription)
+	local c = ensureDb()
+	local stmt = c:prepare(aSql)
+	if not(stmt) then
+		error("Failed to prepare statement (" .. aDescription .. "): " .. c:errmsg())
+	end
+	checkSql(c, stmt:bind_values(table.unpack(aValuesToBind)), aDescription .. ".bind")
+	local result = {}
+	local n = 0
+	for row in stmt:nrows() do
+		n = n + 1
+		result[n] = row
+	end
+	result.n = n
+	checkSql(c, stmt:finalize(), aDescription .. ".finalize")
+
+	return result
+end
+
+
+
+
+
 --- Returns an array-table of all seen Anime
 -- Each item is a table {aId = ..., seenDate = ...}
-function db.getSeenAnime(aLang)
+function db.getSeenAnime()
 	local c = ensureDb()
-	local items = { n = 0 }
 
-	local stmt = c:prepare("SELECT aId, seenDate FROM Seen")
-	if not(stmt) then
-		error("SQL prepare failed (getSeenAnime): " .. c:errmsg())
-	end
-	for row in stmt:nrows() do
-		items.n = items.n + 1
-		items[items.n] = row
-	end
-	checkSql(c, stmt:finalize(), "getSeenAnime.finalize")
-	return items
+	return db.getArrayFromQuery("SELECT aId, seenDate FROM Seen")
 end
 
 
@@ -200,23 +215,20 @@ end
 
 
 
---- Returns the title of the specified anime in the specified language
+--- Returns the "best" title from those specified, limited to the specified language
 -- Returns nil if none found.
--- Prefers official title to synonyms
-function db.getAnimeTitle(aId, aLang)
-	local c = ensureDb()
+-- Prefers main title, then official title, then synonyms and last shorts
+function db.pickBestTitle(aTitlesFromDb, aLanguage)
+	assert(type(aTitlesFromDb) == "table")
+	assert(type(aLanguage) == "string")
 
-	-- Get all titles in the language in the DB:
-	local stmt = c:prepare("SELECT title, kind from AnimeTitle WHERE aId = ? AND language = ?")
-	if not(stmt) then
-		error("Cannot prepare statement for getAnimeTitle: " .. c:errmsg())
-	end
-	checkSql(c, stmt:bind_values(aId, aLang), "getAnimeTitle.bind")
 	local titles = {}
-	for row in stmt:nrows() do
-		titles[row.kind] = row.title
+	for _, row in ipairs(aTitlesFromDb) do
+		if (row.language == aLanguage) then
+			titles[row.kind] = row.title
+		end
 	end
-	return titles["official"] or titles["syn"] or titles["short"]
+	return titles["main"] or titles["official"] or titles["syn"] or titles["short"]
 end
 
 
@@ -225,25 +237,32 @@ end
 
 --- Gets full details for a single anime
 function db.getAnimeDetails(aId)
+	assert(tonumber(aId))
+
 	local c = ensureDb()
 	local result =
 	{
 		aId = aId,
-		titles = {n = 0},
-		episodes = { n = 0 },
-		characters = { n = 0 },
+		characters = db.getAnimeDetails_characters(aId),
+		creators = db.getAnimeDetails_creators(aId),
+		episodes = db.getAnimeDetails_episodes(aId),
+		recommendations = db.getAnimeDetails_recommendations(aId),
+		relatedAnime = db.getAnimeDetails_relatedAnime(aId),
+		similarAnime = db.getAnimeDetails_similarAnime(aId),
+		tags = db.getAnimeDetails_tags(aId),
+		titles = db.getAnimeDetails_titles(aId),
 	}
 
-	local sql = [[
+	-- Get the base details:
+	local stmt = c:prepare([[
 		SELECT startDate, endDate, numEpisodes, pictureId, lastUpdated
 		FROM AnimeBaseDetails
 		WHERE aId = ? LIMIT 1;
-	]]
-
-	local stmt = c:prepare(sql)
-	if (not stmt) then error("SQL prepare failed (getAnimeDetails): " .. c:errmsg()) end
+	]])
+	if not(stmt) then
+		error("SQL prepare failed (getAnimeDetails): " .. c:errmsg())
+	end
 	checkSql(c, stmt:bind_values(aId), "getAnimeDetails.bind")
-
 	for row in stmt:nrows() do
 		result.startDate = row.startDate
 		result.endDate = row.endDate
@@ -251,62 +270,106 @@ function db.getAnimeDetails(aId)
 		result.pictureId = row.pictureId
 		result.lastUpdated = row.lastUpdated
 	end
-	if not(result.episodes) then
-		return
-	end
 	checkSql(c, stmt:finalize(), "getAnimeDetails.finalize")
 
-	result.enTitle = db.getAnimeTitle(aId, "en")
-	result.jpTitle = db.getAnimeTitle(aId, "ja")
-	result.xjpTitle = db.getAnimeTitle(aId, "x-jat")
-
-	local tSql = "SELECT title, language, kind FROM AnimeTitle WHERE aId = ?"
-	local tStmt = c:prepare(tSql)
-	if not(tStmt) then
-		error("SQL prepare failed (getAnimeDetails titles): " .. c:errmsg())
-	end
-	for row in tStmt:nrows() do
-		result.titles.n = result.titles.n + 1
-		result.titles[result.titles.n] = row
-	end
-
-	local epSql = "SELECT episodeNumber, title FROM AnimeEpisode WHERE aId = ? ORDER BY episodeNumber;"
-	local epStmt = c:prepare(epSql)
-	if (not epStmt) then error("SQL prepare failed (getAnimeDetails ep): " .. c:errmsg()) end
-	checkSql(c, epStmt:bind_values(aId), "getAnimeDetails.ep.bind")
-
-	for row in epStmt:nrows() do
-		result.episodes.n = result.episodes.n + 1
-		result.episodes[result.episodes.n] = { number = row.episodeNumber, title = row.title }
-	end
-	checkSql(c, epStmt:finalize(), "getAnimeDetails.ep.finalize")
-
-	local charSql = [[
-		SELECT
-			c.name AS charName, c.pictureId AS charPic,
-			v.name AS vaName, v.pictureId AS vaPic
-		FROM AnimeCharacter c
-		LEFT JOIN AnimeVoiceActor v ON v.vaId = c.voiceActorId
-		WHERE c.aId = ?;
-	]]
-	local charStmt = c:prepare(charSql)
-	if (not charStmt) then error("SQL prepare failed (getAnimeDetails char): " .. c:errmsg()) end
-	checkSql(c, charStmt:bind_values(aId), "getAnimeDetails.char.bind")
-
-	for row in charStmt:nrows() do
-		result.characters.n = result.characters.n + 1
-		result.characters[result.characters.n] = {
-			name = row.charName,
-			pictureId = row.charPic,
-			voiceActor = {
-				name = row.vaName,
-				pictureId = row.vaPic
-			}
-		}
-	end
-	checkSql(c, charStmt:finalize(), "getAnimeDetails.char.finalize")
+	-- Get the most useful titles:
+	result.enTitle = db.pickBestTitle(result.titles, "en")
+	result.jpTitle = db.pickBestTitle(result.titles, "ja")
+	result.xjpTitle = db.pickBestTitle(result.titles, "x-jat")
 
 	return result
+end
+
+
+
+
+
+--- Returns the characters for the specified anime, as the details-table
+function db.getAnimeDetails_characters(aId)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery("SELECT * FROM AnimeCharacter WHERE aId = ?", {aId}, "getAnimeDetails_characters")
+end
+
+
+
+
+
+--- Returns the creators for the specified anime, as the details-table
+function db.getAnimeDetails_creators(aId)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery("SELECT * FROM AnimeCreator WHERE aId = ?", {aId}, "getAnimeDetails_creators")
+end
+
+
+
+
+
+--- Returns the episodes for the specified anime, as the details-table
+function db.getAnimeDetails_episodes(aId)
+	assert(tonumber(aId))
+
+	local result = db.getArrayFromQuery("SELECT * FROM AnimeEpisode WHERE aId = ?", {aId}, "getAnimeDetails_episodes")
+	for _, epi in ipairs(result) do
+		epi.titles = db.getArrayFromQuery("SELECT * FROM AnimeEpisodeTitle WHERE aId = ? AND episodeId = ?", {aId, epi.id}, "getAnimeDetails_episodesT")
+	end
+	return result
+end
+
+
+
+
+
+--- Returns the recommendations for the specified anime, as the details-table
+function db.getAnimeDetails_recommendations(aId)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery("SELECT * FROM AnimeRecommendation WHERE aId = ?", {aId}, "getAnimeDetails_recommendations")
+end
+
+
+
+
+
+--- Returns the relatedAnime for the specified anime, as the details-table
+function db.getAnimeDetails_relatedAnime(aId)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery("SELECT * FROM AnimeRelated WHERE aId = ?", {aId}, "getAnimeDetails_related")
+end
+
+
+
+
+
+--- Returns the X for the specified anime, as the details-table
+function db.getAnimeDetails_similarAnime(aId)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery("SELECT * FROM AnimeSimilar WHERE aId = ?", {aId}, "getAnimeDetails_similar")
+end
+
+
+
+
+
+--- Returns the X for the specified anime, as the details-table
+function db.getAnimeDetails_tags(aId)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery("SELECT * FROM AnimeTag WHERE aId = ?", {aId}, "getAnimeDetails_tags")
+end
+
+
+
+
+
+--- Returns the X for the specified anime, as the details-table
+function db.getAnimeDetails_titles(aId)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery("SELECT * FROM AnimeTitle WHERE aId = ?", {aId}, "getAnimeDetails_title")
 end
 
 
