@@ -45,6 +45,7 @@ local etlua  = requireWithHelp("etlua",     "etlua")
 local lzlib  = requireWithHelp("zlib",      "lzlib")
 
 -- Load the templates and utils:
+print = require("logger")
 require("Templates")
 require("httpResponse")
 require("httpRequest")
