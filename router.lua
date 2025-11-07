@@ -24,6 +24,7 @@ router.routes = {
 	{ method = "GET",  pattern = "^/search?.*",        handler = require("Handlers.search") },
 	{ method = "POST", pattern = "^/seen/add$",        handler = require("Handlers.seen-add") },
 	{ method = "GET",  pattern = "^/anime/%d+$",       handler = require("Handlers.anime-details") },
+	{ method = "GET",  pattern = "^/favicon.ico",      handler = require("Handlers.favicon") },
 }
 
 
