@@ -79,6 +79,7 @@ function RequestQueue:performRequest(aAnimeId)
 	-- Fetch the details from the API:
 	local apiResponse, err = aniDbDetails.fetchXml(aAnimeId)
 	if not(apiResponse) then
+		print("[RequestQueue] Failed to fetch AniDB APi XML: " .. tostring(err))
 		return nil, err
 	end
 
@@ -122,6 +123,7 @@ function RequestQueue:performRequest(aAnimeId)
 	-- Transform the parsed LOM object into the details table:
 	local parsedDetails = aniDbDetails.transformParsedIntoDetails(parsedLom)
 	if not(parsedDetails.aId) then
+		print("[RequestQueue] Failed to transform AniDB API XML to details.")
 		return nil, "parse-details-failed"
 	end
 
