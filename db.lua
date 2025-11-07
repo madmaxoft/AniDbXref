@@ -99,12 +99,20 @@ end
 --- Runs the specified SQL query, binding the specified values to it, and returns the results as an array-table of dict-tables
 -- aDescription is used for error logging.
 function db.getArrayFromQuery(aSql, aValuesToBind, aDescription)
+	assert(type(aSql) == "string")
+	assert(type(aValuesToBind) == "table" or not(aValuesToBind))
+	if not(aDescription) then
+		aDescription = debug.getinfo(1, 'S').source
+	end
+
 	local c = ensureDb()
 	local stmt = c:prepare(aSql)
 	if not(stmt) then
 		error("Failed to prepare statement (" .. aDescription .. "): " .. c:errmsg())
 	end
-	checkSql(c, stmt:bind_values(table.unpack(aValuesToBind)), aDescription .. ".bind")
+	if ((aValuesToBind) and (aValuesToBind[1])) then
+		checkSql(c, stmt:bind_values(table.unpack(aValuesToBind)), aDescription .. ".bind")
+	end
 	local result = {}
 	local n = 0
 	for row in stmt:nrows() do
