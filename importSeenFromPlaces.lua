@@ -172,4 +172,13 @@ end
 
 
 
+--- Removes the session from the global registry
+function I.removeSession(aId)
+	I.sessions[aId] = nil
+end
+
+
+
+
+
 return I

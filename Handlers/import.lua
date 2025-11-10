@@ -130,7 +130,7 @@ function I.reviewPost(aClient, aPath, aPatternMatches, aRequestHeaders)
 			-- chosen candidate id
 			local candidateId = tonumber(choice)
 			if (candidateId) then
-				db.markAnimeSeen(candidateId, item.lastVisitDate / 1000)
+				db.markAnimeSeen(candidateId, item.lastVisitDate)
 				-- Remove the item from the session:
 				session.items[i] = nil
 			end
