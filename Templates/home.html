@@ -47,7 +47,7 @@
 						<td><%= a.details.enTitle or "" %></td>
 						<td><%= a.details.jpTitle or "" %></td>
 						<td><%= a.details.xjpTitle or "" %></td>
-						<td><%= a.seenDate %></td>
+						<td><%= os.date("%Y-%m-%d-%H:%M:%S", tonumber(a.seenDate)) %></td>
 						<td><a href="/anime/<%= a.aId %>">Details</a></td>
 					</tr>
 				<% end %>
