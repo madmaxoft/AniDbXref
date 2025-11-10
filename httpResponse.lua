@@ -16,7 +16,7 @@ function httpResponse.send(aClient, aStatus, aHeaders, aBody)
 	aStatus = aStatus or "200 OK"
 	aHeaders = aHeaders or {}
 	aBody = aBody or ""
-	
+
 	-- We can use simple shortcut: string means the content type we want to send:
 	if (type(aHeaders) == "string") then
 		aHeaders = { ["Content-Type"] = aHeaders }
@@ -49,6 +49,15 @@ end
 
 -- Add a "write" synonym to "send":
 httpResponse.write = httpResponse.send
+
+
+
+
+
+--- Sends an HTTP redirect (302) response
+function httpResponse.sendRedirect(aClient, aDestination)
+	aClient:send("HTTP/1.1 302 Moved\r\nLocation: " .. aDestination .. "\r\n\r\n")
+end
 
 
 

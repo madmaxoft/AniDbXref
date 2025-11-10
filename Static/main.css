@@ -5,3 +5,17 @@ table, th, td {
 	border-collapse: collapse;
 }
 */
+.noCandidates
+{
+	background-color: #fcc;
+}
+
+.singleCandidate
+{
+	background-color: #cfc;
+}
+
+.multipleCandidates
+{
+	background-color: #ffc;
+}

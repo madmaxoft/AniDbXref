@@ -1,0 +1,16 @@
+<html>
+<head>
+<title>AniDbXref</title>
+<link rel="stylesheet" href="/Static/main.css" />
+</head>
+
+<body>
+<h1>AniDbXref - import seen anime from browser history</h1>
+
+<p>Upload the places.sqlite file from your Firefox browser to process it and add all seen anime form the browser history:</p>
+<form action="/import" method="POST" enctype="multipart/form-data">
+	<input type="file" name="placesFile" placeholder="Select your places.sqlite file" style="width:300px">
+	<button type="submit">Import</button>
+</form>
+<a href="/import/test">TEST</a>
+</body>

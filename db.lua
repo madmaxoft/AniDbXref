@@ -36,6 +36,58 @@ end
 
 
 
+--- Normalizes the title for comparison purposes
+-- Lowercases, replaces all punctuation with spaces, collapses whitespace, trims whitespace from ends
+local function normalizeTitle(aTitle)
+	-- lowercase
+	local s = aTitle:lower()
+	-- replace any non-alphanumeric character with space
+	s = s:gsub("[%W_]+", " ")
+	-- collapse multiple spaces to one
+	s = s:gsub("%s+", " ")
+	-- trim spaces at start and end
+	s = s:match("^%s*(.-)%s*$")
+	return s
+end
+
+
+
+
+
+--- Returns true if the two titles are equal up to punctuation, compressed whitespace and trimmed space from ends
+-- Returns nil if not (so that assigning it to a table member will not allocate the member for inequal titles)
+local function areTitlesEqual(aTitle1, aTitle2)
+	if (normalizeTitle(aTitle1) == normalizeTitle(aTitle2)) then
+		return true
+	else
+		return nil
+	end
+end
+
+
+
+
+
+--- Returns true if the title matches at least one of the multiple titles, up to normalization
+-- Returns nil if not (so that assigning it to a table member will not allocate the member for inequal titles)
+-- aMultiTitles is the assumed to be the structure returned by db.getAnimeDetails_titles
+local function areMultiTitlesEqual(aTitle, aMultiTitles)
+	assert(type(aTitle) == "string")
+	assert(type(aMultiTitles) == "table")
+
+	local normalizedTitle = normalizeTitle(aTitle)
+	for _, title in ipairs(aMultiTitles) do
+		if (normalizedTitle == normalizeTitle(title.title)) then
+			return true
+		end
+	end
+	return nil
+end
+
+
+
+
+
 --- Closes the DB connection
 function db.close()
 	if (conn) then
@@ -211,10 +263,15 @@ end
 
 
 --- Marks an anime as seen
-function db.markAnimeSeen(aId)
+function db.markAnimeSeen(aId, aDateTime)
+	assert(type(aId) == "number")
+	if not(aDateTime) then
+		aDateTime = os.time()
+	end
+	assert(type(aDateTime) == "number")
 	db.execBoundStatement(
-		"INSERT OR REPLACE INTO Seen (aId, seenDate) VALUES (?, datetime('now'))",
-		{aId},
+		"INSERT OR REPLACE INTO Seen (aId, seenDate) VALUES (?, ?)",
+		{aId, aDateTime},
 		"markAnimeSeen"
 	)
 end
@@ -817,45 +874,53 @@ end
 
 
 --- Searches Anime titles containing all given words of length >= 3
--- Returns an array-table with {aId, title, language} items
+-- Returns an array-table with {aId, details} items
+-- If the query matches the title perfectly (sans punctuation), areTitlesEqual = true is added into the item
 -- Up to 50 items are returned
 function db.searchAnimeTitles(aQuery)
-	local results = { n = 0 }
-	local words = {}
+	assert(type(aQuery) == "string")
 
+	local c = ensureDb()
+	local results = { n = 0 }
+	local n = 0
+
+	-- Get the list of searchable words:
+	local words = {}
 	for word in aQuery:gmatch("%S+") do
 		if (#word >= 3) then
 			words[#words + 1] = "%" .. word:lower() .. "%"
 		end
 	end
-
 	if (#words == 0) then
 		return results
 	end
 
+	-- Search the DB:
 	local sql = [[
 		SELECT DISTINCT aId
 		FROM AnimeTitle
 		WHERE 1 = 1
 	]]
-
 	for _ = 1, #words do
 		sql = sql .. " AND titleLower LIKE ?"
 	end
-
 	sql = sql .. " LIMIT 50;"
 
-	local stmt = conn:prepare(sql)
-	if (not stmt) then
+	local stmt = c:prepare(sql)
+	if not(stmt) then
 		error("Failed to prepare search query: " .. (conn:errmsg() or "unknown error"))
 	end
-
 	stmt:bind_values(table.unpack(words))
-
 	for row in stmt:nrows() do
-		results.n = results.n + 1
-		results[results.n] = { aId = row.aId, details = db.getAnimeDetails(row.aId) }
+		n = n + 1
+		results[n] =
+		{
+			aId = row.aId,
+			details = db.getAnimeDetails(row.aId),
+		}
+		results[n].areTitlesEqual = areMultiTitlesEqual(aQuery, results[n].details.titles)
 	end
+	results.n = n
 
 	stmt:finalize()
 	return results

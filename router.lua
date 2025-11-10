@@ -17,14 +17,19 @@ local router = {}
 
 -- Define static routes:
 router.routes = {
-	{ method = "GET",  pattern = "^/$",                handler = require("Handlers.home") },
-	{ method = "GET",  pattern = "^/[Ss]tatic/.*",     handler = require("Handlers.static") },
-	{ method = "POST", pattern = "^/update%-start$",   handler = require("Handlers.update-start") },
-	{ method = "GET",  pattern = "^/update%-confirm$", handler = require("Handlers.update-confirm") },
-	{ method = "GET",  pattern = "^/search?.*",        handler = require("Handlers.search") },
-	{ method = "POST", pattern = "^/seen/add$",        handler = require("Handlers.seen-add") },
-	{ method = "GET",  pattern = "^/anime/%d+$",       handler = require("Handlers.anime-details") },
-	{ method = "GET",  pattern = "^/favicon.ico",      handler = require("Handlers.favicon") },
+	{ method = "GET",  pattern = "^/$",                    handler = require("Handlers.home") },
+	{ method = "GET",  pattern = "^/[Ss]tatic/.*",         handler = require("Handlers.static") },
+	{ method = "POST", pattern = "^/update%-start$",       handler = require("Handlers.update-start") },
+	{ method = "GET",  pattern = "^/update%-confirm$",     handler = require("Handlers.update-confirm") },
+	{ method = "GET",  pattern = "^/search?.*",            handler = require("Handlers.search") },
+	{ method = "POST", pattern = "^/seen/add$",            handler = require("Handlers.seen-add") },
+	{ method = "GET",  pattern = "^/anime/%d+$",           handler = require("Handlers.anime-details") },
+	{ method = "GET",  pattern = "^/favicon.ico$",         handler = require("Handlers.favicon") },
+	{ method = "GET",  pattern = "^/import$",              handler = require("Handlers.import").get },
+	{ method = "POST", pattern = "^/import$",              handler = require("Handlers.import").post },
+	{ method = "GET",  pattern = "^/import/test$",         handler = require("Handlers.import").importTest },
+	{ method = "GET",  pattern = "^/import/review/",       handler = require("Handlers.import").reviewGet },
+	{ method = "POST", pattern = "^/import/review/",       handler = require("Handlers.import").reviewPost },
 }
 
 

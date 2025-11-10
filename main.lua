@@ -10,13 +10,13 @@
 -- containing the specified LuaRocks' rock name to install
 local function requireWithHelp(aModuleName, aLuaRocksRockName)
 	assert(type(aModuleName) == "string")
-	
+
 	-- Attempt to load the module:
 	local isSuccess, m = pcall(require, aModuleName)
 	if (isSuccess) then
 		return m
 	end
-	
+
 	-- Module not found, instruct the user to use LuaRocks to install it:
 	if not(aLuaRocksRockName) then
 		-- No LuaRocks rock name given, output a generic error message:
@@ -36,13 +36,14 @@ end
 
 
 -- Load all the required rocks, in their dependency order:
-local lfs    = requireWithHelp("lfs",       "luafilesystem")
-local socket = requireWithHelp("socket",    "luasocket")
-local copas  = requireWithHelp("copas",     "copas")
-local sqlite = requireWithHelp("lsqlite3",  "lsqlite3")
-local lxp    = requireWithHelp("lxp",       "luaexpat")
-local etlua  = requireWithHelp("etlua",     "etlua")
-local lzlib  = requireWithHelp("zlib",      "lzlib")
+local lfs       = requireWithHelp("lfs",       "luafilesystem")
+local socket    = requireWithHelp("socket",    "luasocket")
+local copas     = requireWithHelp("copas",     "copas")
+local sqlite    = requireWithHelp("lsqlite3",  "lsqlite3")
+local lxp       = requireWithHelp("lxp",       "luaexpat")
+local etlua     = requireWithHelp("etlua",     "etlua")
+local lzlib     = requireWithHelp("zlib",      "lzlib")
+local multipart = requireWithHelp("multipart", "multipart")
 
 -- Load the templates and utils:
 print = require("logger")

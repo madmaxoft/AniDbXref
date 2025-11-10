@@ -1,0 +1,85 @@
+<html>
+<head>
+<link rel="stylesheet" href="/Static/main.css" />
+<title>AniDbXref</title>
+</head>
+<body>
+<h1>AniDbXref - review import</h1>
+<p> There are <%= items.n %> items that need a review:</p>
+<form action="/import/review/<%= sessionId %>" method="POST" enctype="multipart/form-data">
+<table border=1 cellspacing=0 cellpadding=2>
+	<tr>
+		<th>Imported title</th>
+		<th>Candidates</th>
+	</tr>
+	<%
+	for i, item in ipairs(items) do
+		local rowClass
+		local shouldBeChecked = ""
+		if (item.candidates.n == 0) then
+			rowClass = "noCandidates"
+		elseif (item.candidates.n == 1) then
+			rowClass = "singleCandidate"
+			shouldBeChecked = "checked=\"checked\""
+		else
+			rowClass = "multipleCandidates"
+		end
+	%>
+	<tr class="<%= rowClass %>">
+		<td><%= item.title %></td>
+		<td>
+			<%
+			for j, candidate in ipairs(item.candidates) do
+			if (candidate.areTitlesEqual) then
+				shouldBeChecked = "checked=\"checked\""
+			end
+			%>
+			<label>
+				<input type="radio" name="candidate_<%= i %>" value="<%= candidate.aId %>"<%= shouldBeChecked %>>
+				<%= candidate.details.enTitle or "-" %> | <%= candidate.details.jpTitle or "-" %> | <%= candidate.details.xjpTitle or "-" %>
+			</label><br />
+			<%
+			shouldBeChecked = ""
+			end
+			%>
+			<!-- Custom search option -->
+			<label>
+				<input type="radio" name="candidate_<%= i %>" value="search" class="custom-radio">
+				Search:
+			</label>
+			<input type="text" name="custom_<%= i %>" class="custom-input" value="<%= item.title %>"/><br />
+
+			<!-- Ignore option -->
+			<label>
+				<input type="radio" name="candidate_<%= i %>" value="ignore" class="ignore-radio">
+				Do not import
+			</label>
+		</td>
+	<tr>
+	<% end %>
+</table>
+<p>
+<button type="submit" name="action">Apply</button>
+</p>
+<p><a href="/">Return</a>
+</form>
+
+<!-- A small script that selects the appropriate Search radio button when a user types into any Search field-->
+<script>
+document.querySelectorAll('.custom-input').forEach(
+	function(input)
+	{
+		input.addEventListener('input',
+			function()
+			{
+				var radio = input.parentNode.querySelector('.custom-radio');
+				if (radio)
+				{
+					radio.checked = true;
+				}
+			}
+		);
+	}
+);
+</script>
+</body>
