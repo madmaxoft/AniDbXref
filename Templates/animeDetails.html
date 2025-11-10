@@ -1,0 +1,114 @@
+<!doctype HTML>
+<html>
+<head>
+<title>AniDbXref</title>
+</head>
+<body>
+<h1><%= details.enTitle %></h1>
+<table border=1 cellspacing=0 cellpadding=2>
+<tr>
+	<td>
+	<% if details.pictureId then %>
+	<img src="https://anidb.net/images/main/<%= details.pictureId %>" />
+	<% end %>
+	</td>
+	<td>
+		<table border=0>
+			<% for _, title in ipairs(details.titles) do %>
+				<tr>
+					<td><%= title.language %></td>
+					<td><%= title.title %></td>
+				</tr>
+			<% end %>
+		</table>
+	</td>
+</tr>
+<% if (details.description) then %>
+<tr>
+	<td colspan=2>
+		<%= details.description %>
+	</td>
+</tr>
+<% end %>
+
+
+
+<!-- episodes -->
+<%
+if (details.episodes.n > 0) then
+-- Sort the episodes first by their kind, then by their number:
+table.sort(details.episodes, function (aEpisode1, aEpisode2)
+	if (aEpisode1.kind ~= aEpisode2.kind) then
+		return (aEpisode1.kind < aEpisode2.kind)
+	end
+	if (tonumber(aEpisode1.episodeNumber) and tonumber(aEpisode2.episodeNumber)) then
+		return (tonumber(aEpisode1.episodeNumber) < tonumber(aEpisode2.episodeNumber))
+	end
+	return (tostring(aEpisode1.episodeNumber) < tostring(aEpisode2.episodeNumber))
+end)
+
+--- Picks the best title among the various possibilities
+local function pickTitle(aTitles)
+	assert(type(aTitles) == "table")
+	local titles = {}
+	for _, title in ipairs(aTitles) do
+		titles[title.language] = title.title
+	end
+	return titles["en"] or titles["x-jat"] or titles["jp"]
+end
+%>
+<tr>
+	<td colspan=2>
+		<h2>Episodes</h2>
+		<table>
+			<tr>
+				<th>Episode</th>
+				<th>Title</th>
+				<th>Air date</th>
+				<th>Length</th>
+			</tr>
+			<% for _, epi in ipairs(details.episodes) do %>
+			<tr>
+				<td><%= epi.episodeNumber %></td>
+				<td><%= pickTitle(epi.titles) %></td>
+				<td><%= epi.airDate %></td>
+				<td><%= epi.length %></td>
+			</tr>
+			<% end %>
+		</table>
+	</td>
+</tr>
+<% end %>
+
+
+
+
+<!-- Characters -->
+<% if (details.characters.n > 0) then %>
+<tr>
+	<td colspan=2>
+		<h2>Characters</h2>
+		<table border=1 cellspacing=0 cellpadding=2>
+			<tr>
+				<th>Name</th>
+				<th>Voice actor</th>
+				<th>Description</th>
+			</tr>
+			<% for _, ch in ipairs(details.characters) do %>
+			<tr>
+				<td>
+					<% if (ch.pictureId) then %>
+					<img src="https://anidb.net/images/main/<%= ch.pictureId %>" /><br />
+					<% end %>
+					<%= ch.name %>
+				</td>
+				<td><% if (ch.voiceActorId) then %><a href="/voiceActor/<%= ch.voiceActorId %>"<% end %></td>
+				<td><%= ch.description %></td>
+			</tr>
+			<% end %>
+		</table>
+	</td>
+</tr>
+<% end %>
+</table>
+</body>

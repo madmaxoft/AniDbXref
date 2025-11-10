@@ -320,7 +320,7 @@ function db.getAnimeDetails(aId)
 
 	-- Get the base details:
 	local stmt = c:prepare([[
-		SELECT startDate, endDate, numEpisodes, pictureId, lastUpdated
+		SELECT startDate, endDate, numEpisodes, description, pictureId, lastUpdated
 		FROM AnimeBaseDetails
 		WHERE aId = ? LIMIT 1;
 	]])
@@ -331,7 +331,7 @@ function db.getAnimeDetails(aId)
 	for row in stmt:nrows() do
 		result.startDate = row.startDate
 		result.endDate = row.endDate
-		result.episodes = {n = 0}
+		result.description = row.description
 		result.pictureId = row.pictureId
 		result.lastUpdated = row.lastUpdated
 	end
