@@ -1,3 +1,6 @@
 *.xml
 *.xml.gz
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
+Static/favicon*
