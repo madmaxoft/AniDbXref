@@ -53,7 +53,7 @@ require("httpRequest")
 local db = require("db")
 db.createSchema()
 require("aniDbDetails")
-local requestQueue = require("requestQueue").new()
+local requestQueue = require("requestQueue")
 local router = require("router")
 
 
@@ -179,13 +179,13 @@ end
 local function startRequestingDetails()
 	-- Start the background requester thread:
 	copas.addthread(function()
-		requestQueue:run()
+		requestQueue.run()
 	end)
 
 	-- Add those that are marked as seen but have no details stored:
 	local seenWithoutDetails = db.getSeenWithoutDetails()
 	for _, aid in ipairs(seenWithoutDetails) do
-		requestQueue:add(aid)
+		requestQueue.add(aid)
 	end
 end
 

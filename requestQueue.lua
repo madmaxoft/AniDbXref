@@ -24,42 +24,25 @@ local gRateLimitBackoff = 3 * 60 * 60  -- 3 hours
 
 
 
-local RequestQueue = {}
-RequestQueue.__index = RequestQueue
-
-
-
-
-
---- Creates a new RequestQueue object
-function RequestQueue.new()
-	local self =
-	{
-		queue = {},  -- Array-table queue of animeId
-	}
-	return setmetatable(self, RequestQueue)
-end
+local RQ = {queue = {}}
 
 
 
 
 
 --- Adds the specified anime to the end of the queue to be downloaded in the background
-function RequestQueue:add(aAnimeId)
-	assert(type(self) == "table")
-	assert(type(self.queue) == "table")
-
+function RQ.add(aAnimeId)
 	-- If already in queue, move to front:
-	for i = 1, #self.queue do
-		if (self.queue[i] == aAnimeId) then
-			table.remove(self.queue, i)
-			table.insert(self.queue, 1, aAnimeId)
+	for i = 1, #RQ.queue do
+		if (RQ.queue[i] == aAnimeId) then
+			table.remove(RQ.queue, i)
+			table.insert(RQ.queue, 1, aAnimeId)
 			return
 		end
 	end
 
 	-- Not in the queue, append:
-	table.insert(self.queue, aAnimeId)
+	table.insert(RQ.queue, aAnimeId)
 end
 
 
@@ -69,9 +52,7 @@ end
 --- Requests the anime details and stores it into the DB
 -- Returns true on success, nil and error codes on failure
 local gNumRequests = 0
-function RequestQueue:performRequest(aAnimeId)
-	assert(type(self) == "table")
-
+function RQ.performRequest(aAnimeId)
 	gNumRequests = gNumRequests + 1
 	print(string.format("[RequestQueue] Requesting details for anime %d, request %d", aAnimeId, gNumRequests))
 	local fileName = string.format("AniDB/%d.xml", aAnimeId)
@@ -138,18 +119,16 @@ end
 
 --- Runs the actual queue processing thread.
 -- The client code is expected to add a call to this function as a copas thread
-function RequestQueue:run()
-	assert(type(self) == "table")
-
+function RQ.run()
 	-- Create the folder for storing suspicious API responses:
 	require("lfs").mkdir("AniDB")
 
 	while (true) do
-		if (#self.queue > 0) then
-			local animeId = table.remove(self.queue, 1)
-			local isOk, err = self:performRequest(animeId)
+		if (#RQ.queue > 0) then
+			local animeId = table.remove(RQ.queue, 1)
+			local isOk, err = RQ.performRequest(animeId)
 			if not(isOk) then
-				table.insert(self.queue, 1, animeId)  -- Return the aId to the queue for later
+				table.insert(RQ.queue, 1, animeId)  -- Return the aId to the queue for later
 				if (err == "rate-limit") then
 					print("[RequestQueue] AniDB API returned rate-limit, backing off")
 					copas.sleep(gRateLimitBackoff)
@@ -167,4 +146,4 @@ end
 
 
 
-return RequestQueue
+return RQ
