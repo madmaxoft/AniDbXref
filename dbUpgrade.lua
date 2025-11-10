@@ -2,6 +2,7 @@
 -- Handles schema versioning and upgrades for the anime database
 
 local sqlite3 = require("lsqlite3")
+local lfs = require("lfs")
 
 local dbUpgrade = {}
 
@@ -24,8 +25,14 @@ end
 
 --- Creates a backup copy of the DB file before upgrade
 function dbUpgrade.backupDbFile(aDbPath)
-	local timeStamp = os.date("%y%m%d-%H%M%S")
-	local backupPath = aDbPath:gsub("%.sqlite$", "") .. "-" .. timeStamp .. ".sqlite"
+	local time = os.time()
+	local timeStamp = os.date("%Y%m%d-%H%M%S", time)
+	local year = os.date("%Y", time)
+	local day = os.date("%Y-%m-%d", time)
+	lfs.mkdir("Backups")
+	lfs.mkdir("Backups/" .. year)
+	lfs.mkdir("Backups/" .. year .. "/" .. day)
+	local backupPath = "Backups/" .. year .. "/" .. day .. "/" .. aDbPath:gsub("%.sqlite$", "") .. "-" .. timeStamp .. ".sqlite"
 	print("[DB] Creating backup: " .. backupPath)
 	dbUpgrade.copyFile(aDbPath, backupPath)
 end
@@ -109,7 +116,7 @@ local upgrades = {
 				PRIMARY KEY (id),
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
-			
+
 			CREATE TABLE IF NOT EXISTS AnimeEpisodeTitle (
 				aId INTEGER NOT NULL,
 				episodeId INTEGER NOT NULL,
@@ -137,7 +144,7 @@ local upgrades = {
 				name TEXT,
 				pictureId INTEGER
 			);
-			
+
 			CREATE TABLE IF NOT EXISTS AnimeRelated (
 				aId INTEGER,
 				relatedAid INTEGER,
@@ -163,7 +170,7 @@ local upgrades = {
 				PRIMARY KEY (aId, uId),
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
-			
+
 			CREATE TABLE IF NOT EXISTS AnimeCreator (
 				aId INTEGER,
 				id INTEGER,
@@ -172,7 +179,7 @@ local upgrades = {
 				PRIMARY KEY (aId, id),
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
-			
+
 			CREATE TABLE IF NOT EXISTS AnimeTag (
 				aId INTEGER,
 				id INTEGER,
@@ -180,7 +187,7 @@ local upgrades = {
 				PRIMARY KEY (aId, id)
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
-			
+
 			CREATE TABLE IF NOT EXISTS Picture (
 				pictureId INTEGER PRIMARY KEY AUTOINCREMENT,
 				data BLOB
@@ -192,7 +199,7 @@ local upgrades = {
 			);
 
 			INSERT OR IGNORE INTO KeyValue (key, value) VALUES ('schema_version', '1');
-			
+
 			CREATE INDEX IF NOT EXISTS idx_AnimeTitle_titleLower ON AnimeTitle(titleLower);
 		]]
 	},
