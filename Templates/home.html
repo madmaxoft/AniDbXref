@@ -13,25 +13,31 @@
 
 	<table border=1 cellspacing=0>
 	<tr>
-	<th><a href="/update-confirm">Update AniDB data</a></th>
-	<th><a href="/import">Import <b>seen</b> from Firefox history</a></th>
 	<th>
 	<form action="/search" method="get">
-		<input type="text" name="q" placeholder="Enter title keywords" style="width:300px">
+		<input type="text" name="q" placeholder="Search anime" style="width:500px">
 		<button type="submit">Search</button>
 	</form>
 	</th>
+	<th><a href="/update-confirm">Update AniDB data</a></th>
+	<th><a href="/import">Import <b>seen</b> from Firefox history</a></th>
 	</tr>
 	</table>
 
 	<% if (seenAnime.n == 0) then %>
 		<p>No anime marked as seen yet.</p>
-	<% else %>
+	<%
+	else
+		table.sort(seenAnime, function (aAnime1, aAnime2)
+			return (aAnime1.seenDate < aAnime2.seenDate)
+		end)
+	%>
 		<p>
 		<table border=1 cellspacing=0>
 			<thead>
 				<tr>
 					<th>ID</th>
+					<th>Start date</th>
 					<th>EN Title</th>
 					<th>JP Title</th>
 					<th>X-JP Title</th>
@@ -44,9 +50,10 @@
 					local a = seenAnime[i] %>
 					<tr>
 						<td><%= a.aId %></td>
-						<td><%= a.details.enTitle or "" %></td>
-						<td><%= a.details.jpTitle or "" %></td>
-						<td><%= a.details.xjpTitle or "" %></td>
+						<td><%= a.startDate %></td>
+						<td><%= a.enTitle or "" %></td>
+						<td><%= a.jaTitle or "" %></td>
+						<td><%= a.xjatTitle or "" %></td>
 						<td><%= os.date("%Y-%m-%d-%H:%M:%S", tonumber(a.seenDate)) %></td>
 						<td><a href="/anime/<%= a.aId %>">Details</a></td>
 					</tr>

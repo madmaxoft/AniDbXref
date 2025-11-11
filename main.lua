@@ -147,12 +147,12 @@ local function handleRequest(aClient)
 
 	local handler, params = router.match(method, path)
 	if (handler) then
-		local beginTime = os.time()
+		local beginTime = socket.gettime()
 		print(string.format("[main] %s Request for path \"%s\".", method, path))
 		dispatchHandler(aClient, path, params, headers, handler)
-		local endTime = os.time()
-		if (endTime - beginTime >= 1) then
-			print(string.format("  ^^ Request took %f seconds.", endTime - beginTime))
+		local endTime = socket.gettime()
+		if (endTime - beginTime >= 0.5) then
+			print(string.format("  ^^ Request took %f seconds.", (endTime - beginTime)))
 		end
 	else
 		print(string.format("[main] UNHANDLED: %s Request for path \"%s\".", method, path))

@@ -193,6 +193,75 @@ end
 
 
 
+--- Returns an array-table of all seen anime, together with basic details, suitable for display on the homepage
+function db.getSeenAnimeForHomepage()
+	local c = ensureDb()
+	local rows = db.getArrayFromQuery([[
+		SELECT
+			s.aId AS aId,
+			s.seenDate AS seenDate,
+			d.startDate AS startDate,
+			d.endDate AS endDate,
+			d.numEpisodes AS numEpisodes,
+			d.pictureId AS pictureId,
+			t.language AS language,
+			t.kind AS kind,
+			t.title AS title
+		FROM Seen s
+		LEFT JOIN AnimeBaseDetails d ON d.aId = s.aId
+		LEFT JOIN AnimeTitle t ON t.aId = s.aId
+		ORDER BY s.seenDate DESC, t.language, t.kind
+	]])
+
+	-- Process the returned data - collapse multiple titles for a single anime:
+	local animeById = {}
+	for _, row in ipairs(rows) do
+		local a = animeById[row.aId]
+		if not(a) then
+			a =
+			{
+				aId = row.aId,
+				seenDate = row.seenDate,
+				startDate = row.startDate,
+				endDate = row.endDate,
+				numEpisodes = row.numEpisodes,
+				pictureId = row.pictureId,
+				titles = { n = 0 }
+			}
+			animeById[row.aId] = a
+		end
+
+		if (row.title) then
+			local titles = a.titles
+			titles.n = titles.n + 1
+			titles[titles.n] =
+			{
+				language = row.language,
+				kind = row.kind,
+				title = row.title
+			}
+		end
+	end
+
+	-- Convert dictionary to array-table, pick best titles:
+	local result = {}
+	local n = 0
+	for _, a in pairs(animeById) do
+		a.enTitle = db.pickBestTitle(a.titles, "en")
+		a.jaTitle = db.pickBestTitle(a.titles, "ja")
+		a.xjatTitle = db.pickBestTitle(a.titles, "x-jat")
+		n = n + 1
+		result[n] = a
+	end
+	result.n = n
+
+	return result
+end
+
+
+
+
+
 --- Returns an array-table of anime aIds that have been marked as seen but have no details stored in the DB
 function db.getSeenWithoutDetails()
 	local c = ensureDb()
@@ -339,8 +408,8 @@ function db.getAnimeDetails(aId)
 
 	-- Get the most useful titles:
 	result.enTitle = db.pickBestTitle(result.titles, "en")
-	result.jpTitle = db.pickBestTitle(result.titles, "ja")
-	result.xjpTitle = db.pickBestTitle(result.titles, "x-jat")
+	result.jaTitle = db.pickBestTitle(result.titles, "ja")
+	result.xjatTitle = db.pickBestTitle(result.titles, "x-jat")
 
 	return result
 end
