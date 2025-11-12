@@ -68,13 +68,13 @@ function RQ.performRequest(aAnimeId)
 		return nil, err
 	end
 
+	-- Store the response into a file:
+	local f = assert(io.open(fileName), "wb")
+	f:write(apiResponse)
+	f:close()
+
 	local parsedLom = lomParser.parse(apiResponse)
 	if not(parsedLom) then
-		-- Store the response into a file:
-		local f = assert(io.open(fileName), "wb")
-		f:write(apiResponse)
-		f:close()
-
 		print(string.format(
 			"[RequestQueue] FAILED to xml-parse response for anime %d. Response saved to file %s",
 			aAnimeId, fileName
@@ -86,11 +86,6 @@ function RQ.performRequest(aAnimeId)
 	for _, v in ipairs(parsedLom) do
 		if (type(v) == "table") then
 			if (v.tag == "error") then
-				-- Store the response into a file:
-				f = assert(io.open(fileName), "wb")
-				f:write(apiResponse)
-				f:close()
-
 				local code = tostring((v.attr or {}).code)
 				print(string.format(
 					"[RequestQueue] ERROR code %s returned for anime %d. Response saved to file %s",
