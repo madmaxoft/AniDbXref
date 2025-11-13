@@ -203,6 +203,14 @@ local upgrades = {
 			CREATE INDEX IF NOT EXISTS idx_AnimeTitle_titleLower ON AnimeTitle(titleLower);
 		]]
 	},
+
+	{
+		version = 2,
+		script = [[
+			ALTER TABLE Picture ADD COLUMN dataSmall BLOB;
+		]],
+	},
+
 	-- Future upgrades can be added here
 }
 
