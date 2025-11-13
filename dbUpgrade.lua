@@ -207,7 +207,7 @@ local upgrades = {
 	{
 		version = 2,
 		script = [[
-			ALTER TABLE Picture ADD COLUMN dataSmall BLOB;
+			ALTER TABLE Picture ADD COLUMN dataThumb BLOB;
 		]],
 	},
 
