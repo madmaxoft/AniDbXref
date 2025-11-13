@@ -189,6 +189,7 @@ local function startRequestingDetails()
 
 	-- Add those that are marked as seen but have no details stored:
 	local seenWithoutDetails = db.getSeenWithoutDetails()
+	print(string.format("[RequestQueue] Queueing API calls for %d items.", seenWithoutDetails.n))
 	for _, aid in ipairs(seenWithoutDetails) do
 		requestQueue.add(aid)
 	end

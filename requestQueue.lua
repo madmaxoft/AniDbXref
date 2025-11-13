@@ -9,6 +9,7 @@ local socket = require("socket")
 local aniDbDetails = require("aniDbDetails")
 local lomParser = require("lxp.lom")
 local db = require("db")
+local lfs = require("lfs")
 
 
 
@@ -55,7 +56,10 @@ local gNumRequests = 0
 function RQ.performRequest(aAnimeId)
 	gNumRequests = gNumRequests + 1
 	print(string.format("[RequestQueue] Requesting details for anime %d, request %d", aAnimeId, gNumRequests))
-	local fileName = string.format("AniDB/%d.xml", aAnimeId)
+	local path = string.format("AniDB/%.03d", math.floor(aAnimeId / 100))
+	lfs.mkdir("AniDB")
+	lfs.mkdir(path)
+	local fileName = string.format("AniDB/%.03d/%d.xml", math.floor(aAnimeId / 100), aAnimeId)
 
 	-- Fetch the details from the API:
 	local apiResponse, err = aniDbDetails.fetchXml(aAnimeId)

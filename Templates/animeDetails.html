@@ -5,6 +5,9 @@
 </head>
 <body>
 <h1><%= details.enTitle %></h1>
+<% if not(details.description) then %>
+<p>Anime deatils not received yet, check back later.</p>
+<% else %>
 <table border=1 cellspacing=0 cellpadding=2>
 <tr>
 	<td>
@@ -111,4 +114,5 @@ end
 </tr>
 <% end %>
 </table>
+<% end %>
 </body>
