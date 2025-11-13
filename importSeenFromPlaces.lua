@@ -90,7 +90,10 @@ end
 local function parsePlacesFile(aFileName)
 	-- Open the DB:
 	local sqlite = require("lsqlite3")
-	local dbPlaces = assert(sqlite.open(aFileName, sqlite.OPEN_READONLY))
+	local dbPlaces = assert(sqlite.open(
+		string.format("file:%s?immutable=1", aFileName),  -- Disable WAL, SHM, locking etc.
+		sqlite.OPEN_READONLY + sqlite.OPEN_URI
+	))
 	dbPlaces:busy_timeout(1000)
 
 	-- Load all seen titles:
