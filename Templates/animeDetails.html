@@ -107,7 +107,13 @@ end
 					<img src="https://anidb.net/images/main/<%= ch.pictureId %>" /><br />
 					<% end %>
 				</td>
-				<td><% if (ch.voiceActorId) then %><a href="/voiceActor/<%= ch.voiceActorId %>">(voice actor)</a><% end %></td>
+				<td><% if (ch.voiceActorId) then %><a href="/voiceActor/<%= ch.voiceActorId %>">
+					<%= ch.voiceActorName or "(unknown voice actor)" %>
+					<% if (ch.voiceActorPictureId) then %>
+					<img src="https://anidb.net/images/65/<%= ch.voiceActorPictureId %>-thumb.jpg" />
+					<% end %>
+					</a><% end %>
+				</td>
 				<td><%= ch.description or "" %></td>
 			</tr>
 			<% end %>

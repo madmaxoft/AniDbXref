@@ -422,7 +422,12 @@ end
 function db.getAnimeDetails_characters(aId)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery("SELECT * FROM AnimeCharacter WHERE aId = ?", {aId}, "getAnimeDetails_characters")
+	return db.getArrayFromQuery([[
+		SELECT ch.*, va.name as voiceActorName, va.pictureId as voiceActorPictureId
+		FROM AnimeCharacter ch
+		LEFT JOIN AnimeVoiceActor va ON ch.voiceActorId = va.vaId
+		WHERE aId = ?
+	]], {aId}, "getAnimeDetails_characters")
 end
 
 
