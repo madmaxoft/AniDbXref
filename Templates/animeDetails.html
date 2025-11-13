@@ -4,6 +4,7 @@
 <title>AniDbXref</title>
 </head>
 <body>
+<a href="/">Back to home</a> | <a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a>
 <h1><%= details.enTitle %></h1>
 <% if not(details.description) then %>
 <p>Anime deatils not received yet, check back later.</p>
@@ -100,13 +101,14 @@ end
 			<% for _, ch in ipairs(details.characters) do %>
 			<tr>
 				<td>
+					<%= ch.name %>
 					<% if (ch.pictureId) then %>
+					<br />
 					<img src="https://anidb.net/images/main/<%= ch.pictureId %>" /><br />
 					<% end %>
-					<%= ch.name %>
 				</td>
-				<td><% if (ch.voiceActorId) then %><a href="/voiceActor/<%= ch.voiceActorId %>"<% end %></td>
-				<td><%= ch.description %></td>
+				<td><% if (ch.voiceActorId) then %><a href="/voiceActor/<%= ch.voiceActorId %>">(voice actor)</a><% end %></td>
+				<td><%= ch.description or "" %></td>
 			</tr>
 			<% end %>
 		</table>
