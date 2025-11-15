@@ -33,6 +33,23 @@ local RQ = {queue = {}}
 
 --- Adds the specified anime to the end of the queue to be downloaded in the background
 function RQ.add(aAnimeId)
+	-- If already in queue, bail out:
+	for i = 1, #RQ.queue do
+		if (RQ.queue[i] == aAnimeId) then
+			return
+		end
+	end
+
+	-- Not in the queue, append:
+	table.insert(RQ.queue, aAnimeId)
+end
+
+
+
+
+
+--- Adds the specified anime to the end of the queue to be downloaded in the background
+function RQ.addToFront(aAnimeId)
 	-- If already in queue, move to front:
 	for i = 1, #RQ.queue do
 		if (RQ.queue[i] == aAnimeId) then
@@ -42,8 +59,8 @@ function RQ.add(aAnimeId)
 		end
 	end
 
-	-- Not in the queue, append:
-	table.insert(RQ.queue, aAnimeId)
+	-- Not in the queue, insert to front:
+	table.insert(RQ.queue, 1, aAnimeId)
 end
 
 
@@ -59,7 +76,7 @@ function RQ.performRequest(aAnimeId)
 	local path = string.format("AniDB/%.03d", math.floor(aAnimeId / 100))
 	lfs.mkdir("AniDB")
 	lfs.mkdir(path)
-	local fileName = string.format("AniDB/%.03d/%d.xml", math.floor(aAnimeId / 100), aAnimeId)
+	local fileName = string.format("%s/%d.xml", path, aAnimeId)
 
 	-- Fetch the details from the API:
 	local apiResponse, err = aniDbDetails.fetchXml(aAnimeId)
@@ -69,7 +86,7 @@ function RQ.performRequest(aAnimeId)
 	end
 
 	-- Store the response into a file:
-	local f = assert(io.open(fileName), "wb")
+	local f = assert(io.open(fileName, "wb"))
 	f:write(apiResponse)
 	f:close()
 
@@ -83,20 +100,23 @@ function RQ.performRequest(aAnimeId)
 	end
 
 	-- If the API returned an <error> response, parse it and decide what kind of failure it is:
-	for _, v in ipairs(parsedLom) do
-		if (type(v) == "table") then
-			if (v.tag == "error") then
-				local code = tostring((v.attr or {}).code)
-				print(string.format(
-					"[RequestQueue] ERROR code %s returned for anime %d. Response saved to file %s",
-					code, aAnimeId, fileName
-				))
-				if (code == "500") then
-					return nil, "rate-limit"
-				else
-					return nil, "api-error", code
-				end
-			end
+	if (type(parsedLom) ~= "table") then
+		print(string.format(
+			"[RequestQueue] Unknown API response received for anime %d. Response saved to file %s",
+			aAnimeId, fileName
+		))
+		return nil, "unknown-xml-format"
+	end
+	if (parsedLom.tag == "error") then
+		local code = tostring((parsedLom.attr or {}).code)
+		print(string.format(
+			"[RequestQueue] ERROR code %s returned for anime %d. Response saved to file %s",
+			code, aAnimeId, fileName
+		))
+		if (code == "500") then
+			return nil, "rate-limit"
+		else
+			return nil, "api-error", code
 		end
 	end
 

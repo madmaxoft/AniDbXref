@@ -6,6 +6,7 @@ The fetching can be disabled in order to test on locally cached data.
 --]]
 
 -- The anime's ID
+-- local gAnimeIdToFetch = 1543  -- Samurai Champloo
 local gAnimeIdToFetch = 7729  -- Steins;Gate
 -- local gAnimeIdToFetch = 11167  -- Steins;Gate 0
 
