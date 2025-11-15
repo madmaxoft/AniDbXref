@@ -1,10 +1,33 @@
-/* styles.css */
-/*
-table, th, td {
-	border: 1px solid;
-	border-collapse: collapse;
+/* Mimic the look of <table border=1 cellspacing=0 cellpadding=2>: */
+
+table {
+	border-collapse: separate;
+	border-spacing: 0;
+	border-top: 1px solid #ccc;
+	border-left: 1px solid #ccc;
+	border-bottom: 1px solid #555;
+	border-right: 1px solid #555;
 }
-*/
+
+table th,
+table td {
+	padding: 2px;
+	border-top: 1px solid #555;
+	border-left: 1px solid #555;
+	border-bottom: 1px solid #ccc;
+	border-right: 1px solid #ccc;
+}
+
+table th {
+	font-weight: bold;
+}
+
+
+
+
+
+/* Colors for the import review rows: */
+
 .noCandidates
 {
 	background-color: #fcc;

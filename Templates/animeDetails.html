@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>AniDbXref</title>
+<link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body>
 <a href="/">Back to home</a> | <a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a>
@@ -9,7 +10,7 @@
 <% if not(details.description) then %>
 <p>Anime deatils not received yet, check back later.</p>
 <% else %>
-<table border=1 cellspacing=0 cellpadding=2>
+<table>
 <tr>
 	<td>
 	<% if details.pictureId then %>
@@ -92,7 +93,7 @@ end
 <tr>
 	<td colspan=2>
 		<h2>Characters</h2>
-		<table border=1 cellspacing=0 cellpadding=2>
+		<table>
 			<tr>
 				<th>Name</th>
 				<th>Voice actor</th>
