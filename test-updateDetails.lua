@@ -9,7 +9,8 @@ The fetching can be disabled in order to test on locally cached data.
 local gAnimeIdToFetch = 7729  -- Steins;Gate
 -- local gAnimeIdToFetch = 11167  -- Steins;Gate 0
 
-local xmlFileName = string.format("%d.xml", gAnimeIdToFetch)
+local xmlFileFolder = string.format("AniDB/%03d", math.floor(gAnimeIdToFetch / 100))
+local xmlFileName = string.format("%s/%d.xml", xmlFileFolder, gAnimeIdToFetch)
 
 
 --- Should the data be fetched? If false, loads the data from a local file
@@ -30,7 +31,7 @@ local details = require("aniDbDetails")
 local function dumpTable(aTable, aIndent)
 	assert(type(aTable) == "table")
 	aIndent = aIndent or ""
-	
+
 	for k, v in pairs(aTable) do
 		if (type(v) == "table") then
 			print(aIndent .. tostring(k) .. " = {")
@@ -63,6 +64,7 @@ end
 local parsedLom = require("lxp.lom").parse(xml)
 local parsedDetails = details.transformParsedIntoDetails(parsedLom)
 assert(parsedDetails.aId == gAnimeIdToFetch)
+-- dumpTable(parsedDetails)
 
 -- Store into the DB:
 db.storeAnimeDetails(parsedDetails)
