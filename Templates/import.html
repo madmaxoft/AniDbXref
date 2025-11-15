@@ -5,12 +5,23 @@
 </head>
 
 <body>
-<h1>AniDbXref - import seen anime from browser history</h1>
+<h1>AniDbXref - import</h1>
+
+<table bor
+<h2>Seen anime from Firefox history</h2>
 
 <p>Upload the places.sqlite file from your Firefox browser to process it and add all seen anime form the browser history:</p>
 <form action="/import" method="POST" enctype="multipart/form-data">
-	<input type="file" name="placesFile" placeholder="Select your places.sqlite file" style="width:300px">
+	<input type="file" name="placesFile" placeholder="Select your places.sqlite file" style="width:400px">
 	<button type="submit">Import</button>
 </form>
 <a href="/import/test">TEST</a>
+
+
+<h2>Details from a file</h2>
+<p>Use this if you have the details XML file from AniDB API</p>
+<form action="/import" method="POST" enctype="multipart/form-data">
+	<input type="file" name="detailsFile" placeholder="Select your details.xml file" style="width:400px">
+	<button type="submit">Import</button>
+</form>
 </body>

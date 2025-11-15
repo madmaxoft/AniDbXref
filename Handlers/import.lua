@@ -15,6 +15,8 @@ local httpRequest = require("httpRequest")
 local import = require("importSeenFromPlaces")
 local multipart = require("multipart")
 local db = require("db")
+local lomParser = require("lxp.lom")
+local aniDbDetails = require("aniDbDetails")
 
 
 
@@ -36,21 +38,13 @@ end
 
 
 
---- Handles the POST request for "/import", parsing the uploaded file and processing it
-function I.post(aClient, aPath, aPatternMatches, aRequestHeaders)
-	-- Extract the uploaded file contents:
-	local body = httpRequest.readBody(aClient, aRequestHeaders)
-	local m = multipart(body, aRequestHeaders["content-type"])
-	local placesFileContents = (m:get("placesFile") or {}).value
-	if not(placesFileContents) then
-		return httpResponse.send(aClient, "400 Bad upload", nil, "The upload contains no file")
-	end
-
+--- Handles the POST request for "/import" for the places.sqlite file
+local function handlePostPlacesFile(aClient, aPath, aPatternMatches, aRequestHeaders, aFileContents)
 	-- Store to a temp disk file:
 	require("lfs").mkdir("Import")
 	local fileName = string.format("Import/%s.sqlite", os.date("%Y-%m-%d-%H-%M-%S"))
 	local f = assert(io.open(fileName, "wb"))
-	f:write(placesFileContents)
+	f:write(aFileContents)
 	f:close()
 
 	-- Build a session out of the file:
@@ -60,6 +54,50 @@ function I.post(aClient, aPath, aPatternMatches, aRequestHeaders)
 		return httpResponse.sendRedirect(aClient, "/")
 	end
 	return httpResponse.sendRedirect(aClient, "/import/review/" .. session.id)
+end
+
+
+
+
+
+--- Handles the POST request for "/import" for the places.sqlite file
+local function handlePostDetailsFile(aClient, aPath, aPatternMatches, aRequestHeaders, aFileContents)
+	-- XML-parse the contents:
+	local parsedLom = lomParser.parse(aFileContents)
+	if not(parsedLom) then
+		return httpResponse.send(aClient, "400 Bad upload", nil, "FAILED to xml-parse the file")
+	end
+
+	-- Transform the parsed LOM object into the details table:
+	local parsedDetails = aniDbDetails.transformParsedIntoDetails(parsedLom)
+	if not(parsedDetails.aId) then
+		return httpResponse.send(aClient, "400 Bad upload", nil, "FAILED to transform AniDB API XML to details.")
+	end
+
+	db.storeAnimeDetails(parsedDetails)
+	return httpResponse.sendRedirect(aClient, "/")
+end
+
+
+
+
+
+--- Handles the POST request for "/import", parsing the uploaded file and processing it
+-- Bases the processing on the name of the form element that the browser sends
+function I.post(aClient, aPath, aPatternMatches, aRequestHeaders)
+	-- Extract the uploaded file contents:
+	local body = httpRequest.readBody(aClient, aRequestHeaders)
+	local m = multipart(body, aRequestHeaders["content-type"])
+	local placesFileContents = (m:get("placesFile") or {}).value
+	if (placesFileContents) then
+		return handlePostPlacesFile(aClient, aPath, aPatternMatches, aRequestHeaders, placesFileContents)
+	end
+	local detailsFileContents = (m:get("detailsFile") or {}).value
+	if (detailsFileContents) then
+		return handlePostDetailsFile(aClient, aPath, aPatternMatches, aRequestHeaders, detailsFileContents)
+	end
+
+	return httpResponse.send(aClient, "400 Bad upload", nil, "No idea how to handle the file")
 end
 
 
