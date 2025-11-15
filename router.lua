@@ -36,6 +36,7 @@ router.routes = {
 	{ method = "GET",  pattern = "^/import/test$",            handler = require("Handlers.import").importTest },
 	{ method = "GET",  pattern = "^/import/review/",          handler = require("Handlers.import").reviewGet },
 	{ method = "POST", pattern = "^/import/review/",          handler = require("Handlers.import").reviewPost },
+	{ method = "GET",  pattern = "^/voiceActors$",            handler = require("Handlers.voiceActors") },
 	{ method = "GET",  pattern = "^/force%-update%-details/", handler = require("Handlers.force-update-details") },
 	{ method = "GET",  pattern = "^/shutdown$",               handler = function() copas.removeserver(copas.mainServer); copas.exit() end },
 }

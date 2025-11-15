@@ -186,7 +186,7 @@ end
 function db.getSeenAnime()
 	local c = ensureDb()
 
-	return db.getArrayFromQuery("SELECT aId, seenDate FROM Seen")
+	return db.getArrayFromQuery("SELECT aId, seenDate FROM Seen", {}, "getSeenAnime")
 end
 
 
@@ -286,6 +286,26 @@ function db.getSeenWithoutDetails()
 	end
 	result.n = n
 	return result
+end
+
+
+
+
+
+--- Returns the voice actors currently stored in the DB, together with the number of characters out of seen
+function db.getVoiceActors()
+	return db.getArrayFromQuery([[
+		SELECT
+			va.*,
+			COUNT(ac.name) AS numCharacters
+		FROM AnimeVoiceActor AS va
+		LEFT JOIN AnimeCharacter AS ac
+			ON ac.voiceActorId = va.vaId
+		LEFT JOIN Seen AS s
+			ON s.aId = ac.aId
+		GROUP BY va.vaId
+		ORDER BY numCharacters DESC;
+	]], {}, "getVoiceActors")
 end
 
 

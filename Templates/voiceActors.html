@@ -1,0 +1,52 @@
+<html>
+<head>
+<title>AniDbXref</title>
+<link rel="stylesheet" href="/Static/main.css" />
+</head>
+
+<body>
+<a href="/">Back to home</a> |
+
+<h1>AniDbXref - voice actors</h1>
+
+<% if not(hasAniDbData) then %>
+	<p>The base AniDB data has not been downloaded yet. <a href="/update-confirm">Update AniDB data now.</a>
+<% else %>
+
+	<% if (voiceActors.n == 0) then %>
+		<p>No voice actor data yet.</p>
+	<% else %>
+		<p>
+		<table border=1 cellspacing=0>
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Name</th>
+					<th>Picture</th>
+					<th>Characters</th>
+					<th>Action</th>
+				</tr>
+			</thead>
+			<tbody>
+				<% for i = 1, voiceActors.n do
+					local a = voiceActors[i] %>
+					<tr>
+						<td><%= a.vaId %></td>
+						<td><%= a.name %></td>
+						<td><% if (a.pictureId) then %>
+						<img src="https://anidb.net/images/65/<%= a.pictureId %>-thumb.jpg" />
+						<% end %>
+						</td>
+						<td><%= a.numCharacters %></td>
+						<td>
+							<a href="/voiceActor/<%= a.vaId %>">Details</a> |
+							<a href="https://anidb.net/cr<%= a.vaId %>">AniDB.net</a>
+						</td>
+					</tr>
+				<% end %>
+			</tbody>
+		</table>
+		</p>
+	<% end %>
+<% end %>
+</body>
