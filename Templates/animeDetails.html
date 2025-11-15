@@ -5,10 +5,12 @@
 <link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body>
-<a href="/">Back to home</a> | <a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a>
+<a href="/">Back to home</a> |
+<a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a> |
+<a href="/force-update-details/<%= aId %>">Force update details</a>
 <h1><%= details.enTitle %></h1>
 <% if not(details.description) then %>
-<p>Anime deatils not received yet, check back later.</p>
+<p>Anime details not received yet, check back later.</p>
 <% else %>
 <table>
 <tr>
@@ -111,6 +113,7 @@ end
 				<td><% if (ch.voiceActorId) then %><a href="/voiceActor/<%= ch.voiceActorId %>">
 					<%= ch.voiceActorName or "(unknown voice actor)" %>
 					<% if (ch.voiceActorPictureId) then %>
+					<br />
 					<img src="https://anidb.net/images/65/<%= ch.voiceActorPictureId %>-thumb.jpg" />
 					<% end %>
 					</a><% end %>
