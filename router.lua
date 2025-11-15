@@ -9,6 +9,12 @@ Route handlers live in the Handlers subfolder.
 
 
 
+local copas = require("copas")
+
+
+
+
+
 local router = {}
 
 
@@ -31,6 +37,7 @@ router.routes = {
 	{ method = "GET",  pattern = "^/import/review/",          handler = require("Handlers.import").reviewGet },
 	{ method = "POST", pattern = "^/import/review/",          handler = require("Handlers.import").reviewPost },
 	{ method = "GET",  pattern = "^/force%-update%-details/", handler = require("Handlers.force-update-details") },
+	{ method = "GET",  pattern = "^/shutdown$",               handler = function() copas.removeserver(copas.mainServer); copas.exit() end },
 }
 
 

@@ -169,11 +169,13 @@ local function startServer()
 	local serverSocket = assert(socket.bind("*", 8080))
 	print("[main] Server running on http://localhost:8080/")
 
+	copas.mainServer = serverSocket
 	copas.addserver(serverSocket, function(aSocket)
 		handleRequest(copas.wrap(aSocket))
 	end)
 
 	copas.loop()
+	print("[main] Server loop terminated.")
 end
 
 
@@ -202,3 +204,4 @@ end
 --- Entry point
 startRequestingDetails()
 startServer()
+print("Finished.")

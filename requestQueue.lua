@@ -142,7 +142,7 @@ function RQ.run()
 	-- Create the folder for storing suspicious API responses:
 	require("lfs").mkdir("AniDB")
 
-	while (true) do
+	while not(copas.exiting()) do
 		if (#RQ.queue > 0) then
 			local animeId = table.remove(RQ.queue, 1)
 			local isOk, err = RQ.performRequest(animeId)
@@ -159,6 +159,7 @@ function RQ.run()
 			copas.sleep(gTimeBetweenRequests)
 		end
 	end
+	print("[RequestQueue] Finished.")
 end
 
 
