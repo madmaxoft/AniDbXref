@@ -64,7 +64,10 @@ end
 local parsedLom = require("lxp.lom").parse(xml)
 local parsedDetails = details.transformParsedIntoDetails(parsedLom)
 assert(parsedDetails.aId == gAnimeIdToFetch)
--- dumpTable(parsedDetails)
+--[[
+print("Characters:")
+dumpTable(parsedDetails.characters)
+--]]
 
 -- Store into the DB:
 db.storeAnimeDetails(parsedDetails)

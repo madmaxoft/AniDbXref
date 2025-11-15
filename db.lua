@@ -760,6 +760,35 @@ function db.storeAnimeCharacters(aDetails)
 		checkSql(c, stmt:reset(), "storeAnimeCharacters.reset")
 	end
 	checkSql(c, stmt:finalize(), "storeAnimeCharacters.finalize")
+
+	-- Store voice artist details:
+	local stmtVA = c:prepare([[
+		INSERT INTO AnimeVoiceActor (vaId, name, pictureId)
+		VALUES (?, ?, ?)
+		ON CONFLICT(vaId) DO UPDATE SET
+			name =
+				CASE
+					WHEN (excluded.name IS NOT NULL AND excluded.name <> '')
+						AND (AnimeVoiceActor.name IS NULL OR AnimeVoiceActor.name = '')
+					THEN excluded.name
+					ELSE AnimeVoiceActor.name
+				END,
+			pictureId =
+				CASE
+					WHEN (excluded.pictureId IS NOT NULL AND excluded.pictureId <> '')
+						AND (AnimeVoiceActor.pictureId IS NULL OR AnimeVoiceActor.pictureId = '')
+					THEN excluded.pictureId
+					ELSE AnimeVoiceActor.pictureId
+				END;
+	]])
+	for _, ch in ipairs(aDetails.characters) do
+		if (ch.voiceActor) then
+			checkSql(c, stmtVA:bind_values(ch.voiceActor.id, ch.voiceActor.name, ch.voiceActor.pictureId), "storeAnimeCharactersVA.bind")
+			checkSql(c, stmtVA:step(), "storeAnimeCharacters.step")
+			checkSql(c, stmtVA:reset(), "storeAnimeCharacters.reset")
+		end
+	end
+	checkSql(c, stmtVA:finalize(), "storeAnimeCharacters.finalize")
 end
 
 

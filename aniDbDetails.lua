@@ -323,7 +323,7 @@ local function transformParsedIntoDetails_seiyuu(aParsedLom)
 	return
 	{
 		id = attr.id,
-		picture = attr.picture,
+		pictureId = attr.picture,
 		name = aParsedLom[1]
 	}
 end
