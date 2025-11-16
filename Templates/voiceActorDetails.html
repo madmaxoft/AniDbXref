@@ -1,0 +1,84 @@
+<!doctype HTML>
+<html>
+<head>
+<title>AniDbXref</title>
+<link rel="stylesheet" href="/Static/main.css" />
+</head>
+<body>
+<a href="/">Back to home</a> |
+<a href="https://anidb.net/creator/<%= vaId %>">AniDB.net</a> |
+<% if not(details) then %>
+<p>No details for this voice artist</p>
+<% else %>
+<h1>AniDbXref - Voice Actor - <%= details.name %></h1>
+<table>
+<% if details.pictureId then %>
+<tr>
+	<td>
+	<img src="https://anidb.net/images/main/<%= details.pictureId %>" />
+	</td>
+</tr>
+<% end %>
+
+
+
+<!-- Characters -->
+<%
+if (details.characters.n > 0) then
+-- Sort the characters, first by isSeen, then by anime airdate year, then by anime enTitle:
+table.sort(details.characters, function (aChar1, aChar2)
+	if (aChar1.isSeen) then
+		if not(aChar2.isSeen) then
+			return true
+		end
+	elseif (aChar2.isSeen) then
+		return false
+	end
+	local airDateYear1 = aChar1.animeStartDate:match("%d*")
+	local airDateYear2 = aChar2.animeStartDate:match("%d*")
+	if (airDateYear1 ~= airDateYear2) then
+		return (tonumber(airDateYear1) > tonumber(airDateYear2))
+	end
+	return ((aChar1.enTitle or "") < (aChar2.enTitle or ""))
+end)
+
+--- Returns the class for <tr> to use based in the isSeen value
+function rowClassForSeen(aIsSeen)
+	if (aIsSeen) then
+		return "class=\"isSeen\""
+	end
+	return ""
+end
+%>
+<tr>
+	<td colspan=2>
+		<h2>Characters</h2>
+		<table>
+			<tr>
+				<th>Picture</th>
+				<th>Character name</th>
+				<th>Anime title</th>
+				<th>Anime start date</th>
+				<th></th>
+			</tr>
+			<% for _, ch in ipairs(details.characters) do %>
+			<tr <%- rowClassForSeen(ch.isSeen) %>>
+				<td>
+				<% if (ch.pictureId) then %>
+				<img src="https://anidb.net/images/65/<%= ch.pictureId %>-thumb.jpg" />
+				<% else %>
+				<% end %>
+				</td>
+				<td><%= ch.enTitle or ch.jaTitle or ch.xjatTitle %></td>
+				<td><%= ch.name %></td>
+				<td><%= ch.animeStartDate %></td>
+			</tr>
+			<% end %>
+		</table>
+	</td>
+</tr>
+<% end %>
+
+</table>
+<% end %>
+</body>

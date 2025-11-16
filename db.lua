@@ -292,6 +292,98 @@ end
 
 
 
+--- Returns the details on the specified voice actor, as needed for the details page
+-- Return nil if not found
+function db.getVoiceActorDetails(aVoiceActorId)
+	assert(tonumber(aVoiceActorId))
+
+	local c = ensureDb()
+	local baseDetails = db.getArrayFromQuery("SELECT * FROM AnimeVoiceActor WHERE vaId = ?", {aVoiceActorId}, "getVoiceActorDetails")
+	if (not(baseDetails) or (baseDetails.n ~= 1)) then
+		return nil
+	end
+	local result = baseDetails[1]
+
+	-- Load all the characters:
+	local allCharacters = db.getArrayFromQuery([[
+		SELECT
+			ac.ROWID AS charRowId,
+			ac.aId,
+			ac.name AS characterName,
+			ac.characterTypeId,
+			ac.gender,
+			ac.description,
+			ac.pictureId,
+			ac.ratingNumVotes,
+			ac.ratingValue,
+			abd.startDate AS animeStartDate,
+			CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
+			at.title AS animeTitle,
+			at.language AS titleLanguage,
+			at.kind AS titleKind
+		FROM AnimeCharacter AS ac
+		INNER JOIN AnimeVoiceActor AS va
+			ON ac.voiceActorId = va.vaId
+		LEFT JOIN Seen AS s
+			ON s.aId = ac.aId
+		LEFT JOIN AnimeBaseDetails AS abd
+			ON abd.aId = ac.aId
+		LEFT JOIN AnimeTitle AS at
+			ON at.aId = ac.aId
+		WHERE va.vaId = ?
+		ORDER BY ac.ROWID, at.language, at.kind;
+	]], {aVoiceActorId}, "getVoiceActorDetails")
+
+	-- Process the titles into an array:
+	local characters = {}
+	local n = 0
+	local currentCharRowId
+	local charEntry
+	for _, row in ipairs(allCharacters) do
+		if (row.charRowId ~= currentCharRowId) then
+			-- new character
+			charEntry = {
+				charRowId = row.charRowId,
+				aId = row.aId,
+				name = row.characterName,
+				characterTypeId = row.characterTypeId,
+				gender = row.gender,
+				description = row.description,
+				pictureId = row.pictureId,
+				ratingNumVotes = row.ratingNumVotes,
+				ratingValue = row.ratingValue,
+				animeStartDate = row.animeStartDate,
+				isSeen = (row.isSeen == 1),
+				titles = { n = 0 }  -- array of title metadata
+			}
+			n = n + 1
+			characters[n] = charEntry
+			currentCharRowId = row.charRowId
+		end
+
+		if (row.animeTitle) then
+			charEntry.titles.n = charEntry.titles.n + 1
+			charEntry.titles[charEntry.titles.n] = {
+				title = row.animeTitle,
+				language = row.titleLanguage,
+				kind = row.titleKind
+			}
+		end
+	end
+	characters.n = n
+	for _, ch in ipairs(characters) do
+		ch.enTitle = db.pickBestTitle(ch.titles, "en")
+		ch.jaTitle = db.pickBestTitle(ch.titles, "ja")
+		ch.xjatTitle = db.pickBestTitle(ch.titles, "x-jat")
+	end
+	result.characters = characters
+	return result
+end
+
+
+
+
+
 --- Returns the voice actors currently stored in the DB, together with the number of characters out of seen
 function db.getVoiceActors()
 	return db.getArrayFromQuery([[

@@ -42,3 +42,13 @@ table th {
 {
 	background-color: #ffc;
 }
+
+
+
+
+
+/* Colors distinguishing seen from not-seen characters */
+.isSeen
+{
+	background-color: #eee;
+}
