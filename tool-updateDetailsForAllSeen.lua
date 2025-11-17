@@ -12,7 +12,7 @@ again the next day.
 
 --- Aid-s below this number will not be updated.
 -- Use to call the script again the next day after AniDB API rate-limit reached
-local gIgnoreBelowAid = 8694
+local gIgnoreBelowAid = 8695
 
 
 
@@ -20,6 +20,7 @@ local gIgnoreBelowAid = 8694
 
 local db = require("db")
 local requestQueue = require("requestQueue")
+local socket = require("socket")
 
 
 
@@ -37,7 +38,7 @@ for _, s in ipairs(seen) do
 				return
 			end
 		end
+		socket.sleep(3)
 	end
-	require("copas").sleep(3)
 end
 print("All items updated.")
