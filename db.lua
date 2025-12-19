@@ -627,28 +627,6 @@ end
 
 
 
---- Updates Anime and AnimeTitle tables from a dump
-function db.updateAniDbDataFromDump(aDumpFunction)
-	local c = ensureDb()
-
-	checkSql(c, c:exec("BEGIN;"), "updateAniDbDataFromDump.begin")
-	checkSql(c, c:exec("PRAGMA foreign_keys = OFF;"), "updateAniDbDataFromDump.fkoff")
-
-	checkSql(c, c:exec("DELETE FROM AnimeTitle;"), "updateAniDbDataFromDump.clearTitle")
-	checkSql(c, c:exec("DELETE FROM Anime;"), "updateAniDbDataFromDump.clearAnime")
-
-	if (aDumpFunction) then
-		aDumpFunction(c)
-	end
-
-	checkSql(c, c:exec("PRAGMA foreign_keys = ON;"), "updateAniDbDataFromDump.fkon")
-	checkSql(c, c:exec("COMMIT;"), "updateAniDbDataFromDump.commit")
-end
-
-
-
-
-
 --- Stores or updates details retrieved from AniDB
 -- The details are a full details table parsed out of AniDB's HTTP API XML response
 function db.storeAnimeDetails(aDetails)
@@ -1022,10 +1000,10 @@ end
 function db.updateAniDbDataFromDump(aXmlString)
 	-- Disable foreign keys during replacement
 	local c = ensureDb()
-	checkSql(c, c:exec("BEGIN TRANSACTION"),          "updateAniDb.begin")
-	checkSql(c, c:exec("PRAGMA foreign_keys = OFF;"), "updateAniDb.fkoff")
-	checkSql(c, c:exec("DELETE FROM AnimeTitle;"),    "updateAniDb.delTitle")
-	checkSql(c, c:exec("DELETE FROM Anime;"),         "updateAniDb.delAnime")
+	checkSql(c, c:exec("PRAGMA foreign_keys = OFF;"), "updateAniDbDataFromDump.fkoff")
+	checkSql(c, c:exec("BEGIN TRANSACTION"),          "updateAniDbDataFromDump.begin")
+	checkSql(c, c:exec("DELETE FROM AnimeTitle;"),    "updateAniDbDataFromDump.delTitle")
+	checkSql(c, c:exec("DELETE FROM Anime;"),         "updateAniDbDataFromDump.delAnime")
 
 	local lxp = require("lxp")
 	local stmtInsertAnime = assert(c:prepare("INSERT INTO Anime(aId) VALUES(?);"))
@@ -1042,9 +1020,9 @@ function db.updateAniDbDataFromDump(aXmlString)
 		StartElement = function(_, aName, aAttr)
 			if (aName == "anime") then
 				curAnimeId = tonumber(aAttr.aid)
-				checkSql(c, stmtInsertAnime:bind_values(curAnimeId), "updateAniDb.insertAnime.bind")
-				checkSql(c, stmtInsertAnime:step(),  "updateAniDb.insertAnime.step")
-				checkSql(c, stmtInsertAnime:reset(), "updateAniDb.insertAnime.reset")
+				checkSql(c, stmtInsertAnime:bind_values(curAnimeId), "updateAniDbDataFromDump.insertAnime.bind")
+				checkSql(c, stmtInsertAnime:step(),  "updateAniDbDataFromDump.insertAnime.step")
+				checkSql(c, stmtInsertAnime:reset(), "updateAniDbDataFromDump.insertAnime.reset")
 			elseif (aName == "title") then
 				curTitleLang = aAttr["xml:lang"]
 				curTitleKind = aAttr.type
@@ -1059,8 +1037,8 @@ function db.updateAniDbDataFromDump(aXmlString)
 					curAnimeId, curTitleLang, curTitleKind,
 					curTitleText, curTitleText:lower()
 				), "updateAniDb.insertTitle.bind")
-				checkSql(c, stmtInsertTitle:step(), "updateAniDb.insertTitle.step")
-				checkSql(c, stmtInsertTitle:reset(), "updateAniDb.insertTitle.reset")
+				checkSql(c, stmtInsertTitle:step(), "updateAniDbDataFromDump.insertTitle.step")
+				checkSql(c, stmtInsertTitle:reset(), "updateAniDbDataFromDump.insertTitle.reset")
 				insideTitle = false
 			end
 		end,
@@ -1079,9 +1057,9 @@ function db.updateAniDbDataFromDump(aXmlString)
 	stmtInsertTitle:finalize()
 
 	-- Re-enable foreign keys
-	checkSql(c, c:exec("PRAGMA foreign_keys = ON;"), "updateAniDb.fkon")
 	db.setLastAniDbUpdate(os.time())
-	checkSql(c, c:exec("COMMIT TRANSACTION"), "updateAniDb.commit")
+	checkSql(c, c:exec("COMMIT TRANSACTION"), "updateAniDbDataFromDump.commit")
+	checkSql(c, c:exec("PRAGMA foreign_keys = ON;"), "updateAniDbDataFromDump.fkon")
 end
 
 
