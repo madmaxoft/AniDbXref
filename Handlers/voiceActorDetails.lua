@@ -15,10 +15,10 @@ local requestQueue = require("requestQueue")
 
 
 
-return function(aClient, aPath, aParams, aHeaders)
+return function(aClient, aPath, aHeaders)
 	local vaId = tonumber(aPath:match("^/voiceActor/(%d+)$"))
 	if not(vaId) then
-		return httpResponse.write(aClient, 400, "text/plain", "Invalid vaId")
+		return httpResponse.sendError(aClient, 400, "Invalid vaId")
 	end
 
 	local details = db.getVoiceActorDetails(vaId)

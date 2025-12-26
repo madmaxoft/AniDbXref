@@ -6,7 +6,7 @@ local requestQueue = require("requestQueue")
 
 
 
-return function(aClient, aPath, aParams, aHeaders)
+return function(aClient, aPath, aHeaders)
 	local aId = tonumber(aPath:match("^/anime/(%d+)$"))
 	if not(aId) then
 		return httpResponse.write(aClient, 400, "text/plain", "Invalid aId")

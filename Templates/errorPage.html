@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Server Error</title>
+<style>
+	body { font-family: sans-serif; background: #eee; padding: 1em; }
+	pre { background: #fff; border: 1px solid #ccc; padding: 1em; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Server Error <%= errorCode %></h1>
+<p>An error occurred while processing the request:</p>
+<pre><%= errorText or "" %></pre>
+<p><a href="/">Return to Home</a></p>
+</body>
+</html>

@@ -1,6 +1,9 @@
--- importSeenFromPlaces.lua
+-- Handlers/importUI.lua
 
---[[ Handles importing into the Seen list from an uploaded "places.sqlite" file from a browser.
+--[[
+Handles importing:
+	- into the Seen list from an uploaded "places.sqlite" file from a browser.
+	- an XML file with single anime details
 Handles, displaying the form (GET request), processing the uploaded file (POST request),
 displaying the matched items for review (GET) and updating the matches based on user choices in the form (POST)
 The handlers are returned in a table as named functions
@@ -28,18 +31,8 @@ local I = {}
 
 
 
---- Handles the GET request for "/import", displaying a file-upload form
-function I.get(aClient)
-	local body = require("Templates").import()
-	return httpResponse.send(aClient, "200 OK", nil, body)
-end
-
-
-
-
-
 --- Handles the POST request for "/import" for the places.sqlite file
-local function handlePostPlacesFile(aClient, aPath, aPatternMatches, aRequestHeaders, aFileContents)
+local function handlePostPlacesFile(aClient, aPath, aRequestHeaders, aFileContents)
 	-- Store to a temp disk file:
 	require("lfs").mkdir("Import")
 	local fileName = string.format("Import/%s.sqlite", os.date("%Y-%m-%d-%H-%M-%S"))
@@ -60,8 +53,8 @@ end
 
 
 
---- Handles the POST request for "/import" for the places.sqlite file
-local function handlePostDetailsFile(aClient, aPath, aPatternMatches, aRequestHeaders, aFileContents)
+--- Handles the POST request for "/import" for a details XML file
+local function handlePostDetailsFile(aClient, aPath, aRequestHeaders, aFileContents)
 	-- XML-parse the contents:
 	local parsedLom = lomParser.parse(aFileContents)
 	if not(parsedLom) then
@@ -82,22 +75,10 @@ end
 
 
 
---- Handles the POST request for "/import", parsing the uploaded file and processing it
--- Bases the processing on the name of the form element that the browser sends
-function I.post(aClient, aPath, aPatternMatches, aRequestHeaders)
-	-- Extract the uploaded file contents:
-	local body = httpRequest.readBody(aClient, aRequestHeaders)
-	local m = multipart(body, aRequestHeaders["content-type"])
-	local placesFileContents = (m:get("placesFile") or {}).value
-	if (placesFileContents) then
-		return handlePostPlacesFile(aClient, aPath, aPatternMatches, aRequestHeaders, placesFileContents)
-	end
-	local detailsFileContents = (m:get("detailsFile") or {}).value
-	if (detailsFileContents) then
-		return handlePostDetailsFile(aClient, aPath, aPatternMatches, aRequestHeaders, detailsFileContents)
-	end
-
-	return httpResponse.send(aClient, "400 Bad upload", nil, "No idea how to handle the file")
+--- Handles the GET request for "/import", displaying a file-upload form
+function I.get(aClient)
+	local body = require("Templates").import()
+	return httpResponse.send(aClient, "200 OK", nil, body)
 end
 
 
@@ -106,10 +87,10 @@ end
 
 --- Handles the GET request for "/import/test", a testing endpoint that builds a session
 -- from an existing "Import/places.sqlite" file. Used for testing.
-function I.importTest(aClient, aPath, aPatternMatches, aRequestHeaders)
+function I.getImportTest(aClient, aPath, aRequestHeaders)
 	local session = import.buildSession("Import/places.sqlite")
 	if (session.items.n == 0) then
-		return httpResponse.sendRedirect(aClient, "/")
+		return httpResponse.sendRedirect(aClient, "/import")
 	end
 	return httpResponse.sendRedirect(aClient, "/import/review/" .. session.id)
 end
@@ -120,7 +101,7 @@ end
 
 --- Handles the GET request for "/import/review/<id>"
 -- Shows the form for the user to review the matches in the specified session
-function I.reviewGet(aClient, aPath, aPatternMatches, aRequestHandlers)
+function I.getReview(aClient, aPath, aRequestHandlers)
 	local id = tonumber(string.match(aPath, "^/import/review/(%d+)$"))
 	local session = import.getSession(id)
 	if not(session) then
@@ -134,13 +115,35 @@ end
 
 
 
---- Handles the POST request for "/import/review/<id>"
+--- Handles the POST request for "/import", parsing the uploaded file and processing it
+-- Bases the processing on the name of the form element that the browser sends
+function I.post(aClient, aPath, aRequestHeaders)
+	-- Extract the uploaded file contents:
+	local body = httpRequest.readBody(aClient, aRequestHeaders)
+	local m = multipart(body, aRequestHeaders["content-type"])
+	local placesFileContents = (m:get("placesFile") or {}).value
+	if (placesFileContents) then
+		return handlePostPlacesFile(aClient, aPath, aRequestHeaders, placesFileContents)
+	end
+	local detailsFileContents = (m:get("detailsFile") or {}).value
+	if (detailsFileContents) then
+		return handlePostDetailsFile(aClient, aPath, aRequestHeaders, detailsFileContents)
+	end
+
+	return httpResponse.send(aClient, "400 Bad upload", nil, "No idea how to handle the file")
+end
+
+
+
+
+
+--- Handles the POST request for "/import/review/<sessionid>"
 -- Updates the session based on the radio button selections:
 --   - if a candidate is selected, marks the candidate as seen and removes it from the session
 --   - if a search is selected, performs a new search and updates the candidates for the item
 --   - if no radio is selected, doesn't do anything (keeps the item as-is)
 -- If there are no items to process anymore, finishes the session and redirects back to home.
-function I.reviewPost(aClient, aPath, aPatternMatches, aRequestHeaders)
+function I.postReview(aClient, aPath, aRequestHeaders)
 	-- Find the correct session:
 	local sessionId = tonumber(string.match(aPath, "^/import/review/(%d+)$"))
 	local session = import.getSession(sessionId)
@@ -156,7 +159,7 @@ function I.reviewPost(aClient, aPath, aPatternMatches, aRequestHeaders)
 		local item = session.items[i]
 		local choice = (form:get("candidate_" .. i) or {}).value
 		if (choice == "search") then
-			-- re-search this item
+			-- Re-search this item:
 			local query = (form:get("custom_" .. i) or {}).value
 			if (query) then
 				item.candidates = import.searchCandidates(query)

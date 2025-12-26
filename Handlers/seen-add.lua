@@ -7,7 +7,7 @@ local db = require("db")
 
 
 
-return function(aClient, aRequestPath, aRequestParameters, aRequestHeaders)
+return function(aClient, aRequestPath, aRequestHeaders)
 	-- Only POST should reach here
 	local body = httpRequest.readBody(aClient, aRequestHeaders)
 	local form = httpRequest.parseFormUrlEncoded(body)

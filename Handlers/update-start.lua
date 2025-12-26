@@ -1,15 +1,15 @@
 --- Starts the AniDB dump update in background
-return function(aClient, aRequestPath, aRequestParameters, aRequestHeaders)
+return function(aClient, aRequestPath, aRequestHeaders)
 	local db = require("db")
 	local httpResponse = require("httpResponse")
 	local lastUpdate = db.getLastAniDbUpdate()
 	local now = os.time()
-	local nextAllowed = lastUpdate + 24*3600
-	
+	local nextAllowed = lastUpdate + 24 * 3600
+
 	-- DEBUG:
 	local isLocal = true
 
-	if (not(isLocal) and ((now - lastUpdate) < 24*3600)) then
+	if (not(isLocal) and ((now - lastUpdate) < 24 * 3600)) then
 		local lastStr = os.date("%Y-%m-%d %H:%M:%S", lastUpdate)
 		local nextStr = os.date("%Y-%m-%d %H:%M:%S", nextAllowed)
 		return httpResponse.send(aClient, 403, {["Content-Type"] = "text/plain"},

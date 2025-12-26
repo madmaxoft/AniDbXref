@@ -10,6 +10,9 @@ Route handlers live in the Handlers subfolder.
 
 
 local copas = require("copas")
+local httpRequest = require("httpRequest")
+local httpResponse = require("httpResponse")
+local socket = require("socket")
 
 
 
@@ -22,25 +25,86 @@ local router = {}
 
 
 -- Define static routes:
-router.routes = {
-	{ method = "GET",  pattern = "^/$",                       handler = require("Handlers.home") },
-	{ method = "GET",  pattern = "^/[Ss]tatic/.*",            handler = require("Handlers.static") },
-	{ method = "POST", pattern = "^/update%-start$",          handler = require("Handlers.update-start") },
-	{ method = "GET",  pattern = "^/update%-confirm$",        handler = require("Handlers.update-confirm") },
-	{ method = "GET",  pattern = "^/search?.*",               handler = require("Handlers.search") },
-	{ method = "POST", pattern = "^/seen/add$",               handler = require("Handlers.seen-add") },
-	{ method = "GET",  pattern = "^/anime/%d+$",              handler = require("Handlers.anime-details") },
-	{ method = "GET",  pattern = "^/favicon.ico$",            handler = require("Handlers.favicon") },
-	{ method = "GET",  pattern = "^/import$",                 handler = require("Handlers.import").get },
-	{ method = "POST", pattern = "^/import$",                 handler = require("Handlers.import").post },
-	{ method = "GET",  pattern = "^/import/test$",            handler = require("Handlers.import").importTest },
-	{ method = "GET",  pattern = "^/import/review/",          handler = require("Handlers.import").reviewGet },
-	{ method = "POST", pattern = "^/import/review/",          handler = require("Handlers.import").reviewPost },
-	{ method = "GET",  pattern = "^/voiceActors$",            handler = require("Handlers.voiceActors") },
-	{ method = "GET",  pattern = "^/voiceActor/%d+",          handler = require("Handlers.voiceActorDetails") },
-	{ method = "GET",  pattern = "^/force%-update%-details/", handler = require("Handlers.force-update-details") },
-	{ method = "GET",  pattern = "^/shutdown$",               handler = function() copas.removeserver(copas.mainServer); copas.exit() end },
+-- NOTE: The matcher goes from top to bottom and uses the first substring match,
+-- so the more generic URLs need to go at the bottom
+-- Otherwise, the routes generally follow an alpha-sorted order
+router.routes =
+{
+	GET =
+	{
+		{ path = "/anime/",                handler = require("Handlers.anime-details") },
+		{ path = "/favicon.ico",           handler = require("Handlers.favicon") },
+		{ path = "/import/review/",        handler = require("Handlers.importUI").getReview },
+		{ path = "/import/test",           handler = require("Handlers.importUI").getImportTest },
+		{ path = "/import",                handler = require("Handlers.importUI").get },
+		{ path = "/force-update-details/", handler = require("Handlers.force-update-details") },
+		{ path = "/search?",               handler = require("Handlers.search") },
+		{ path = "/shutdown",              handler = require("Handlers.shutdown") },
+		{ path = "/static/",               handler = require("Handlers.static") },
+		{ path = "/Static/",               handler = require("Handlers.static") },
+		{ path = "/update-confirm",        handler = require("Handlers.update-confirm") },
+		{ path = "/voiceActor/",           handler = require("Handlers.voiceActorDetails") },
+		{ path = "/voiceActors",           handler = require("Handlers.voiceActors") },
+		{ path = "/",                      handler = require("Handlers.home") },
+	},
+	POST =
+	{
+		{ path = "/import/review/", handler = require("Handlers.importUI").postReview },
+		{ path = "/import",         handler = require("Handlers.importUI").post },
+		{ path = "/seen/add",       handler = require("Handlers.seen-add") },
+		{ path = "/update-start",   handler = require("Handlers.update-start") },
+	},
 }
+
+
+
+
+
+--- Calls the specified handler safely - if an error is raised, an error page is served
+function router.dispatchHandler(aClient, aPath, aHeaders, aHandler)
+	-- error handler that adds traceback
+	local function onError(aErr)
+		return debug.traceback(aErr, 2)
+	end
+
+	-- run handler safely
+	local ok, result = xpcall(function()
+		return aHandler(aClient, aPath, aHeaders)
+	end, onError)
+
+	-- If an exception occurred, log and send it to the client:
+	if not(ok) then
+		local errText = result or "Unknown error"
+		print("[router] ERROR during request:\n" .. errText)
+		httpResponse.sendError(aClient, 500, errText)
+	end
+end
+
+
+
+
+
+--- Handles a single HTTP client connection
+function router.handleRequest(aClient)
+	local method, path, headers = httpRequest.readRequestHeaders(aClient)
+	if (not(method) or not(path)) then
+		return
+	end
+
+	local handler = router.match(method, path)
+	if (handler) then
+		local beginTime = socket.gettime()
+		print(string.format("[router] %s Request for path \"%s\".", method, path))
+		router.dispatchHandler(aClient, path, headers, handler)
+		local endTime = socket.gettime()
+		if (endTime - beginTime >= 0.5) then
+			print(string.format("  ^^ Request took %f seconds.", (endTime - beginTime)))
+		end
+	else
+		print(string.format("[router] UNHANDLED: %s Request for path \"%s\".", method, path))
+		httpResponse.sendError(aClient, "404 Not Found")
+	end
+end
 
 
 
@@ -49,10 +113,12 @@ router.routes = {
 --- Returns the function matching the specified method and path, and optionally captures from the route's pattern
 -- Returns nil if no match found
 function router.match(aMethod, aPath)
-	for _, route in ipairs(router.routes) do
-		local captures = { aPath:match(route.pattern) }
-		if ((route.method == aMethod) and (#captures > 0 or aPath:match(route.pattern))) then
-			return route.handler, captures
+	assert(type(aMethod) == "string")
+	assert(type(aPath) == "string")
+
+	for _, route in ipairs(router.routes[aMethod] or {}) do
+		if (route.path == string.sub(aPath, 1, #route.path)) then
+			return route.handler
 		end
 	end
 end
