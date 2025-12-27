@@ -2,6 +2,7 @@ local socket = require("socket.http")
 local ltn12 = require("ltn12")
 local lxp = require("lxp")
 local db = require("db")
+local lfs = require("lfs")
 
 
 
@@ -13,18 +14,33 @@ local M = {}
 
 
 
---- Fetches AniDB XML for the specified aId
--- Inflates the result if the server used gzip encoding
-function M.fetchXml(aId)
-	assert(tonumber(aId))
+--- Returns the contents of the specified file
+-- Returns nil and error message on failure
+local function readFileContents(aFileName)
+	local f = io.open(aFileName, "rb")
+	if not(f) then
+		return nil, "Cannot open file"
+	end
+	local res = f:read("*all")
+	f:close()
+	return res
+end
 
-	local url = "http://api.anidb.net:9001/httpapi?client=anidbxref&clientver=1&protover=1&request=anime&aid=" .. aId
+
+
+
+
+--- Returns the body returned by sending an http request to the specified URL
+-- Returns nil and error message on failure
+local function fetchUrl(aUrl)
+	-- Request:
 	local response = {}
 	local ok, code, headers = socket.request{
-		url = url,
+		url = aUrl,
 		sink = ltn12.sink.table(response),
 		headers = {
 			["User-Agent"] = "AniDbXref/1",
+			["Accept-Encoding"] = "gzip",
 		},
 	}
 	if (not(ok) or (code ~= 200)) then
@@ -32,7 +48,7 @@ function M.fetchXml(aId)
 	end
 	local body = table.concat(response)
 
-	-- Unzip the body, if the server returns it zipped
+	-- Unzip the body, if the server returns it zipped:
 	if (
 		(headers["content-encoding"] == "gzip") or
 		(body:sub(1,2) == "\031\139")
@@ -42,6 +58,55 @@ function M.fetchXml(aId)
 	end
 
 	return body
+end
+
+
+
+
+
+--- Fetches AniDB XML for the specified aId
+-- Tries the following sources in order (examples for aId = 1234):
+--   1. Local file "AniDB/12/1234.xml"  (canonical format)
+--   2. Local file "AniDB/012/1234.xml" (used by earlier versions of our requestQueue)
+--   3. Local file "AniDB/1234.xml"     (used by earliest versions)
+--   4. https://xoft.cz/AniDbMirror/api/get...
+--   5. http://api.anidb.net:9001/httpapi...
+-- Auto-inflates the result if the server used gzip encoding
+-- If the file was requested through API, saves it locally under "AniDB/aIdHundreds/aId.xml"
+function M.fetchXml(aId)
+	assert(tonumber(aId))
+
+	-- Check each source:
+	local isReadFromFile = true
+	local canonicalFolder = string.format("AniDB/%d", math.floor(aId / 100))
+	local canonicalFileName = string.format("%s/%d.xml", canonicalFolder, aId)
+	local response = readFileContents(canonicalFileName)
+	if not(response) then
+		response = readFileContents(string.format("AniDB/%d.xml", aId))
+	end
+	if not(response) then
+		response = readFileContents(string.format("AniDB/%.03d/%d.xml", math.floor(aId / 100), aId))
+	end
+	if not(response) then
+		isReadFromFile = false
+		response = fetchUrl("https://xoft.cz/AniDbMirror/api/get?id=" .. aId)
+	end
+	if not(response) then
+		response = fetchUrl("http://api.anidb.net:9001/httpapi?client=anidbxref&clientver=1&protover=1&request=anime&aid=" .. aId)
+	end
+
+	-- Store locally, if requested via API:
+	if (response and not(isReadFromFile)) then
+		lfs.mkdir("AniDB")
+		lfs.mkdir(canonicalFolder)
+		local f = io.open(canonicalFileName, "wb")
+		if (f) then
+			f:write(response)
+			f:close()
+		end
+	end
+
+	return response
 end
 
 

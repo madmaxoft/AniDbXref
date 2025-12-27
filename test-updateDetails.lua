@@ -7,15 +7,9 @@ The fetching can be disabled in order to test on locally cached data.
 
 -- The anime's ID
 -- local gAnimeIdToFetch = 1543  -- Samurai Champloo
-local gAnimeIdToFetch = 7729  -- Steins;Gate
+-- local gAnimeIdToFetch = 7729  -- Steins;Gate
 -- local gAnimeIdToFetch = 11167  -- Steins;Gate 0
-
-local xmlFileFolder = string.format("AniDB/%03d", math.floor(gAnimeIdToFetch / 100))
-local xmlFileName = string.format("%s/%d.xml", xmlFileFolder, gAnimeIdToFetch)
-
-
---- Should the data be fetched? If false, loads the data from a local file
-local gShouldTestFetching = false
+local gAnimeIdToFetch = 17001  -- Fuufu Ijou
 
 
 
@@ -49,16 +43,9 @@ end
 
 
 -- Read the XML data, either from remote or from local cache:
-local xml
-if (gShouldTestFetching) then
-	xml = details.fetchXml(gAnimeIdToFetch)
-	local f = assert(io.open(xmlFileName, "wb"))
-	f:write(xml)
-	f:close()
-else
-	local f = assert(io.open(xmlFileName, "rb"))
-	xml = f:read("*all")
-	f:close()
+local xml, msg = details.fetchXml(gAnimeIdToFetch)
+if not(xml) then
+	print("Failed to fetch XML: " .. tostring(msg))
 end
 
 -- Parse the details:

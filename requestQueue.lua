@@ -75,10 +75,6 @@ local gNumRequests = 0
 function RQ.performRequest(aAnimeId)
 	gNumRequests = gNumRequests + 1
 	log("RequestQueue", "Requesting details for anime %d, request %d", aAnimeId, gNumRequests)
-	local path = string.format("AniDB/%.03d", math.floor(aAnimeId / 100))
-	lfs.mkdir("AniDB")
-	lfs.mkdir(path)
-	local fileName = string.format("%s/%d.xml", path, aAnimeId)
 
 	-- Fetch the details from the API:
 	local apiResponse, err = aniDbDetails.fetchXml(aAnimeId)
@@ -86,11 +82,6 @@ function RQ.performRequest(aAnimeId)
 		log("RequestQueue", "Failed to fetch AniDB APi XML: %s", tostring(err))
 		return nil, err
 	end
-
-	-- Store the response into a file:
-	local f = assert(io.open(fileName, "wb"))
-	f:write(apiResponse)
-	f:close()
 
 	local parsedLom = lomParser.parse(apiResponse)
 	if not(parsedLom) then
