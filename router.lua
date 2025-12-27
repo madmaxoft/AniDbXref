@@ -13,6 +13,7 @@ local copas = require("copas")
 local httpRequest = require("httpRequest")
 local httpResponse = require("httpResponse")
 local socket = require("socket")
+local log = require("logger").log
 
 
 
@@ -75,7 +76,7 @@ function router.dispatchHandler(aClient, aPath, aHeaders, aHandler)
 	-- If an exception occurred, log and send it to the client:
 	if not(ok) then
 		local errText = result or "Unknown error"
-		print("[router] ERROR during request:\n" .. errText)
+		log("router", "ERROR during request:\n" .. errText)
 		httpResponse.sendError(aClient, 500, errText)
 	end
 end
@@ -94,14 +95,14 @@ function router.handleRequest(aClient)
 	local handler = router.match(method, path)
 	if (handler) then
 		local beginTime = socket.gettime()
-		print(string.format("[router] %s Request for path \"%s\".", method, path))
+		log("router", "%s Request for path \"%s\".", method, path)
 		router.dispatchHandler(aClient, path, headers, handler)
 		local endTime = socket.gettime()
 		if (endTime - beginTime >= 0.5) then
-			print(string.format("  ^^ Request took %f seconds.", (endTime - beginTime)))
+			log("router", "  ^^ Request took %f seconds.", (endTime - beginTime))
 		end
 	else
-		print(string.format("[router] UNHANDLED: %s Request for path \"%s\".", method, path))
+		log("router", "UNHANDLED: %s Request for path \"%s\".", method, path)
 		httpResponse.sendError(aClient, "404 Not Found")
 	end
 end

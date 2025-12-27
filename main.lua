@@ -46,7 +46,7 @@ local lzlib     = requireWithHelp("zlib",      "lzlib")
 local multipart = requireWithHelp("multipart", "multipart")
 
 -- Load the templates and utils:
-print = require("logger")
+local log = require("logger").log
 require("Templates")
 require("httpResponse")
 require("httpRequest")
@@ -63,7 +63,7 @@ local router = require("router")
 --- Starts the Copas HTTP server on port 8080
 local function startServer()
 	local serverSocket = assert(socket.bind("*", 8080))
-	print("[main] Server running on http://localhost:8080/")
+	log("main", "Server running on http://localhost:8080/")
 
 	copas.mainServer = serverSocket
 	copas.addserver(serverSocket, function(aSocket)
@@ -71,7 +71,7 @@ local function startServer()
 	end)
 
 	copas.loop()
-	print("[main] Server loop terminated.")
+	log("main", "Server loop terminated.")
 end
 
 
@@ -87,7 +87,7 @@ local function startRequestingDetails()
 
 	-- Add those that are marked as seen but have no details stored:
 	local seenWithoutDetails = db.getSeenWithoutDetails()
-	print(string.format("[RequestQueue] Queueing API calls for %d items.", seenWithoutDetails.n))
+	log("RequestQueue", "Queueing API calls for %d items.", seenWithoutDetails.n)
 	for _, aid in ipairs(seenWithoutDetails) do
 		requestQueue.add(aid)
 	end
@@ -100,4 +100,4 @@ end
 --- Entry point
 startRequestingDetails()
 startServer()
-print("Finished.")
+log("main", "Finished.")

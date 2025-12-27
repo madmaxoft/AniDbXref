@@ -1,6 +1,7 @@
 -- requestQueue.lua
 
---[[ Implements a queue for requesting details.
+--[[
+Implements a queue for requesting details from AniDB.
 The queue runs in background and requests details through AniDB API; backing off if a rate-limit is reached.
 --]]
 
@@ -10,6 +11,7 @@ local aniDbDetails = require("aniDbDetails")
 local lomParser = require("lxp.lom")
 local db = require("db")
 local lfs = require("lfs")
+local log = require("logger").log
 
 
 
@@ -72,7 +74,7 @@ end
 local gNumRequests = 0
 function RQ.performRequest(aAnimeId)
 	gNumRequests = gNumRequests + 1
-	print(string.format("[RequestQueue] Requesting details for anime %d, request %d", aAnimeId, gNumRequests))
+	log("RequestQueue", "Requesting details for anime %d, request %d", aAnimeId, gNumRequests)
 	local path = string.format("AniDB/%.03d", math.floor(aAnimeId / 100))
 	lfs.mkdir("AniDB")
 	lfs.mkdir(path)
@@ -81,7 +83,7 @@ function RQ.performRequest(aAnimeId)
 	-- Fetch the details from the API:
 	local apiResponse, err = aniDbDetails.fetchXml(aAnimeId)
 	if not(apiResponse) then
-		print("[RequestQueue] Failed to fetch AniDB APi XML: " .. tostring(err))
+		log("RequestQueue", "Failed to fetch AniDB APi XML: %s", tostring(err))
 		return nil, err
 	end
 
@@ -92,27 +94,27 @@ function RQ.performRequest(aAnimeId)
 
 	local parsedLom = lomParser.parse(apiResponse)
 	if not(parsedLom) then
-		print(string.format(
-			"[RequestQueue] FAILED to xml-parse response for anime %d. Response saved to file %s",
+		log("RequestQueue",
+			"FAILED to xml-parse response for anime %d. Response saved to file %s",
 			aAnimeId, fileName
-		))
+		)
 		return nil, "xml-parse-failed"
 	end
 
 	-- If the API returned an <error> response, parse it and decide what kind of failure it is:
 	if (type(parsedLom) ~= "table") then
-		print(string.format(
-			"[RequestQueue] Unknown API response received for anime %d. Response saved to file %s",
+		log("RequestQueue",
+			"Unknown API response received for anime %d. Response saved to file %s",
 			aAnimeId, fileName
-		))
+		)
 		return nil, "unknown-xml-format"
 	end
 	if (parsedLom.tag == "error") then
 		local code = tostring((parsedLom.attr or {}).code)
-		print(string.format(
-			"[RequestQueue] ERROR code %s returned for anime %d. Response saved to file %s",
+		log("RequestQueue",
+			"ERROR code %s returned for anime %d. Response saved to file %s",
 			code, aAnimeId, fileName
-		))
+		)
 		if (code == "500") then
 			return nil, "rate-limit"
 		else
@@ -123,12 +125,12 @@ function RQ.performRequest(aAnimeId)
 	-- Transform the parsed LOM object into the details table:
 	local parsedDetails = aniDbDetails.transformParsedIntoDetails(parsedLom)
 	if not(parsedDetails.aId) then
-		print("[RequestQueue] Failed to transform AniDB API XML to details.")
+		log("RequestQueue", "Failed to transform AniDB API XML to details.")
 		return nil, "parse-details-failed"
 	end
 
 	db.storeAnimeDetails(parsedDetails)
-	print("[RequestQueue] Updated anime details for " .. tostring(aAnimeId))
+	log("RequestQueue", "Updated anime details for %d", aAnimeId)
 	return true
 end
 

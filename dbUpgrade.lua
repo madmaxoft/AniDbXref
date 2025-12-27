@@ -3,6 +3,7 @@
 
 local sqlite3 = require("lsqlite3")
 local lfs = require("lfs")
+local log = require("logger").log
 
 local dbUpgrade = {}
 
@@ -33,7 +34,7 @@ function dbUpgrade.backupDbFile(aDbPath)
 	lfs.mkdir("Backups/" .. year)
 	lfs.mkdir("Backups/" .. year .. "/" .. day)
 	local backupPath = "Backups/" .. year .. "/" .. day .. "/" .. aDbPath:gsub("%.sqlite$", "") .. "-" .. timeStamp .. ".sqlite"
-	print("[DB] Creating backup: " .. backupPath)
+	log("dbUpgrade", "Creating backup: %s", backupPath)
 	dbUpgrade.copyFile(aDbPath, backupPath)
 end
 
@@ -223,11 +224,11 @@ function dbUpgrade.upgradeIfNeeded(aConn, aDbPath)
 	local latest = upgrades[#upgrades].version
 
 	if (current >= latest) then
-		print("[DB] Schema up to date (v" .. current .. ")")
+		log("dbUpgrade", "Schema up to date (v%d)", current)
 		return
 	end
 
-	print("[DB] Current schema v" .. current .. ", latest v" .. latest .. " — upgrading...")
+	log("dbUpgrade", "Current schema v%d, latest v%d - upgrading...", current, latest)
 
 	-- Ensure KeyValue table exists early for first-time DBs
 	aConn:exec("CREATE TABLE IF NOT EXISTS KeyValue (key TEXT PRIMARY KEY, value TEXT);")
@@ -235,13 +236,13 @@ function dbUpgrade.upgradeIfNeeded(aConn, aDbPath)
 	for i = 1, #upgrades do
 		local u = upgrades[i]
 		if (u.version > current) then
-			print("[DB] Applying upgrade to v" .. u.version .. "...")
+			log("dbUpgrade", "Applying upgrade to v%d", u.version)
 			local result = aConn:exec(u.script)
 			if (result ~= sqlite3.OK) then
 				error("DB upgrade to v" .. u.version .. " failed: " .. aConn:errmsg())
 			end
 			dbUpgrade.setSchemaVersion(aConn, u.version)
-			print("[DB] Schema upgraded to v" .. u.version)
+			log("dbUpgrade", "Schema upgraded to v%d", u.version)
 		end
 	end
 end

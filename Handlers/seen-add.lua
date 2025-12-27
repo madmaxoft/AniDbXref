@@ -2,6 +2,7 @@
 local httpRequest = require("httpRequest")
 local httpResponse = require("httpResponse")
 local db = require("db")
+local log = require("logger").log
 
 
 
@@ -26,6 +27,6 @@ return function(aClient, aRequestPath, aRequestHeaders)
 	end
 
 	-- Redirect to home
-	print("Marked " .. tostring(aId) .. " as seen. Redirecting to home.")
+	log("seen-add", "Marked %d as seen. Redirecting to home.", aId)
 	httpResponse.send(aClient, 302, { ["Location"] = "/" }, "Redirecting to home...")
 end
