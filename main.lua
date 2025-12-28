@@ -81,13 +81,11 @@ end
 --- Queues requesting details through AniDB API
 local function startRequestingDetails()
 	-- Start the background requester thread:
-	copas.addthread(function()
-		requestQueue.run()
-	end)
+	requestQueue.start()
 
 	-- Add those that are marked as seen but have no details stored:
 	local seenWithoutDetails = db.getSeenWithoutDetails()
-	log("RequestQueue", "Queueing API calls for %d items.", seenWithoutDetails.n)
+	log("main", "Queueing API calls for details for %d items.", seenWithoutDetails.n)
 	for _, aid in ipairs(seenWithoutDetails) do
 		requestQueue.add(aid)
 	end

@@ -9,7 +9,8 @@ The fetching can be disabled in order to test on locally cached data.
 -- local gAnimeIdToFetch = 1543  -- Samurai Champloo
 -- local gAnimeIdToFetch = 7729  -- Steins;Gate
 -- local gAnimeIdToFetch = 11167  -- Steins;Gate 0
-local gAnimeIdToFetch = 17001  -- Fuufu Ijou
+-- local gAnimeIdToFetch = 17001  -- Fuufu Ijou
+local gAnimeIdToFetch = 19548  -- Ganglion
 
 
 

@@ -19,7 +19,7 @@ local gIgnoreBelowAid = 8695
 
 
 local db = require("db")
-local requestQueue = require("requestQueue")
+local aniDbDetails = require("aniDbDetails")
 local socket = require("socket")
 
 
@@ -31,7 +31,7 @@ table.sort(seen, function (aSeen1, aSeen2)
 end)
 for _, s in ipairs(seen) do
 	if (s.aId >= gIgnoreBelowAid) then
-		local isSuccess, msg = requestQueue.performRequest(s.aId)
+		local isSuccess, msg = aniDbDetails.updateDetailsInDb(s.aId)
 		if not(isSuccess) then
 			if (msg == "rate-limit") then
 				print("Rate limit reached with aId " .. s.aId .. ". Terminating now; re-run the script after setting gIgnoreBelowAid to " .. s.aId)

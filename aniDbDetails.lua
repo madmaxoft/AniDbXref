@@ -1,8 +1,21 @@
+-- aniDbDetails.lua
+
+--[[
+Handles fetching and parsing details for anime titles from AniDB.
+--]]
+
+
+
+
+
 local socket = require("socket.http")
 local ltn12 = require("ltn12")
 local lxp = require("lxp")
+local lomParser = require("lxp.lom")
 local db = require("db")
 local lfs = require("lfs")
+local log = require("logger").log
+local rateLimiter = require("rateLimiter")
 
 
 
@@ -14,17 +27,7 @@ local M = {}
 
 
 
---- Returns the contents of the specified file
--- Returns nil and error message on failure
-local function readFileContents(aFileName)
-	local f = io.open(aFileName, "rb")
-	if not(f) then
-		return nil, "Cannot open file"
-	end
-	local res = f:read("*all")
-	f:close()
-	return res
-end
+local gAniDbRateLimiter = rateLimiter.new(3 * 60 * 60)
 
 
 
@@ -64,49 +67,78 @@ end
 
 
 
---- Fetches AniDB XML for the specified aId
--- Tries the following sources in order (examples for aId = 1234):
---   1. Local file "AniDB/12/1234.xml"  (canonical format)
---   2. Local file "AniDB/012/1234.xml" (used by earlier versions of our requestQueue)
---   3. Local file "AniDB/1234.xml"     (used by earliest versions)
---   4. https://xoft.cz/AniDbMirror/api/get...
---   5. http://api.anidb.net:9001/httpapi...
--- Auto-inflates the result if the server used gzip encoding
--- If the file was requested through API, saves it locally under "AniDB/aIdHundreds/aId.xml"
-function M.fetchXml(aId)
-	assert(tonumber(aId))
+--- Fetches the details from the specified URL, using the specified rate limiter instance
+-- Checks the downloaded data for error responses
+-- Returns the response, or nil and error message on failure
+-- Specific error messages "rate-limit" and "rate-limit-ongoing" are used for rate limit failures.
+-- If the API returns another error message, it is reportd as an error, too, but not counted towards rate limit
+local function fetchUrlWithRateLimit(aUrl, aRateLimiter)
+	assert(type(aUrl) == "string")
+	aRateLimiter = aRateLimiter or rateLimiter.default
+	assert(type(aRateLimiter) == "table")
+	assert(type(aRateLimiter.canAttemptRequest) == "function")
+	assert(type(aRateLimiter.rateLimitReached) == "function")
+	assert(type(aRateLimiter.success) == "function")
 
-	-- Check each source:
-	local isReadFromFile = true
-	local canonicalFolder = string.format("AniDB/%d", math.floor(aId / 100))
-	local canonicalFileName = string.format("%s/%d.xml", canonicalFolder, aId)
-	local response = readFileContents(canonicalFileName)
-	if not(response) then
-		response = readFileContents(string.format("AniDB/%d.xml", aId))
-	end
-	if not(response) then
-		response = readFileContents(string.format("AniDB/%.03d/%d.xml", math.floor(aId / 100), aId))
-	end
-	if not(response) then
-		isReadFromFile = false
-		response = fetchUrl("https://xoft.cz/AniDbMirror/api/get?id=" .. aId)
-	end
-	if not(response) then
-		response = fetchUrl("http://api.anidb.net:9001/httpapi?client=anidbxref&clientver=1&protover=1&request=anime&aid=" .. aId)
+	-- Ask the RateLimiter:
+	if not(aRateLimiter:canAttemptRequest()) then
+		return nil, "rate-limit-ongoing"
 	end
 
-	-- Store locally, if requested via API:
-	if (response and not(isReadFromFile)) then
-		lfs.mkdir("AniDB")
-		lfs.mkdir(canonicalFolder)
-		local f = io.open(canonicalFileName, "wb")
-		if (f) then
-			f:write(response)
-			f:close()
+	-- Fetch the URL:
+	local resp, msg = fetchUrl(aUrl)
+	if not(resp) then
+		-- Request failed, but not due to rate limit. Propagate the failure without reporting to aRateLimiter:
+		return nil, msg
+	end
+
+	-- If the response is too large, it cannot be a rate-limit error:
+	if (#resp > 200) then
+		aRateLimiter:success()
+		return resp
+	end
+
+	-- Parse the response to see if it is a rate-limit error:
+	local parsedLom = lomParser.parse(resp)
+	if not(parsedLom) then
+		-- Failed to parse, not an error:
+		aRateLimiter:success()
+		return resp
+	end
+	if (type(parsedLom) ~= "table") then
+		-- Not a valid LOM response, not an error:
+		aRateLimiter:success()
+		return resp
+	end
+	if (parsedLom.tag == "error") then
+		local code = tostring((parsedLom.attr or {}).code)
+		log("aniDbDetails", "ERROR code %s returned.", code)
+		if (code == "500") then
+			aRateLimiter:ratLimitReached()
+			return nil, "rate-limit"
 		end
+		return nil, string.format("API error %s", code)
 	end
 
-	return response
+	-- Consider everything else a success:
+	aRateLimiter:success();
+	return resp
+end
+
+
+
+
+
+--- Returns the contents of the specified file
+-- Returns nil and error message on failure
+local function readFileContents(aFileName)
+	local f = io.open(aFileName, "rb")
+	if not(f) then
+		return nil, "Cannot open file"
+	end
+	local res = f:read("*all")
+	f:close()
+	return res
 end
 
 
@@ -575,6 +607,61 @@ end
 
 
 
+--- Fetches AniDB XML for the specified aId
+-- Tries the following sources in order (examples for aId = 1234):
+--   1. Local file "AniDB/12/1234.xml"  (canonical format)
+--   2. Local file "AniDB/012/1234.xml" (used by earlier versions of our requestQueue downloader)
+--   3. Local file "AniDB/1234.xml"     (used by earliest versions)
+--   4. https://xoft.cz/AniDbMirror/api/get...
+--   5. http://api.anidb.net:9001/httpapi...
+-- Auto-inflates the result if the server used gzip encoding
+-- If the file was requested through API, saves it locally under "AniDB/aIdHundreds/aId.xml"
+function M.fetchXml(aId)
+	assert(tonumber(aId))
+
+	-- Check each source:
+	local isReadFromFile = true
+	local canonicalFolder = string.format("AniDB/%d", math.floor(aId / 100))
+	local canonicalFileName = string.format("%s/%d.xml", canonicalFolder, aId)
+	local response = readFileContents(canonicalFileName)
+	if not(response) then
+		response = readFileContents(string.format("AniDB/%d.xml", aId))
+	end
+	if not(response) then
+		response = readFileContents(string.format("AniDB/%.03d/%d.xml", math.floor(aId / 100), aId))
+	end
+	if not(response) then
+		isReadFromFile = false
+		response = fetchUrl("https://xoft.cz/AniDbMirror/api/get?id=" .. aId)
+	end
+	if not(response) then
+		response = fetchUrlWithRateLimit(
+			"http://api.anidb.net:9001/httpapi?client=anidbxref&clientver=1&protover=1&request=anime&aid=" .. aId,
+			gAniDbRateLimiter
+		)
+	end
+	if not(response) then
+		return nil, "Cannot fetch details from any source."
+	end
+
+	-- Store locally, if requested via API:
+	if (response and not(isReadFromFile)) then
+		lfs.mkdir("AniDB")
+		lfs.mkdir(canonicalFolder)
+		local f = io.open(canonicalFileName, "wb")
+		if (f) then
+			f:write(response)
+			f:close()
+		end
+	end
+
+	return response
+end
+
+
+
+
+
 --- Transforms the LOM-parsed XML API data into our anime details format table
 -- Raises an error if the LOM data contains an <error> tag
 function M.transformParsedIntoDetails(aParsedLom)
@@ -631,6 +718,57 @@ function M.transformParsedIntoDetails(aParsedLom)
 		end
 	end
 	return details
+end
+
+
+
+
+
+--- Synchronously downloads the details for the specified anime and updates the DB with the data
+-- Returns true if successful, nil and error message on failure
+function M.updateDetailsInDb(aAnimeId)
+	local xml, msg = M.fetchXml(aAnimeId)
+	if not(xml) then
+		return nil, msg
+	end
+
+	local parsedLom, msg = lomParser.parse(xml)
+	if not(parsedLom) then
+		log("aniDbDetails",
+			"FAILED to xml-parse response for anime %d.",
+			aAnimeId
+		)
+		return nil, string.format("Xml parse failed: %s", tostring(msg))
+	end
+
+	-- If the API returned an <error> response, parse it and decide what kind of failure it is:
+	if (type(parsedLom) ~= "table") then
+		log("aniDbDetails",
+			"Unknown API response received for anime %d.",
+			aAnimeId
+		)
+		return nil, "Unknown xml format"
+	end
+	if (parsedLom.tag == "error") then
+		local code = tostring((parsedLom.attr or {}).code)
+		log("aniDbDetails",
+			"ERROR code %s returned for anime %d",
+			code, aAnimeId
+		)
+		return nil, string.format("API error %s", code)
+	end
+
+	-- Transform the parsed LOM object into the details table:
+	local parsedDetails = M.transformParsedIntoDetails(parsedLom)
+	if not(parsedDetails.aId) then
+		log("aniDbDetails", "Failed to transform AniDB API XML to details.")
+		return nil, "Parsing the details failed"
+	end
+
+	-- Store into DB:
+	db.storeAnimeDetails(parsedDetails)
+	log("aniDbDetails", "Updated anime details for %d", aAnimeId)
+	return true
 end
 
 

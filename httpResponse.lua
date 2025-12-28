@@ -5,12 +5,6 @@
 
 
 
-local errorTemplate = require("Templates").errorPage
-
-
-
-
-
 local httpResponse = {}
 
 
@@ -71,12 +65,8 @@ end
 
 --- Sends an HTTP error together with a nicely formatted error page containing the specified code and text
 function httpResponse.sendError(aClient, aErrorCode, aErrorText)
-	local html = errorTemplate({errorText = aErrorText, errorCode = aErrorCode})
-	aClient:send(string.format("HTTP/1.1 %s\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n",
-		tostring(aErrorCode),
-		#html
-	))
-	aClient:send(html)
+	local html = require("Templates").errorPage({errorText = aErrorText, errorCode = aErrorCode})
+	return httpResponse.send(aClient, aErrorCode, nil, html)
 end
 
 

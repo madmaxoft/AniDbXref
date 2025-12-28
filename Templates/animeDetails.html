@@ -1,15 +1,16 @@
-<!doctype HTML>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<title>AniDbXref</title>
-<link rel="stylesheet" href="/Static/main.css" />
+	<meta charset="UTF-8">
+	<title>AniDbXref</title>
+	<link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body>
 <a href="/">Back to home</a> |
 <a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a> |
 <a href="/force-update-details/<%= aId %>">Force update details</a>
-<h1><%= details.enTitle %></h1>
-<% if not(details.description) then %>
+<h1><%= details.enTitle or details.xjatTitle %></h1>
+<% if not(details.description or details.startDate) then %>
 <p>Anime details not received yet, check back later.</p>
 <% else %>
 <table>

@@ -8,7 +8,7 @@ The main program starts a LuaSocket-based server wrapped in Copas coroutines for
 ## Data sources
 
 The data is primarily obtained from AniDB.net. The entire list of titles at [http://anidb.net/api/anime-titles.xml.gz] is used to populate the "known" anime titles and to provide searching capability. Since the list should be downloaded at most once per day, a limiter is placed on this update path.
-The second source of data is the [AniDB HTTP API](https://wiki.anidb.net/HTTP_API_Definition), which is used to query the details of a title that the user wishes to add to their list.
+The second source of data is the [AniDB HTTP API](https://wiki.anidb.net/HTTP_API_Definition), which is used to query the details of a title that the user wishes to add to their list. A cache at xoft.cz is used due to AniDB servers being behind strict api rate-limiting.
 The last source of data is an actual web scrape of AniDB webpages for the data that is not available in the API - that is mainly the xref data about voice actors.
 
 
@@ -19,7 +19,7 @@ The database module provides access to the data in the SQLite database, wrapped 
 
 ## Router
 
-The router handles routing the individual HTTP requests to their respective handlers. Each route entry is identified by an HTTP method, URL patter and the handler function. The handler function takes as parameters the client socket, the URL path, the matches from the URL pattern and the request HTTP headers. The handler is expected to send the response to the client, possibly using the httpResponse module.
+The router handles routing the individual HTTP requests to their respective handlers. Each route entry is identified by an HTTP method, URL beginning and the handler function. The handler function takes as parameters the client socket, the URL path and the request HTTP headers. The handler is expected to send the response to the client, possibly using the httpResponse module.
 
 There is a special handler that handles serving static files from the Static folder.
 

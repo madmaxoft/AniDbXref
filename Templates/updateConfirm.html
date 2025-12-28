@@ -1,11 +1,15 @@
-<html>
-<head><title>AniDB Update Confirmation</title></head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>AniDB Update Confirmation</title>
+</head>
 <body>
 <h1>AniDB Dump Update</h1>
 <p>Last update: <%= lastUpdate %></p>
 <p>Next allowed update: <%= nextUpdate %></p>
 
-<% if canUpdate then %>
+<% if (canUpdate) then %>
 <form action="/update-start" method="post">
 	<button type="submit">Start Update</button>
 </form>

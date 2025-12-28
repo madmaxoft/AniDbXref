@@ -2,6 +2,7 @@
 local httpRequest = require("httpRequest")
 local httpResponse = require("httpResponse")
 local db = require("db")
+local requestQueue = require("requestQueue")
 local log = require("logger").log
 
 
@@ -15,18 +16,21 @@ return function(aClient, aRequestPath, aRequestHeaders)
 
 	local aId = tonumber(form.aId)
 	if not(aId) then
-		return httpResponse.send(aClient, 400, "text/plain", "Missing or invalid aId parameter")
+		return httpResponse.sendError(aClient, 400, "Missing or invalid aId parameter")
 	end
 
+	-- Mark as seen in the DB:
 	local ok, err = pcall(function()
 		db.markAnimeSeen(aId)
 	end)
-
 	if not(ok) then
-		return httpResponse.send(aClient, 500, "text/plain", "Database error: " .. tostring(err))
+		return httpResponse.sendError(aClient, 500, "Database error: " .. tostring(err))
 	end
 
-	-- Redirect to home
+	-- Add to request queue so that the details are queried soon:
+	requestQueue.add(aId)
+
+	-- Redirect to home:
 	log("seen-add", "Marked %d as seen. Redirecting to home.", aId)
-	httpResponse.send(aClient, 302, { ["Location"] = "/" }, "Redirecting to home...")
+	httpResponse.sendRedirect(aClient, "/")
 end
