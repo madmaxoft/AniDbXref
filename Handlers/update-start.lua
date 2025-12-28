@@ -51,5 +51,5 @@ return function(aClient, aRequestPath, aRequestHeaders)
 		log("update", "Update finished.")
 	end)
 
-	httpResponse.send(aClient, 200, {["Content-Type"] = "text/plain"}, "Update started in background.")
+	httpResponse.sendSimpleMessage(aClient, "Update started in background.")
 end

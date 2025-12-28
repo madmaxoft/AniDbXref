@@ -73,4 +73,17 @@ end
 
 
 
+--- Sends a simple page with a message
+-- If title is not given, "AniDbXref" is used
+function httpResponse.sendSimpleMessage(aClient, aMessage, aTitle)
+	assert(type(aMessage) == "string")
+
+	local html = require("Templates").simpleMessage({tile = aTitle, message = aMessage})
+	return httpResponse.send(aClient, 200, nil, html)
+end
+
+
+
+
+
 return httpResponse
