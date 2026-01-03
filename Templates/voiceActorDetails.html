@@ -69,8 +69,8 @@ end
 				<% else %>
 				<% end %>
 				</td>
-				<td><%= ch.enTitle or ch.jaTitle or ch.xjatTitle %></td>
 				<td><%= ch.name %></td>
+				<td><a href="/anime/<%= ch.aId %>"><%= ch.enTitle or ch.jaTitle or ch.xjatTitle %></a></td>
 				<td><%= ch.animeStartDate %></td>
 			</tr>
 			<% end %>
