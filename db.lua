@@ -624,10 +624,49 @@ end
 function db.getAnimeDetails_episodes(aId)
 	assert(tonumber(aId))
 
-	local result = db.getArrayFromQuery("SELECT * FROM AnimeEpisode WHERE aId = ?", {aId}, "getAnimeDetails_episodes")
-	for _, epi in ipairs(result) do
-		epi.titles = db.getArrayFromQuery("SELECT * FROM AnimeEpisodeTitle WHERE aId = ? AND episodeId = ?", {aId, epi.id}, "getAnimeDetails_episodesT")
+	local rows = db.getArrayFromQuery([[
+		SELECT
+			epi.*,
+			title.title    AS title,
+			title.language AS language
+		FROM AnimeEpisode AS epi
+		LEFT JOIN AnimeEpisodeTitle AS title
+			ON title.aId = epi.aId
+			AND title.episodeId = epi.id
+		WHERE epi.aId = ?
+		ORDER BY epi.id
+	]], {aId}, "getAnimeDetails_episodes")
+
+	local result = {}
+	local lastId
+	local cur
+
+	for _, row in ipairs(rows) do
+		if (row.id ~= lastId) then
+			cur = {
+				id = row.id,
+				episodeNumber = row.episodeNumber,
+				kind = row.kind,
+				length = row.length,
+				airDate = row.airDate,
+				titles = {n = 0}
+			}
+			table.insert(result, cur)
+			lastId = row.id
+		end
+
+		-- Only add title if present (LEFT JOIN can produce nulls):
+		if (row.title) then
+			cur.titles.n = cur.titles.n + 1
+			cur.titles[cur.titles.n] =
+			{
+				title = row.title,
+				language = row.language,
+			}
+		end
 	end
+	result.n = #result
+
 	return result
 end
 
