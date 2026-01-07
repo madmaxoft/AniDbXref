@@ -96,12 +96,12 @@ function httpResponse.sendTemplate(aClient, aTemplateName, aTemplateParams)
 
 	local template = templates[aTemplateName]
 	if not(template) then
-		return httpResponse.sendError(aClient, string.format("Template %s failed, inspect log for details", aTemplateName))
+		return httpResponse.sendError(aClient, 500, string.format("Template %s failed, inspect log for details", aTemplateName))
 	end
 	local html, msg = template(aTemplateParams)
 	if not(html) then
 		log("httpResponse", "Template %s execution failed: %s", aTemplateName, tostring(msg))
-		return httpResponse.sendError(aClient, string.format("Template %s execution failed: %s", aTemplateName, tostring(msg)))
+		return httpResponse.sendError(aClient, 500, string.format("Template %s execution failed: %s", aTemplateName, tostring(msg)))
 	end
 	return httpResponse.send(aClient, 200, nil, html)
 end
