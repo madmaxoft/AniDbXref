@@ -1,3 +1,9 @@
+-- Handlers/anime-details.lua
+
+--[[
+Handles displaying the anime details page.
+--]]
+
 local db = require("db")
 local httpResponse = require("httpResponse")
 local requestQueue = require("requestQueue")
@@ -9,7 +15,7 @@ local requestQueue = require("requestQueue")
 return function(aClient, aPath, aHeaders)
 	local aId = tonumber(aPath:match("^/anime/(%d+)$"))
 	if not(aId) then
-		return httpResponse.write(aClient, 400, "text/plain", "Invalid aId")
+		return httpResponse.sendError(aClient, "Invalid aId")
 	end
 
 	local details = db.getAnimeDetails(aId)
@@ -17,7 +23,5 @@ return function(aClient, aPath, aHeaders)
 		requestQueue.add(aId)
 	end
 
-	local template = require("Templates").animeDetails
-	local html = template({ details = details, aId = aId })
-	httpResponse.send(aClient, 200, nil, html)
+	httpResponse.sendTemplate(aClient, "animeDetails", { details = details, aId = aId })
 end

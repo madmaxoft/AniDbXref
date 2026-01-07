@@ -22,6 +22,10 @@ table th {
 	font-weight: bold;
 }
 
+td {
+	vertical-align: top;
+}
+
 
 
 

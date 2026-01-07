@@ -534,38 +534,37 @@ end
 function db.getAnimeDetails(aId)
 	assert(tonumber(aId))
 
-	local c = ensureDb()
-	local result =
-	{
-		aId = aId,
-		characters = db.getAnimeDetails_characters(aId),
-		creators = db.getAnimeDetails_creators(aId),
-		episodes = db.getAnimeDetails_episodes(aId),
-		recommendations = db.getAnimeDetails_recommendations(aId),
-		relatedAnime = db.getAnimeDetails_relatedAnime(aId),
-		similarAnime = db.getAnimeDetails_similarAnime(aId),
-		tags = db.getAnimeDetails_tags(aId),
-		titles = db.getAnimeDetails_titles(aId),
-	}
-
 	-- Get the base details:
-	local stmt = c:prepare([[
-		SELECT startDate, endDate, numEpisodes, description, pictureId, lastUpdated
-		FROM AnimeBaseDetails
-		WHERE aId = ? LIMIT 1;
-	]])
-	if not(stmt) then
-		error("SQL prepare failed (getAnimeDetails): " .. c:errmsg())
+	local c = ensureDb()
+	local result = db.getArrayFromQuery([[
+		SELECT
+			abd.aId AS aId,
+			abd.startDate AS startDate,
+			abd.endDate AS endDate,
+			abd.numEpisodes AS numEpisodes,
+			abd.description AS description,
+			abd.pictureId AS pictureId,
+			abd.lastUpdated AS lastUpdated,
+			CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
+			s.seenDate AS seenDateYmd
+		FROM AnimeBaseDetails AS abd
+		LEFT JOIN Seen AS s ON (abd.aId = s.aId)
+		WHERE abd.aId = ? LIMIT 1;
+	]], {aId}, "getAnimeDetails.BaseDetails")
+	if (not(result) or not(result[1])) then
+		return nil, "Failed to query base details"
 	end
-	checkSql(c, stmt:bind_values(aId), "getAnimeDetails.bind")
-	for row in stmt:nrows() do
-		result.startDate = row.startDate
-		result.endDate = row.endDate
-		result.description = row.description
-		result.pictureId = row.pictureId
-		result.lastUpdated = row.lastUpdated
-	end
-	checkSql(c, stmt:finalize(), "getAnimeDetails.finalize")
+	result = result[1]
+
+	-- Get the domain-specific details:
+	result.characters = db.getAnimeDetails_characters(aId)
+	result.creators = db.getAnimeDetails_creators(aId)
+	result.episodes = db.getAnimeDetails_episodes(aId)
+	result.recommendations = db.getAnimeDetails_recommendations(aId)
+	result.relatedAnime = db.getAnimeDetails_relatedAnime(aId)
+	result.similarAnime = db.getAnimeDetails_similarAnime(aId)
+	result.tags = db.getAnimeDetails_tags(aId)
+	result.titles = db.getAnimeDetails_titles(aId)
 
 	-- Get the most useful titles:
 	result.enTitle = db.pickBestTitle(result.titles, "en")
