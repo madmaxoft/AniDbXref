@@ -50,6 +50,7 @@ router.routes =
 	},
 	POST =
 	{
+		{ path = "/anime/setSeen",  handler = require("Handlers.animeDetails").postSetSeen },
 		{ path = "/import/review/", handler = require("Handlers.importUI").postReview },
 		{ path = "/import",         handler = require("Handlers.importUI").post },
 		{ path = "/seen/add",       handler = require("Handlers.seenAdd") },

@@ -492,6 +492,21 @@ end
 
 
 
+--- Removes the anime from the Seen table
+function db.markAnimeNotSeen(aId)
+	assert(type(aId) == "number")
+
+	db.execBoundStatement(
+		"DELETE FROM Seen WHERE aId = ?",
+		{aId},
+		"markAnimeNotSeen"
+	)
+end
+
+
+
+
+
 --- Marks an anime as seen
 function db.markAnimeSeen(aId, aDateTime)
 	assert(type(aId) == "number")
