@@ -1,4 +1,4 @@
--- force-update-details.lua
+-- forceUpdateDetails.lua
 
 --[[
 Handles the request to force an update to details even when they are already in the DB

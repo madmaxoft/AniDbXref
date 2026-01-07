@@ -33,17 +33,17 @@ router.routes =
 {
 	GET =
 	{
-		{ path = "/anime/",                handler = require("Handlers.anime-details") },
+		{ path = "/anime/",                handler = require("Handlers.animeDetails").get },
 		{ path = "/favicon.ico",           handler = require("Handlers.favicon") },
 		{ path = "/import/review/",        handler = require("Handlers.importUI").getReview },
 		{ path = "/import/test",           handler = require("Handlers.importUI").getImportTest },
 		{ path = "/import",                handler = require("Handlers.importUI").get },
-		{ path = "/force-update-details/", handler = require("Handlers.force-update-details") },
+		{ path = "/force-update-details/", handler = require("Handlers.forceUpdateDetails") },
 		{ path = "/search?",               handler = require("Handlers.search") },
 		{ path = "/shutdown",              handler = require("Handlers.shutdown") },
 		{ path = "/static/",               handler = require("Handlers.static") },
 		{ path = "/Static/",               handler = require("Handlers.static") },
-		{ path = "/update-confirm",        handler = require("Handlers.update-confirm") },
+		{ path = "/update-confirm",        handler = require("Handlers.updateConfirm") },
 		{ path = "/voiceActor/",           handler = require("Handlers.voiceActorDetails") },
 		{ path = "/voiceActors",           handler = require("Handlers.voiceActors") },
 		{ path = "/",                      handler = require("Handlers.home") },
@@ -52,8 +52,8 @@ router.routes =
 	{
 		{ path = "/import/review/", handler = require("Handlers.importUI").postReview },
 		{ path = "/import",         handler = require("Handlers.importUI").post },
-		{ path = "/seen/add",       handler = require("Handlers.seen-add") },
-		{ path = "/update-start",   handler = require("Handlers.update-start") },
+		{ path = "/seen/add",       handler = require("Handlers.seenAdd") },
+		{ path = "/update-start",   handler = require("Handlers.updateStart") },
 	},
 }
 

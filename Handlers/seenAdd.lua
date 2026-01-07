@@ -1,4 +1,9 @@
---- Marks an anime as seen and returns to home
+-- Handlers/seenAdd.lua
+
+--[[
+Marks an anime as seen and returns to home
+--]]
+
 local httpRequest = require("httpRequest")
 local httpResponse = require("httpResponse")
 local db = require("db")

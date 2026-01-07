@@ -1,4 +1,8 @@
---- Starts the AniDB dump update in background
+-- Handlers/updateStart.lua
+
+--[[
+Starts the AniDB dump update in background
+--]]
 
 local log = require("logger").log
 

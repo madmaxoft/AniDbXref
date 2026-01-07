@@ -1,4 +1,9 @@
---- Displays confirmation page for starting AniDB dump update
+-- Handlers/updateConfirm.lua
+
+--[[
+Displays confirmation page for starting AniDB dump update
+--]]
+
 return function(aClient, aRequestPath, aRequestHeaders)
 	local lastUpdate = require("db").getLastAniDbUpdate() or 0
 	local now = os.time()
