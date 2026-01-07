@@ -88,12 +88,61 @@ end
 
 
 
+--- Returns an array-table of all anime IDs in the DB.
+-- Returns an empty array on empty DB.
+-- Returns nil and error message on error.
+function db.allAnimeIDs()
+	-- Query the DB:
+	local dictArray, msg = db.getArrayFromQuery("SELECT aId FROM Anime", {}, "allAnimeIDs")
+	if not(dictArray) then
+		return nil, "Failed to query DB: " .. tostring(msg)
+	end
+
+	-- dictArray is { {aId = ...}, {aId = ...}, ... }
+	-- Convert the array of dict-tables into a plain array of numbers:
+	local res = {}
+	for idx, idRec in ipairs(dictArray) do
+		res[idx] = idRec.aId
+	end
+	res.n = dictArray.n
+	return res
+end
+
+
+
+
+
+--- Begins a DB transaction
+-- Should not be normally used, only meant as optimization for offline tools for doing bulk data modifications
+-- After calling this, the code is expected to eventually call commitTransaction()
+-- aOptionalName is only for logging purposes
+function db.beginTransaction(aOptionalName)
+	local c = ensureDb()
+	checkSql(c, c:exec("BEGIN TRANSACTION"), "beginTransaction." .. tostring(aOptionalName))
+end
+
+
+
+
+
 --- Closes the DB connection
 function db.close()
 	if (conn) then
 		conn:close()
 		conn = nil
 	end
+end
+
+
+
+
+
+--- Commits a DB transaction, previously started with beginTransaction()
+-- Should not be normally used, only meant as optimization for offline tools for doing bulk data modifications
+-- aOptionalName is only for logging purposes
+function db.commitTransaction(aOptionalName)
+	local c = ensureDb()
+	checkSql(c, c:exec("COMMIT"), "commitTransaction." .. tostring(aOptionalName))
 end
 
 
@@ -633,7 +682,7 @@ function db.storeAnimeDetails(aDetails)
 	assert(type(aDetails) == "table")
 
 	local c = ensureDb()
-	checkSql(c, c:exec("BEGIN TRANSACTION"), "storeAnimeDetails.begin")
+	checkSql(c, c:exec("SAVEPOINT anime_details"), "storeAnimeDetails.savepoint")
 	db.storeAnimeBaseDetails(aDetails)
 	db.storeAnimeRelated(aDetails)
 	db.storeAnimeSimilar(aDetails)
@@ -642,7 +691,7 @@ function db.storeAnimeDetails(aDetails)
 	db.storeAnimeCharacters(aDetails)
 	db.storeAnimeTags(aDetails)
 	db.storeAnimeEpisodes(aDetails)
-	checkSql(c, c:exec("COMMIT TRANSACTION"), "storeAnimeDetails.commit")
+	checkSql(c, c:exec("RELEASE SAVEPOINT anime_details"), "storeAnimeDetails.release")
 end
 
 

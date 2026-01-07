@@ -10,7 +10,8 @@ The fetching can be disabled in order to test on locally cached data.
 -- local gAnimeIdToFetch = 7729  -- Steins;Gate
 -- local gAnimeIdToFetch = 11167  -- Steins;Gate 0
 -- local gAnimeIdToFetch = 17001  -- Fuufu Ijou
-local gAnimeIdToFetch = 19548  -- Ganglion
+-- local gAnimeIdToFetch = 19548  -- Ganglion
+local gAnimeIdToFetch = 12661  -- Boruto NNG
 
 
 
@@ -46,11 +47,14 @@ end
 -- Read the XML data, either from remote or from local cache:
 local xml, msg = details.fetchXml(gAnimeIdToFetch)
 if not(xml) then
-	print("Failed to fetch XML: " .. tostring(msg))
+	error("Failed to fetch XML: " .. tostring(msg))
 end
 
 -- Parse the details:
-local parsedLom = require("lxp.lom").parse(xml)
+local parsedLom, msg = require("lxp.lom").parse(xml)
+if not(parsedLom) then
+	error("Failed to parse XML: " .. tostring(msg))
+end
 local parsedDetails = details.transformParsedIntoDetails(parsedLom)
 assert(parsedDetails.aId == gAnimeIdToFetch)
 --[[
