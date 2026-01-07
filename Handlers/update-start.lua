@@ -13,9 +13,6 @@ return function(aClient, aRequestPath, aRequestHeaders)
 	local now = os.time()
 	local nextAllowed = lastUpdate + 24 * 3600
 
-	-- DEBUG:
-	local isLocal = true
-
 	if (not(isLocal) and ((now - lastUpdate) < 24 * 3600)) then
 		local lastStr = os.date("%Y-%m-%d %H:%M:%S", lastUpdate)
 		local nextStr = os.date("%Y-%m-%d %H:%M:%S", nextAllowed)
@@ -35,7 +32,11 @@ return function(aClient, aRequestPath, aRequestHeaders)
 		if not(isLocal) then
 			log("update", "Downloading AniDB dump...")
 			local f = assert(io.open(tmpFile, "wb"))
-			http.request{ url = "http://anidb.net/api/anime-titles.xml.gz", sink = ltn12.sink.file(f) }
+			local isOK, code = http.request{ url = "http://anidb.net/api/anime-titles.xml.gz", sink = ltn12.sink.file(f) }
+			if (not(isOK) or (code ~= 200)) then
+				log("update", "Failed to download AniDB dump: %s", tostring(code))
+				return
+			end
 		end
 
 		-- Decompress
