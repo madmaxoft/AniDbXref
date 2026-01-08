@@ -34,7 +34,7 @@ end
 		<!-- isSeen editor: -->
 		<form action="/anime/setSeen" method="POST" enctype="multipart/form-data">
 				<input type="hidden" name="aId" value="<%= aId %>" />
-				<input type="checkbox" name="isSeen" value="1" <% if (details.isSeen) then %> checked="true" <% end %> >
+				<input type="checkbox" name="isSeen" value="1" <% if (details.isSeen == 1) then %> checked="true" <% end %> >
 				Seen
 				</label>
 				<label>
