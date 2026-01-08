@@ -212,6 +212,14 @@ local upgrades = {
 		]],
 	},
 
+	{
+		version = 3,
+		script = [[
+			CREATE INDEX IF NOT EXISTS idx_AnimeEpisode_aId_id ON AnimeEpisode(aId, id);
+			CREATE INDEX IF NOT EXISTS idx_AnimeEpisodeTitle_aId_episodeId ON AnimeEpisodeTitle(aId, episodeId);
+		]],
+	},
+
 	-- Future upgrades can be added here
 }
 
