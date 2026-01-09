@@ -16,7 +16,6 @@ local zlib = require("zlib")
 
 -- Initialize the DB:
 local db = require("db")
-db.createSchema()
 
 -- Decompress
 local tmpFile = "anime-titles.xml.gz"

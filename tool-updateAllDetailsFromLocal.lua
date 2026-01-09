@@ -70,7 +70,6 @@ end
 
 
 print("Reading all IDs...")
-db.createSchema()
 local allIDs = db.allAnimeIDs()
 local numAll = #allIDs
 local numSkipped = 0

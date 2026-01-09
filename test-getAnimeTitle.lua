@@ -3,13 +3,13 @@
 -- Tests the db.getAnimeTitle() API
 -- Works in a synchronous IDE-debugger-friendly environment
 
+local db = require("db")
+
+
 
 
 
 local aId = 15382
-
-local db = require("db")
-db.createSchema()
 
 
 
