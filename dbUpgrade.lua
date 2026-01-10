@@ -220,6 +220,16 @@ local upgrades = {
 		]],
 	},
 
+	{
+		version = 4,
+		script = [[
+			CREATE INDEX idx_AnimeRelated_aId ON AnimeRelated(aId);
+			CREATE INDEX idx_AnimeRelated_relatedAid ON AnimeRelated(relatedAid);
+			CREATE INDEX idx_AnimeTitle_aId ON AnimeTitle(aId);
+			CREATE INDEX idx_AnimeBaseDetails_aId ON AnimeBaseDetails(aId);
+		]],
+	},
+
 	-- Future upgrades can be added here
 }
 

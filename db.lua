@@ -2,6 +2,7 @@
 -- Database access module
 
 local sqlite3 = require("lsqlite3")
+local log = require("logger").log
 
 local db = {}
 local dbFile = "anime.sqlite"
@@ -677,7 +678,55 @@ end
 function db.getAnimeDetails_relatedAnime(aId)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery("SELECT * FROM AnimeRelated WHERE aId = ?", {aId}, "getAnimeDetails_related")
+	local related, msg = db.getArrayFromQuery(
+		[[
+			SELECT
+				r.relatedAid AS id,
+				r.relation AS relation,
+				a.*,
+				t.title AS title,
+				t.kind AS titleKind,
+				t.language AS titleLanguage,
+				CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
+				s.seenDate AS seenDate
+			FROM AnimeRelated AS r
+			JOIN AnimeBaseDetails AS a ON a.aId = r.relatedAid
+			LEFT JOIN AnimeTitle AS t ON t.aId = a.aId
+			LEFT JOIN Seen AS s
+				ON s.aId = r.aId
+			WHERE r.aId = ?
+		]],
+		{aId}, "getAnimeDetails_related"
+	)
+	if not(related) then
+		log("db", "Failed to query related anime: %s", tostring(msg))
+		return nil
+	end
+
+	local result = {n = 0}
+	local byId = {}
+	for _, row in ipairs(related) do
+		local item = byId[row.id]
+		if not(item) then
+			item = row
+			item.titles = {n = 0}
+			byId[row.id] = item
+			result.n = result.n + 1
+			result[result.n] = item
+		end
+
+		if (row.title) then
+			item.titles.n = item.titles.n + 1
+			item.titles[item.titles.n] =
+			{
+				title = row.title,
+				language = row.titleLanguage,
+				kind = row.titleKind,
+			}
+		end
+	end
+
+	return result
 end
 
 

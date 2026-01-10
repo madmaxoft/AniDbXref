@@ -21,6 +21,19 @@ local function toIsoDate(aTimeStamp)
 	end
 	return os.date("!%Y-%m-%d", aTimeStamp)
 end
+
+--- Picks the best title among the various possibilities
+local function pickTitle(aTitles)
+	if not(aTitles) then
+		return "[no title]"
+	end
+	assert(type(aTitles) == "table")
+	local titles = {}
+	for _, title in ipairs(aTitles) do
+		titles[title.language] = title.title
+	end
+	return titles["en"] or titles["x-jat"] or titles["jp"]
+end
 %>
 <table>
 <tr>
@@ -67,6 +80,12 @@ end
 
 		<!-- Mini-nav-bar: -->
 		<p> |
+		<% if (details.relatedAnime.n > 0) then %>
+		<a href="#related">Related</a> |
+		<% end %>
+		<% if (details.similarAnime.n > 0) then %>
+		<a href="#similar">Similar</a> |
+		<% end %>
 		<% if (details.episodes.n > 0) then %>
 		<a href="#episodes">Episodes</a> |
 		<% end %>
@@ -75,6 +94,35 @@ end
 		<% end %>
 		</p>
 
+
+
+
+
+		<!-- related -->
+		<% if (details.relatedAnime.n > 0) then %>
+		<a name="related"><h2>Related</h2></a>
+		<table>
+			<tr>
+				<th colspan=2>Title</th>
+				<th>Relation</th>
+				<th>Start date</th>
+				<th>Seen</th>
+			</tr>
+			<% for _, ani in ipairs(details.relatedAnime) do %>
+			<tr>
+				<td><a href="/anime/<%= ani.aId %>">
+					<% if (ani.pictureId) then %>
+					<img src="https://anidb.net/images/65/<%= ani.pictureId %>-thumb.jpg" />
+					<% end %>
+				</td>
+				<td><a href="/anime/<%= ani.aId %>"><%= pickTitle(ani.titles) %></a></td>
+				<td><%= ani.relation %></td>
+				<td><%= ani.startDate %></td>
+				<td><%= toIsoDate(ani.seenDate) %></td>
+			</tr>
+			<% end %>
+		</table>
+		<% end %>
 
 
 
@@ -103,7 +151,7 @@ end
 			return titles["en"] or titles["x-jat"] or titles["jp"]
 		end
 		%>
-		<h2>Episodes</h2>
+		<a name="episodes"><h2>Episodes</h2></a>
 		<table>
 			<tr>
 				<th>Episode</th>
