@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<title>AniDbXref</title>
+	<title><%= details.name %> - AniDbXref</title>
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body>
 <a href="/">Back to home</a> |
 <a href="https://anidb.net/creator/<%= vaId %>">AniDB.net</a> |
 <% if not(details) then %>
-<p>No details for this voice artist</p>
+<p>No details for this voice artist.</p>
 <% else %>
-<h1>AniDbXref - Voice Actor - <%= details.name %></h1>
+<h1><%= details.name %> - AniDbXref</h1>
 <table>
 <% if details.pictureId then %>
 <tr>
