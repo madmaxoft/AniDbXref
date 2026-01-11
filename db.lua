@@ -681,7 +681,7 @@ function db.getAnimeDetails_relatedAnime(aId)
 	local related, msg = db.getArrayFromQuery(
 		[[
 			SELECT
-				r.relatedAid AS id,
+				r.relatedAid AS relatedAid,
 				r.relation AS relation,
 				a.*,
 				t.title AS title,
@@ -706,11 +706,11 @@ function db.getAnimeDetails_relatedAnime(aId)
 	local result = {n = 0}
 	local byId = {}
 	for _, row in ipairs(related) do
-		local item = byId[row.id]
+		local item = byId[row.relatedAid]
 		if not(item) then
 			item = row
 			item.titles = {n = 0}
-			byId[row.id] = item
+			byId[row.relatedAid] = item
 			result.n = result.n + 1
 			result[result.n] = item
 		end

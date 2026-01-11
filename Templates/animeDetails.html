@@ -110,12 +110,12 @@ end
 			</tr>
 			<% for _, ani in ipairs(details.relatedAnime) do %>
 			<tr>
-				<td><a href="/anime/<%= ani.aId %>">
+				<td><a href="/anime/<%= ani.relatedAid %>">
 					<% if (ani.pictureId) then %>
 					<img src="https://anidb.net/images/65/<%= ani.pictureId %>-thumb.jpg" />
 					<% end %>
 				</td>
-				<td><a href="/anime/<%= ani.aId %>"><%= pickTitle(ani.titles) %></a></td>
+				<td><a href="/anime/<%= ani.relatedAid %>"><%= pickTitle(ani.titles) %></a></td>
 				<td><%= ani.relation %></td>
 				<td><%= ani.startDate %></td>
 				<td><%= toIsoDate(ani.seenDate) %></td>
