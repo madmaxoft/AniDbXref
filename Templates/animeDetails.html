@@ -127,6 +127,33 @@ end
 
 
 
+		<!-- similar -->
+		<% if (details.similarAnime.n > 0) then %>
+		<a name="related"><h2>Similar</h2></a>
+		<table>
+			<tr>
+				<th colspan=2>Title</th>
+				<th>Start date</th>
+				<th>Seen</th>
+			</tr>
+			<% for _, ani in ipairs(details.similarAnime) do %>
+			<tr>
+				<td><a href="/anime/<%= ani.similarAid %>">
+					<% if (ani.pictureId) then %>
+					<img src="https://anidb.net/images/65/<%= ani.pictureId %>-thumb.jpg" />
+					<% end %>
+				</td>
+				<td><a href="/anime/<%= ani.similarAid %>"><%= pickTitle(ani.titles) %></a></td>
+				<td><%= ani.startDate %></td>
+				<td><%= toIsoDate(ani.seenDate) %></td>
+			</tr>
+			<% end %>
+		</table>
+		<% end %>
+
+
+
+
 		<!-- episodes -->
 		<%
 		if (details.episodes.n > 0) then

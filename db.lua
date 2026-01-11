@@ -693,7 +693,7 @@ function db.getAnimeDetails_relatedAnime(aId)
 			JOIN AnimeBaseDetails AS a ON a.aId = r.relatedAid
 			LEFT JOIN AnimeTitle AS t ON t.aId = a.aId
 			LEFT JOIN Seen AS s
-				ON s.aId = r.aId
+				ON s.aId = r.relatedAid
 			WHERE r.aId = ?
 		]],
 		{aId}, "getAnimeDetails_related"
@@ -737,7 +737,54 @@ end
 function db.getAnimeDetails_similarAnime(aId)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery("SELECT * FROM AnimeSimilar WHERE aId = ?", {aId}, "getAnimeDetails_similar")
+	local similar, msg = db.getArrayFromQuery(
+		[[
+			SELECT
+				sim.similarAid AS similarAid,
+				a.*,
+				t.title AS title,
+				t.kind AS titleKind,
+				t.language AS titleLanguage,
+				CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
+				s.seenDate AS seenDate
+			FROM AnimeSimilar AS sim
+			JOIN AnimeBaseDetails AS a ON a.aId = sim.similarAid
+			LEFT JOIN AnimeTitle AS t ON t.aId = a.aId
+			LEFT JOIN Seen AS s
+				ON s.aId = sim.similarAid
+			WHERE sim.aId = ?
+		]],
+		{aId}, "getAnimeDetails_similar"
+	)
+	if not(similar) then
+		log("db", "Failed to query similar anime: %s", tostring(msg))
+		return nil
+	end
+
+	local result = {n = 0}
+	local byId = {}
+	for _, row in ipairs(similar) do
+		local item = byId[row.similarAid]
+		if not(item) then
+			item = row
+			item.titles = {n = 0}
+			byId[row.similarAid] = item
+			result.n = result.n + 1
+			result[result.n] = item
+		end
+
+		if (row.title) then
+			item.titles.n = item.titles.n + 1
+			item.titles[item.titles.n] =
+			{
+				title = row.title,
+				language = row.titleLanguage,
+				kind = row.titleKind,
+			}
+		end
+	end
+
+	return result
 end
 
 
