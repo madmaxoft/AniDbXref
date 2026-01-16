@@ -218,12 +218,14 @@ end
 					<img src="https://anidb.net/images/main/<%= ch.pictureId %>" /><br />
 					<% end %>
 				</td>
-				<td><% if (ch.voiceActorId) then %><a href="/voiceActor/<%= ch.voiceActorId %>">
-					<%= ch.voiceActorName or "(unknown voice actor)" %>
-					<% if (ch.voiceActorPictureId) then %>
+				<td><% for _, va in ipairs(ch.voiceActors) do %>
+					<a href="/voiceActor/<%= va.vaId %>">
+					<%= va.name or "(unknown voice actor)" %>
+					<% if (va.pictureId) then %>
 					<br />
-					<img src="https://anidb.net/images/65/<%= ch.voiceActorPictureId %>-thumb.jpg" />
+					<img src="https://anidb.net/images/65/<%= va.pictureId %>-thumb.jpg" />
 					<% end %>
+					<br />
 					</a><% end %>
 				</td>
 				<td><%= ch.description or "" %></td>

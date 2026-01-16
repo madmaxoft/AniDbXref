@@ -230,6 +230,52 @@ local upgrades = {
 		]],
 	},
 
+	{
+		version = 5,
+		script = [[
+			DROP TABLE AnimeCharacter;
+			ALTER TABLE AnimeVoiceActor RENAME TO VoiceActor;
+			ALTER TABLE VoiceActor ADD COLUMN gender TEXT;
+			ALTER TABLE VoiceActor ADD COLUMN description TEXT;
+			ALTER TABLE VoiceActor ADD COLUMN country TEXT;
+			ALTER TABLE VoiceActor ADD COLUMN birthdate TEXT;
+			CREATE TABLE Character (
+				characterId INTEGER PRIMARY KEY,
+				characterTypeId TEXT,
+				name TEXT,
+				gender TEXT,
+				description TEXT,
+				pictureId TEXT,
+				ratingNumVotes INTEGER,
+				ratingValue REAL
+			);
+			CREATE TABLE AnimeCharacter (
+				acId INTEGER PRIMARY KEY AUTOINCREMENT,
+				characterId INTEGER,
+				aId INTEGER NOT NULL,
+				notes TEXT,
+				pictureId TEXT,
+				FOREIGN KEY (characterId) REFERENCES Character(characterId),
+				FOREIGN KEY (aId) REFERENCES Anime(aId)
+			);
+			CREATE TABLE AnimeCharacterVoiceActor (
+				acId INTEGER,
+				vaId INTEGER,
+				language TEXT,
+				episodes TEXT,
+				notes TEXT,
+				PRIMARY KEY (acId, vaId),
+				FOREIGN KEY (acId) REFERENCES AnimeCharacter(acId),
+				FOREIGN KEY (vaId) REFERENCES VoiceActor(vaId)
+			);
+
+			CREATE INDEX idx_AnimeCharacter_aId ON AnimeCharacter(aId);
+			CREATE INDEX idx_AnimeCharacter_characterId ON AnimeCharacter(characterId);
+			CREATE INDEX idx_AnimeCharacterVoiceActor_acId ON AnimeCharacterVoiceActor(acId);
+			CREATE INDEX idx_AnimeCharacterVoiceActor_vaId ON AnimeCharacterVoiceActor(vaId);
+		]],
+	}
+
 	-- Future upgrades can be added here
 }
 

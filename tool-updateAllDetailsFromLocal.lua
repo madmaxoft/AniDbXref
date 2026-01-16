@@ -18,7 +18,7 @@ local perf = require("perf")
 
 --- The minimum ID to update
 -- Used for resuming after a break / error
-local gMinId = 19672
+local gMinId = 19660
 
 
 
@@ -29,7 +29,7 @@ local function updateAnime(aId)
 	assert(type(aId) == "number")
 
 	-- Read file contents:
-	-- local timer = perf.newTimer()
+	local timer = perf.newTimer("updateAnime")
 	local prefix = string.format("AniDB/%d", math.floor(aId / 100))
 	local fileName = string.format("%s/%d.xml", prefix, aId)
 	local f = io.open(fileName, "rb")
@@ -37,12 +37,12 @@ local function updateAnime(aId)
 		return nil, "Cannot open file"
 	end
 	local xml = f:read("*all")
-	-- timer("Read XML")
+	timer("Read XML")
 	f:close()
 
 	-- Parse the XML:
 	local parsedLom, msg = require("lxp.lom").parse(xml)
-	-- timer("Parse XML")
+	timer("Parse XML")
 	if not(parsedLom) then
 		return nil, string.format("Failed to parse XML: %s", tostring(msg))
 	end
@@ -51,7 +51,7 @@ local function updateAnime(aId)
 		return true
 	end
 	local parsedDetails, msg = details.transformParsedIntoDetails(parsedLom)
-	-- timer("Transform into details")
+	timer("Transform into details")
 	if not(parsedDetails) then
 		return nil, string.format("Failed to parse details from XML: %s", tostring(msg))
 	end
@@ -61,13 +61,18 @@ local function updateAnime(aId)
 
 	-- Store into the DB:
 	local isOK, msg1, msg2 = pcall(db.storeAnimeDetails, parsedDetails)
-	-- timer("Store in DB")
+	timer("Store in DB")
 	return isOK, msg1, msg2
 end
 
 
 
 
+
+-- Config:
+perf.silenceTimer("db.storeAnimeCharacters")
+perf.silenceTimer("db.storeAnimeDetails")
+perf.silenceTimer("updateAnime")
 
 print("Reading all IDs...")
 local allIDs = db.allAnimeIDs()
@@ -92,7 +97,11 @@ for idx, id in ipairs(allIDs) do
 	if (id >= gMinId) then
 		local isOK, msg = updateAnime(id)
 		if not(isOK) then
-			error("Failed to update anime " .. id .. ": " .. tostring(msg))
+			if (msg ~= "Cannot open file") then
+				error("Failed to update anime " .. id .. ": " .. tostring(msg))
+			else
+				print(string.format("Cannot open file for ID %d, skipping", id))
+			end
 		end
 	else
 		numSkipped = numSkipped + 1

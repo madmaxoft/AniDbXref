@@ -2,6 +2,7 @@
 -- Database access module
 
 local sqlite3 = require("lsqlite3")
+local perf = require("perf")
 local log = require("logger").log
 
 local db = {}
@@ -145,6 +146,34 @@ function db.beginTransaction(aOptionalName)
 	assert(gDB ~= nil)
 
 	checkSql(gDB:exec("BEGIN TRANSACTION"), "beginTransaction." .. tostring(aOptionalName))
+end
+
+
+
+
+
+--- Collects CREATE INDEX statements for the whole DB.
+--  Drops them, and returns their definitions as an array-table of { name = <indexName>, sql = <createIndexSql> }
+-- Recreate the indices later by calling db.recreateIndices(returned)
+function db.collectAndDropIndices()
+	assert(gDB ~= nil)
+
+	-- Query all indices:
+	local result = db.getArrayFromQuery([[
+		SELECT name, sql
+		FROM sqlite_master
+		WHERE type = 'index'
+		  AND tbl_name IS NOT NULL
+		  AND sql IS NOT NULL;
+	]])
+
+	-- Drop the actual indices:
+	for _, row in ipairs (result) do
+		assert(type(row.name) == "string")
+		checkSql(gDB:exec(string.format("DROP INDEX IF EXISTS \"%s\";", row.name)), "dropIndex." .. row.name or "<nil>")
+	end
+
+	return result
 end
 
 
@@ -333,85 +362,62 @@ function db.getVoiceActorDetails(aVoiceActorId)
 	assert(gDB ~= nil)
 	assert(tonumber(aVoiceActorId))
 
-	local baseDetails = db.getArrayFromQuery("SELECT * FROM AnimeVoiceActor WHERE vaId = ?", {aVoiceActorId}, "getVoiceActorDetails")
+	local baseDetails = db.getArrayFromQuery("SELECT * FROM VoiceActor WHERE vaId = ?", {aVoiceActorId}, "getVoiceActorDetails")
 	if (not(baseDetails) or (baseDetails.n ~= 1)) then
 		return nil
 	end
 	local result = baseDetails[1]
 
 	-- Load all the characters:
-	local allCharacters = db.getArrayFromQuery([[
+	result.characters = db.getArrayFromQuery([[
 		SELECT
-			ac.ROWID AS charRowId,
+			acva.language,
+			acva.episodes,
+			acva.notes AS vaNotes,
+
+			c.characterId,
+			c.name,
+			c.description,
+			c.pictureId,
+
 			ac.aId,
-			ac.name AS characterName,
-			ac.characterTypeId AS characterTypeId,
-			ac.gender AS characterGender,
-			ac.description AS characterDescription,
-			ac.pictureId AS characterPictureId,
-			ac.ratingNumVotes AS characterRatingNumVotes,
-			ac.ratingValue AS characterRatingValue,
 			abd.startDate AS animeStartDate,
+			abd.endDate AS animeEndDate,
 			CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
-			at.title AS animeTitle,
-			at.language AS titleLanguage,
-			at.kind AS titleKind
-		FROM AnimeCharacter AS ac
-		INNER JOIN AnimeVoiceActor AS va
-			ON ac.voiceActorId = va.vaId
-		LEFT JOIN Seen AS s
-			ON s.aId = ac.aId
-		LEFT JOIN AnimeBaseDetails AS abd
-			ON abd.aId = ac.aId
-		LEFT JOIN AnimeTitle AS at
-			ON at.aId = ac.aId
-		WHERE va.vaId = ?
-		ORDER BY ac.ROWID, at.language, at.kind;
-	]], {aVoiceActorId}, "getVoiceActorDetails")
+			s.seenDate AS seenDate
 
-	-- Process the titles into an array:
-	local characters = {}
-	local n = 0
-	local currentCharRowId
-	local charEntry
-	for _, row in ipairs(allCharacters) do
-		if (row.charRowId ~= currentCharRowId) then
-			-- new character
-			charEntry = {
-				charRowId = row.charRowId,
-				aId = row.aId,
-				name = row.characterName,
-				characterTypeId = row.characterTypeId,
-				gender = row.characretGender,
-				description = row.characterDescription,
-				pictureId = row.characterPictureId,
-				ratingNumVotes = row.characterRatingNumVotes,
-				ratingValue = row.characterRatingValue,
-				animeStartDate = row.animeStartDate,
-				isSeen = (row.isSeen == 1),
-				titles = { n = 0 }  -- array of title metadata
-			}
-			n = n + 1
-			characters[n] = charEntry
-			currentCharRowId = row.charRowId
-		end
+		FROM AnimeCharacterVoiceActor acva
+		JOIN AnimeCharacter ac    ON ac.acId = acva.acId
+		JOIN Character c          ON c.characterId = ac.characterId
+		JOIN AnimeBaseDetails abd ON abd.aId = ac.aId
+		LEFT JOIN Seen s          ON s.aId = ac.aId
+		WHERE acva.vaId = ?
+	]], {aVoiceActorId}, "getVoiceActorDetails.characters")
 
-		if (row.animeTitle) then
-			charEntry.titles.n = charEntry.titles.n + 1
-			charEntry.titles[charEntry.titles.n] = {
-				title = row.animeTitle,
-				language = row.titleLanguage,
-				kind = row.titleKind
-			}
-		end
+	-- Add titles for the anime through a subquery:
+	local titles = db.getArrayFromQuery([[
+		SELECT *
+		FROM AnimeTitle
+		WHERE aId IN (
+			SELECT DISTINCT ac.aId
+			FROM AnimeCharacterVoiceActor acva
+			JOIN AnimeCharacter ac ON ac.acId = acva.acId
+			WHERE acva.vaId = ?
+		)
+	]], {aVoiceActorId}, "getVoiceActorDetails.animeTitles")
+	local titleByAnime = {}
+	for _, title in ipairs(titles) do
+		titleByAnime[title.aId] = titleByAnime[title.aId] or {n = 0}
+		titleByAnime[title.aId].n = titleByAnime[title.aId].n + 1
+		titleByAnime[title.aId][titleByAnime[title.aId].n] = title
 	end
-	characters.n = n
-	for _, ch in ipairs(characters) do
-		ch.enTitle = db.pickBestTitle(ch.titles, "en")
-		ch.jaTitle = db.pickBestTitle(ch.titles, "ja")
-		ch.xjatTitle = db.pickBestTitle(ch.titles, "x-jat")
+	for _, ch in ipairs(result.characters) do
+		ch.isSeen = (ch.isSeen == "1") or (ch.isSeen == 1)
+		ch.enTitle = db.pickBestTitle(titleByAnime[ch.aId], "en")
+		ch.jpTitle = db.pickBestTitle(titleByAnime[ch.aId], "jp")
+		ch.xjatTitle = db.pickBestTitle(titleByAnime[ch.aId], "x-jat")
 	end
-	result.characters = characters
+
 	return result
 end
 
@@ -419,19 +425,21 @@ end
 
 
 
---- Returns the voice actors currently stored in the DB, together with the number of characters out of seen
+--- Returns the voice actors currently stored in the DB, together with the number of characters they voiced
 function db.getVoiceActors()
 	return db.getArrayFromQuery([[
 		SELECT
 			va.*,
-			COUNT(ac.name) AS numCharacters
-		FROM AnimeVoiceActor AS va
+			COUNT(acva.acId) AS numCharacters,
+			COUNT(DISTINCT s.aId) AS numSeenAnime
+		FROM VoiceActor AS va
+		LEFT JOIN AnimeCharacterVoiceActor AS acva
+			ON acva.vaId = va.vaId
 		LEFT JOIN AnimeCharacter AS ac
-			ON ac.voiceActorId = va.vaId
+			ON ac.acId = acva.acId
 		LEFT JOIN Seen AS s
 			ON s.aId = ac.aId
 		GROUP BY va.vaId
-		ORDER BY numCharacters DESC;
 	]], {}, "getVoiceActors")
 end
 
@@ -586,12 +594,64 @@ end
 function db.getAnimeDetails_characters(aId)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery([[
-		SELECT ch.*, va.name as voiceActorName, va.pictureId as voiceActorPictureId
-		FROM AnimeCharacter ch
-		LEFT JOIN AnimeVoiceActor va ON ch.voiceActorId = va.vaId
-		WHERE aId = ?
-	]], {aId}, "getAnimeDetails_characters")
+	-- Query bare characers:
+	local characters = db.getArrayFromQuery([[
+		SELECT
+			ac.acId,
+			ac.characterId,
+			ac.notes,
+			ac.pictureId,
+			c.name,
+			c.gender,
+			c.description,
+			c.pictureId AS characterPictureId
+		FROM AnimeCharacter AS ac
+		JOIN Character AS c ON c.characterId = ac.characterId
+		WHERE ac.aId = ?
+	]], {aId}, "getAnimeDetails_characters.ch")
+
+	-- Add key-based lookup, coallesce pictureId:
+	local acIds = {}
+	local byAcId = {}
+	local n = 0
+	for _, ch in ipairs(characters) do
+		byAcId[ch.acId] = ch
+		ch.pictureId = ch.characterPictureId or ch.pictureId
+		n = n + 1
+		acIds[n] = ch.acId
+	end
+
+	-- Query VoiceActors:
+	local voiceActors = db.getArrayFromQuery([[
+		SELECT
+			acva.vaId,
+			va.name,
+			va.pictureId,
+			acva.language,
+			acva.episodes,
+			acva.notes,
+			acva.acId
+		FROM AnimeCharacterVoiceActor AS acva
+		JOIN VoiceActor AS va ON va.vaId = acva.vaId
+		WHERE acva.acId IN (
+			SELECT ac.acId
+			FROM AnimeCharacter ac
+			WHERE ac.aId = ?
+		)
+	]], {aId}, "getAnimeDetails_characters.va")
+
+	-- Extend characters with data from voiceActors:
+	for _, va in ipairs(voiceActors) do
+		local ch = byAcId[va.acId]
+		if (ch) then
+			ch.voiceActors = ch.voiceActors or {n = 0}
+			ch.voiceActors.n = ch.voiceActors.n + 1
+			ch.voiceActors[ch.voiceActors.n] = va
+		else
+			log("db", "VA not found in characters: %s (name %s)", tostring(va.acId), tostring(va.name))
+		end
+	end
+	return characters
 end
 
 
@@ -818,16 +878,25 @@ end
 function db.storeAnimeDetails(aDetails)
 	assert(gDB ~= nil)
 	assert(type(aDetails) == "table")
+	local timer = perf.newTimer("db.storeAnimeDetails")
 
 	checkSql(gDB:exec("SAVEPOINT anime_details"), "storeAnimeDetails.savepoint")
 	db.storeAnimeBaseDetails(aDetails)
+	timer("BaseDetails")
 	db.storeAnimeRelated(aDetails)
+	timer("Related")
 	db.storeAnimeSimilar(aDetails)
+	timer("Similar")
 	db.storeAnimeRecommendations(aDetails)
+	timer("Recommendations")
 	db.storeAnimeCreators(aDetails)
+	timer("Creators")
 	db.storeAnimeCharacters(aDetails)
+	timer("Characters")
 	db.storeAnimeTags(aDetails)
+	timer("Tags")
 	db.storeAnimeEpisodes(aDetails)
+	timer("Episodes")
 	checkSql(gDB:exec("RELEASE SAVEPOINT anime_details"), "storeAnimeDetails.release")
 end
 
@@ -1011,61 +1080,189 @@ function db.storeAnimeCharacters(aDetails)
 	if not(aDetails.characters) then
 		return
 	end
+	local timer = perf.newTimer("db.storeAnimeCharacters")
 
-	db.execBoundStatement("DELETE FROM AnimeCharacter WHERE aId = ?", {aDetails.aId}, "storeAnimeCharacters")
-	local stmt = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeCharacter(aId, characterTypeId, name, gender, description, voiceActorId, pictureId, ratingNumVotes, ratingValue)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	-- First insert the global objects from the details:
+	db.storeAnimeCharacters_Characters(aDetails)
+	timer("Characters")
+	db.storeAnimeCharacters_VoiceActors(aDetails)
+	timer("VoiceActors")
+
+	-- Delete any existing relations:
+	db.execBoundStatement([[
+		DELETE FROM AnimeCharacterVoiceActor
+		WHERE acId IN (
+			SELECT acId FROM AnimeCharacter WHERE aId = ?
+		)]],
+		{aDetails.aId}, "storeAnimeCharacters.delACVA"
+	)
+	timer("delACVA")
+	db.execBoundStatement("DELETE FROM AnimeCharacter WHERE aId = ?", {aDetails.aId}, "storeAnimeCharacters.delAC")
+	timer("delAC")
+
+	-- Insert Anime characters:
+	local stmtInsertAnimeCharacters = gDB:prepare([[
+		INSERT INTO AnimeCharacter(characterId, aId, notes, pictureId)
+		VALUES (?, ?, ?, ?)
 	]])
-	if not(stmt) then
-		error("Failed to prepare statement for storeAnimeCharacters: " .. gDB:errmsg())
+	if not(stmtInsertAnimeCharacters) then
+		error("Failed to prepare statement for AnimeCharacter insertion: " .. gDB:errmsg())
 	end
 	for _, ch in ipairs(aDetails.characters) do
-		assert(ch.name)
-		checkSql(stmt:bind_values(
+		assert(ch.characterId)
+		checkSql(stmtInsertAnimeCharacters:bind_values(
+			ch.characterId,
 			aDetails.aId,
+			ch.notes,
+			ch.pictureId
+		), "storeAnimeCharacters.AC.bind")
+		checkSql(stmtInsertAnimeCharacters:step(), "storeAnimeCharacters.AC.step")
+		checkSql(stmtInsertAnimeCharacters:reset(), "storeAnimeCharacters.AC.reset")
+		ch.acId = gDB:last_insert_rowid()
+	end
+	checkSql(stmtInsertAnimeCharacters:finalize(), "storeAnimeCharacters.AC.finalize")
+	timer("storeAC")
+
+	-- Insert Anime characters' voice actors:
+	local stmtInsertACVA = gDB:prepare([[
+		INSERT INTO AnimeCharacterVoiceActor (acId, vaId, language, episodes, notes)
+		VALUES (?, ?, ?, ?, ?)
+	]])
+	if not(stmtInsertACVA) then
+		error("Failed to prepare statement for ACVA insertion: " .. gDB:errmsg())
+	end
+	for _, ch in ipairs(aDetails.characters) do
+		for _, va in ipairs(ch.voiceActors) do
+			checkSql(stmtInsertACVA:bind_values(
+				ch.acId,
+				va.vaId,
+				va.language,
+				va.episodes,
+				va.notes
+			), "storeAnimeCharacters.ACVA.bind")
+			checkSql(stmtInsertACVA:step(), "storeAnimeCharacters.ACVA.step")
+			checkSql(stmtInsertACVA:reset(), "storeAnimeCharacters.ACVA.reset")
+		end
+	end
+	checkSql(stmtInsertACVA:finalize(), "storeAnimeCharacters.ACVA.finalize")
+	timer("storeACVA")
+end
+
+
+
+
+
+--- Stores the characters in the specified anime details table into the global Characters table
+function db.storeAnimeCharacters_Characters(aDetails)
+	assert(gDB ~= nil)
+	assert(type(aDetails) == "table")
+	if not(aDetails.characters) then
+		return
+	end
+
+	local stmtInsertGlobalCharacter = gDB:prepare([[
+		INSERT INTO Character(
+			characterId,
+			characterTypeId,
+			name,
+			gender,
+			description,
+			pictureId,
+			ratingNumVotes,
+			ratingValue
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(characterId) DO UPDATE SET
+			characterTypeId = COALESCE(NULLIF(excluded.characterTypeId, ''), Character.characterTypeId),
+			name            = COALESCE(NULLIF(excluded.name, ''), Character.name),
+			gender          = COALESCE(NULLIF(excluded.gender, ''), Character.gender),
+			description     = COALESCE(NULLIF(excluded.description, ''), Character.description),
+			pictureId       = COALESCE(NULLIF(excluded.pictureId, ''), Character.pictureId),
+			ratingNumVotes  = CASE
+				WHEN excluded.ratingNumVotes IS NOT NULL THEN excluded.ratingNumVotes
+				ELSE Character.ratingNumVotes
+			END,
+			ratingValue     = CASE
+				WHEN excluded.ratingValue IS NOT NULL THEN excluded.ratingValue
+				ELSE Character.ratingValue
+			END;
+	]])
+	if not(stmtInsertGlobalCharacter) then
+		error("Failed to prepare statement for global character insertion: " .. gDB:errmsg())
+	end
+	for _, ch in ipairs(aDetails.characters) do
+		checkSql(stmtInsertGlobalCharacter:bind_values(
+			ch.characterId,
 			ch.characterTypeId,
 			ch.name,
 			ch.gender,
 			ch.description,
-			(ch.voiceActor or {}).id,
 			ch.pictureId,
-			(ch.rating or {}).numVotes,
-			(ch.rating or {}).value
-		), "storeAnimeCharacters.bind")
-		checkSql(stmt:step(), "storeAnimeCharacters.step")
-		checkSql(stmt:reset(), "storeAnimeCharacters.reset")
+			ch.ratingNumVotes,
+			ch.ratingValue
+		), "storeAnimeCharacters_globalCharacters.step")
+		checkSql(stmtInsertGlobalCharacter:step(), "storeAnimeCharacters_Characters.step")
+		checkSql(stmtInsertGlobalCharacter:reset(), "storeAnimeCharacters_Characters.reset")
 	end
-	checkSql(stmt:finalize(), "storeAnimeCharacters.finalize")
+	checkSql(stmtInsertGlobalCharacter:finalize(), "storeAnimeCharacters_Characters.finalize")
+end
 
-	-- Store voice artist details:
-	local stmtVA = gDB:prepare([[
-		INSERT INTO AnimeVoiceActor (vaId, name, pictureId)
-		VALUES (?, ?, ?)
-		ON CONFLICT(vaId) DO UPDATE SET
-			name =
-				CASE
-					WHEN (excluded.name IS NOT NULL AND excluded.name <> '')
-						AND (AnimeVoiceActor.name IS NULL OR AnimeVoiceActor.name = '')
-					THEN excluded.name
-					ELSE AnimeVoiceActor.name
-				END,
-			pictureId =
-				CASE
-					WHEN (excluded.pictureId IS NOT NULL AND excluded.pictureId <> '')
-						AND (AnimeVoiceActor.pictureId IS NULL OR AnimeVoiceActor.pictureId = '')
-					THEN excluded.pictureId
-					ELSE AnimeVoiceActor.pictureId
-				END;
+
+
+
+
+--- Stores the voice actors in the specified anime details table into the global VoiceActor table
+function db.storeAnimeCharacters_VoiceActors(aDetails)
+	assert(gDB ~= nil)
+	assert(type(aDetails) == "table")
+	if not(aDetails.characters) then
+		return
+	end
+
+	-- Prepare statement for inserting / updating global voice actors
+	local stmtInsertGlobalVoiceActor = gDB:prepare([[
+		INSERT INTO VoiceActor(
+			vaId,
+			name,
+			gender,
+			description,
+			pictureId,
+			country,
+			birthdate
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (vaId) DO UPDATE SET
+			name        = COALESCE(NULLIF(excluded.name, ''), VoiceActor.name),
+			gender      = COALESCE(NULLIF(excluded.gender, ''), VoiceActor.gender),
+			description = COALESCE(NULLIF(excluded.description, ''), VoiceActor.description),
+			pictureId   = COALESCE(NULLIF(excluded.pictureId, ''), VoiceActor.pictureId),
+			country     = COALESCE(NULLIF(excluded.country, ''), VoiceActor.country),
+			birthdate   = COALESCE(NULLIF(excluded.birthdate, ''), VoiceActor.birthdate);
 	]])
+	if not(stmtInsertGlobalVoiceActor) then
+		error("Failed to prepare statement for global voice actor insertion: " .. gDB:errmsg())
+	end
+
 	for _, ch in ipairs(aDetails.characters) do
-		if (ch.voiceActor) then
-			checkSql(stmtVA:bind_values(ch.voiceActor.id, ch.voiceActor.name, ch.voiceActor.pictureId), "storeAnimeCharactersVA.bind")
-			checkSql(stmtVA:step(), "storeAnimeCharacters.step")
-			checkSql(stmtVA:reset(), "storeAnimeCharacters.reset")
+		if ch.voiceActors then
+			for _, va in ipairs(ch.voiceActors) do
+				checkSql(stmtInsertGlobalVoiceActor:bind_values(
+					va.vaId,
+					va.name,
+					va.gender,
+					va.description,
+					va.pictureId,
+					va.country,
+					va.birthdate
+				), "storeAnimeCharacters_VoiceActors.bind")
+
+				checkSql(stmtInsertGlobalVoiceActor:step(), "storeAnimeCharacters_VoiceActors.step")
+				checkSql(stmtInsertGlobalVoiceActor:reset(), "storeAnimeCharacters_VoiceActors.reset")
+			end
 		end
 	end
-	checkSql(stmtVA:finalize(), "storeAnimeCharacters.finalize")
+
+	checkSql(stmtInsertGlobalVoiceActor:finalize(), "storeAnimeCharacters_VoiceActors.finalize")
 end
 
 
@@ -1121,14 +1318,14 @@ function db.storeAnimeEpisodes(aDetails)
 	db.execBoundStatement("DELETE FROM AnimeEpisodeTitle WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.title")
 	db.execBoundStatement("DELETE FROM AnimeEpisode WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.episode")
 	local stmt = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeEpisode(aId, id, kind, episodeNumber, length, airDate)
+		INSERT INTO AnimeEpisode(aId, id, kind, episodeNumber, length, airDate)
 		VALUES (?, ?, ?, ?, ?, ?)
 	]])
 	if not(stmt) then
 		error("Failed to prepare statement for storeAnimeEpisodes: " .. gDB:errmsg())
 	end
 	local stmtTitles = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeEpisodeTitle(aId, episodeId, language, title)
+		INSERT INTO AnimeEpisodeTitle(aId, episodeId, language, title)
 		VALUES (?, ?, ?, ?)
 	]])
 	if not(stmtTitles) then
@@ -1250,6 +1447,21 @@ function db.updateAniDbDataFromDump(aXmlString)
 	db.setLastAniDbUpdate(os.time())
 	checkSql(gDB:exec("COMMIT TRANSACTION"), "updateAniDbDataFromDump.commit")
 	checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "updateAniDbDataFromDump.fkon")
+end
+
+
+
+
+
+--- Re-creates indices previously dropped by collectAndDropIndices()
+-- aIndexDefs is an array-table of {name = "", sql = ""}
+function db.recreateIndices(aIndexDefs)
+	assert(type(aIndexDefs) == "table")
+
+	for _, def in ipairs(aIndexDefs) do
+		assert(type(def.sql) == "string")
+		checkSql(db:exec(def.sql), "recreateIndices." .. tostring(def.name))
+	end
 end
 
 

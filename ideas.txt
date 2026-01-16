@@ -7,38 +7,28 @@ Tracks various ideas that could be implemented
 
 
 
-- Handle correctly multiple seiyuu per character
-
+- Move all user-data into a separate DB file
 - Display related anime
 	- Visualise relations as a whole tree?
-
 - Display similar anime
 	- A dedicated page for "the most hits from watched"
-
-- Parse descriptions for AniDB links and rewrite them to our inernal links
-
+- Parse descriptions for AniDB links and rewrite them to our internal links
 - Improve search by preprocessing all titles to build a BK-tree
 	- Build the tree upon app startup, keep in memory
 	- Rebuild on import
-
-- Prepare all DB statements on sartup
+- Prepare all DB statements on startup
 	- Helps catch statement errors / schema mismatch
 	- Improves perf
-
 - Picture cache using a separate SQLite DB
 	- Large and thumbnails for each pictureId
 	- Request the picture from upstream upon not-cached
 	- Also create mini-pictures?
-
 - Season display
 	- Display all season's titles, highlight seen
-
 - Watchlist
 	- Generate for specified season, default to current
-
 - Pick new watchlist
 	- Coordinate with livechart.me for schedule
-
 - Import seen
 	- Mark matches that were seen already
 	- If a match was seen, do not auto-select it for import
@@ -49,5 +39,8 @@ Tracks various ideas that could be implemented
 
 
 
+
+Done:
+	- Handle correctly multiple seiyuu per character
 
 --]]

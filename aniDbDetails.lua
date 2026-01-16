@@ -419,9 +419,11 @@ local function transformParsedIntoDetails_seiyuu(aParsedLom)
 
 	return
 	{
-		id = attr.id,
+		vaId = attr.id,
 		pictureId = attr.picture,
-		name = aParsedLom[1]
+		name = aParsedLom[1],
+		language = attr.language or "jp",
+		episodes = attr.ep or attr.episodes,
 	}
 end
 
@@ -438,8 +440,9 @@ local function transformParsedIntoDetails_character(aParsedLom)
 
 	local result =
 	{
-		id = attr.id,
+		characterId = attr.id,
 		kind = attr.type,
+		voiceActors = {n = 0},
 	}
 	for _, v in ipairs(aParsedLom) do
 		if (type(v) == "table") then
@@ -450,7 +453,11 @@ local function transformParsedIntoDetails_character(aParsedLom)
 			elseif (v.tag == "picture") then
 				result.pictureId = transformParsedIntoDetails_string(v)
 			elseif (v.tag == "seiyuu") then
-				result.voiceActor = transformParsedIntoDetails_seiyuu(v)
+				local voiceActor = transformParsedIntoDetails_seiyuu(v)
+				if (voiceActor.vaId) then
+					result.voiceActors.n = result.voiceActors.n + 1
+					result.voiceActors[result.voiceActors.n] = voiceActor
+				end
 			elseif (v.tag == "charactertype") then
 				result.characterTypeId = v.attr.id
 			elseif (v.tag == "rating") then
