@@ -309,7 +309,6 @@ local upgrades = {
 	{
 		scripts =
 		{
-			[[ ATTACH 'userData.sqlite' AS UserData ]],
 			[[
 				CREATE TABLE UserData.Seen (
 					aId INTEGER NOT NULL,
