@@ -104,7 +104,8 @@ local function initialize()
 	tempConn:close()
 	gDB = sqlite3.open(dbFile)
 	gDB:busy_timeout(1000)
-	gDB:exec("PRAGMA foreign_keys = ON;")
+	checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "initialize.fkon")
+	checkSql(gDB:exec([[ ATTACH 'userData.sqlite' AS UserData ]]), "initialize.attachUserData")
 
 	-- Now safely run the upgrade
 	dbUpgrade.upgradeIfNeeded(gDB, dbFile)
