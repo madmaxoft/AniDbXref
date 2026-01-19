@@ -39,6 +39,9 @@ end
 
 --- Copies a file in binary mode
 function dbUpgrade.copyFile(aSrc, aDst)
+	assert(type(aSrc) == "string")
+	assert(type(aDst) == "string")
+
 	local inFile = assert(io.open(aSrc, "rb"))
 	local data = inFile:read("*a")
 	inFile:close()
@@ -53,6 +56,8 @@ end
 
 --- Creates a backup copy of the DB file before upgrade
 function dbUpgrade.backupDbFile(aDbPath)
+	assert(type(aDbPath) == "string")
+
 	local time = os.time()
 	local timeStamp = os.date("%Y%m%d-%H%M%S", time)
 	local year = os.date("%Y", time)
@@ -323,6 +328,28 @@ local upgrades = {
 			[[ DROP TABLE main.Seen ]],
 		},
 	},
+
+	-- Version 7:
+	{
+		scripts =
+		{
+			[[
+				CREATE TABLE Pic.Picture (
+					pictureId INTEGER PRIMARY KEY AUTOINCREMENT,
+					data BLOB,
+					dataThumb BLOB
+				);
+			]],
+			[[
+				INSERT INTO Pic.Picture (pictureId, data, dataThumb)
+				SELECT pictureId, data, dataThumb FROM main.Picture;
+			]],
+			[[
+				DROP TABLE main.Picture;
+			]],
+		},
+	},
+
 	-- Future upgrades can be added here
 }
 

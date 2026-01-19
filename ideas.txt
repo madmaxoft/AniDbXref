@@ -45,6 +45,9 @@ Tracks various ideas that could be implemented
 
 
 Done:
-	- Handle correctly multiple seiyuu per character
+- Move all user-data into a separate DB file
+	- Smaller backups
+	- Easier sync between machines
+- Handle correctly multiple seiyuu per character
 
 --]]

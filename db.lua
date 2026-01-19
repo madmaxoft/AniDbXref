@@ -6,7 +6,6 @@ local perf = require("perf")
 local log = require("logger").log
 
 local db = {}
-local dbFile = "anime.sqlite"
 local gDB = nil  -- The actual DB connection object
 
 
@@ -91,24 +90,19 @@ end
 local function initialize()
 	assert(gDB == nil)
 
-	-- Open new connection (not yet upgraded)
-	local tempConn = sqlite3.open(dbFile)
-	tempConn:busy_timeout(1000)
-	tempConn:exec("PRAGMA foreign_keys = ON;")
-
-	-- Backup safely before upgrade
+	-- Backup userdata safely before opening
 	local dbUpgrade = require("dbUpgrade")
-	dbUpgrade.backupDbFile(dbFile)  -- expose backup as public
+	dbUpgrade.backupDbFile("userData.sqlite")
 
 	-- Reopen fresh connection after backup
-	tempConn:close()
-	gDB = sqlite3.open(dbFile)
+	gDB = sqlite3.open("anime.sqlite")
 	gDB:busy_timeout(1000)
 	checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "initialize.fkon")
 	checkSql(gDB:exec([[ ATTACH 'userData.sqlite' AS UserData ]]), "initialize.attachUserData")
+	checkSql(gDB:exec([[ ATTACH 'picture.sqlite' AS Pic ]]), "initialize.attachPic")
 
 	-- Now safely run the upgrade
-	dbUpgrade.upgradeIfNeeded(gDB, dbFile)
+	dbUpgrade.upgradeIfNeeded(gDB, "anime.sqlite")
 end
 
 
