@@ -10,6 +10,33 @@ local dbUpgrade = {}
 
 
 
+--- Executes an SQL command and throws if the command fails.
+-- aConn is the DB connection on which to execute the command
+-- aContext is a string description of where the check is happenning, for logging purposes
+local function executeSql(aConn, aSql, aContext)
+	assert(aConn)
+	assert(type(aSql) == "string")
+	assert(type(aContext) == "string")
+
+	local resultCode = aConn:exec(aSql)
+	if (
+		(resultCode ~= sqlite3.OK) and
+		(resultCode ~= sqlite3.DONE) and
+		(resultCode ~= sqlite3.ROW)
+	) then
+		error(string.format("SQLite error in %s: %s (%s) (SQL: %s)",
+			aContext or "unknown",
+			tostring(resultCode),
+			aConn:errmsg(),
+			aSql
+		))
+	end
+end
+
+
+
+
+
 --- Copies a file in binary mode
 function dbUpgrade.copyFile(aSrc, aDst)
 	local inFile = assert(io.open(aSrc, "rb"))
@@ -60,7 +87,7 @@ end
 --- Updates schema version in KeyValue
 function dbUpgrade.setSchemaVersion(aConn, aVersion)
 	local stmt = aConn:prepare("INSERT OR REPLACE INTO KeyValue (key, value) VALUES ('schema_version', ?)")
-	if (not stmt) then error("Failed to prepare schema version update: " .. aConn:errmsg()) end
+	if not(stmt) then error("Failed to prepare schema version update: " .. aConn:errmsg()) end
 	stmt:bind_values(tostring(aVersion))
 	stmt:step()
 	stmt:finalize()
@@ -71,9 +98,10 @@ end
 
 --- Upgrade scripts: each entry defines version and SQL to reach it
 local upgrades = {
+	-- Version 1:
 	{
-		version = 1,
-		script = [[
+		scripts = {
+			[[
 			CREATE TABLE IF NOT EXISTS Anime (
 				aId INTEGER PRIMARY KEY
 			);
@@ -203,36 +231,37 @@ local upgrades = {
 
 			CREATE INDEX IF NOT EXISTS idx_AnimeTitle_titleLower ON AnimeTitle(titleLower);
 		]]
+		},
 	},
 
+	-- Version 2:
 	{
-		version = 2,
-		script = [[
+		scripts = {[[
 			ALTER TABLE Picture ADD COLUMN dataThumb BLOB;
-		]],
+		]]},
 	},
 
+	-- Version 3:
 	{
-		version = 3,
-		script = [[
+		scripts = {[[
 			CREATE INDEX IF NOT EXISTS idx_AnimeEpisode_aId_id ON AnimeEpisode(aId, id);
 			CREATE INDEX IF NOT EXISTS idx_AnimeEpisodeTitle_aId_episodeId ON AnimeEpisodeTitle(aId, episodeId);
-		]],
+		]]},
 	},
 
+	-- Version 4:
 	{
-		version = 4,
-		script = [[
+		scripts = {[[
 			CREATE INDEX idx_AnimeRelated_aId ON AnimeRelated(aId);
 			CREATE INDEX idx_AnimeRelated_relatedAid ON AnimeRelated(relatedAid);
 			CREATE INDEX idx_AnimeTitle_aId ON AnimeTitle(aId);
 			CREATE INDEX idx_AnimeBaseDetails_aId ON AnimeBaseDetails(aId);
-		]],
+		]]},
 	},
 
+	-- Version 5:
 	{
-		version = 5,
-		script = [[
+		scripts = {[[
 			DROP TABLE AnimeCharacter;
 			ALTER TABLE AnimeVoiceActor RENAME TO VoiceActor;
 			ALTER TABLE VoiceActor ADD COLUMN gender TEXT;
@@ -273,9 +302,28 @@ local upgrades = {
 			CREATE INDEX idx_AnimeCharacter_characterId ON AnimeCharacter(characterId);
 			CREATE INDEX idx_AnimeCharacterVoiceActor_acId ON AnimeCharacterVoiceActor(acId);
 			CREATE INDEX idx_AnimeCharacterVoiceActor_vaId ON AnimeCharacterVoiceActor(vaId);
-		]],
-	}
+		]]},
+	},
 
+	-- Version 6:
+	{
+		scripts =
+		{
+			[[ ATTACH 'userData.sqlite' AS UserData ]],
+			[[
+				CREATE TABLE UserData.Seen (
+					aId INTEGER NOT NULL,
+					seenDate TEXT NOT NULL,
+					PRIMARY KEY (aId)
+				);
+			]],
+			[[
+				INSERT INTO UserData.Seen (aId, seenDate)
+				SELECT aId, seenDate FROM main.Seen;
+			]],
+			[[ DROP TABLE main.Seen ]],
+		},
+	},
 	-- Future upgrades can be added here
 }
 
@@ -285,7 +333,7 @@ local upgrades = {
 --- Runs all needed upgrades in order
 function dbUpgrade.upgradeIfNeeded(aConn, aDbPath)
 	local current = dbUpgrade.getSchemaVersion(aConn)
-	local latest = upgrades[#upgrades].version
+	local latest = #upgrades
 
 	if (current >= latest) then
 		log("dbUpgrade", "Schema up to date (v%d)", current)
@@ -295,18 +343,18 @@ function dbUpgrade.upgradeIfNeeded(aConn, aDbPath)
 	log("dbUpgrade", "Current schema v%d, latest v%d - upgrading...", current, latest)
 
 	-- Ensure KeyValue table exists early for first-time DBs
-	aConn:exec("CREATE TABLE IF NOT EXISTS KeyValue (key TEXT PRIMARY KEY, value TEXT);")
+	executeSql(aConn, "CREATE TABLE IF NOT EXISTS KeyValue (key TEXT PRIMARY KEY, value TEXT);", "CreateKeyValue")
 
-	for i = 1, #upgrades do
-		local u = upgrades[i]
-		if (u.version > current) then
-			log("dbUpgrade", "Applying upgrade to v%d", u.version)
-			local result = aConn:exec(u.script)
-			if (result ~= sqlite3.OK) then
-				error("DB upgrade to v" .. u.version .. " failed: " .. aConn:errmsg())
+	for version, upg in ipairs(upgrades) do
+		if (version > current) then
+			log("dbUpgrade", "Applying upgrade to v%d", version)
+			executeSql(aConn, "BEGIN TRANSACTION", string.format("Upgrade.v%d", version))
+			for idx, cmd in ipairs(upg.scripts) do
+				executeSql(aConn, cmd, string.format("Upgrade.v%d.%d", version, idx))
 			end
-			dbUpgrade.setSchemaVersion(aConn, u.version)
-			log("dbUpgrade", "Schema upgraded to v%d", u.version)
+			dbUpgrade.setSchemaVersion(aConn, version)
+			executeSql(aConn, "COMMIT", string.format("Upgrade.v%d", version))
+			log("dbUpgrade", "Schema upgraded to v%d", version)
 		end
 	end
 end
