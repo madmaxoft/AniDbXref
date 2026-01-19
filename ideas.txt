@@ -8,6 +8,10 @@ Tracks various ideas that could be implemented
 
 
 - Move all user-data into a separate DB file
+	- Smaller backups
+	- Easier sync between machines
+- Titles: Normalize how titles are queried and picked (synonyms are picked instead of official)
+- AnimeDetails: Sort relatedAnime as prequel-sequel-others
 - Display related anime
 	- Visualise relations as a whole tree?
 - Display similar anime

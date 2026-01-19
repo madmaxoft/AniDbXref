@@ -29,7 +29,7 @@ local function pickTitle(aTitles)
 	end
 	assert(type(aTitles) == "table")
 	local titles = {}
-	for _, title in ipairs(aTitles) do
+	for _, title in ipairs(aTitles or {}) do
 		titles[title.language] = title.title
 	end
 	return titles["en"] or titles["x-jat"] or titles["jp"]
@@ -62,7 +62,7 @@ end
 		<!-- Titles table: -->
 		<h2>Titles</h2>
 		<table>
-			<% for _, title in ipairs(details.titles) do %>
+			<% for _, title in ipairs(details.titles or {}) do %>
 				<tr>
 					<td><%= title.language %></td>
 					<td><%= title.title %></td>
@@ -172,7 +172,7 @@ end
 		local function pickTitle(aTitles)
 			assert(type(aTitles) == "table")
 			local titles = {}
-			for _, title in ipairs(aTitles) do
+			for _, title in ipairs(aTitles or {}) do
 				titles[title.language] = title.title
 			end
 			return titles["en"] or titles["x-jat"] or titles["jp"]
@@ -218,7 +218,7 @@ end
 					<img src="https://anidb.net/images/main/<%= ch.pictureId %>" /><br />
 					<% end %>
 				</td>
-				<td><% for _, va in ipairs(ch.voiceActors) do %>
+				<td><% for _, va in ipairs(ch.voiceActors or {}) do %>
 					<a href="/voiceActor/<%= va.vaId %>">
 					<%= va.name or "(unknown voice actor)" %>
 					<% if (va.pictureId) then %>
