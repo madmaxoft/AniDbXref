@@ -206,338 +206,6 @@ end
 
 
 
---- Runs the specified SQL query, binding the specified values to it, and returns the results as an array-table of dict-tables
--- aDescription is used for error logging.
-function db.getArrayFromQuery(aSql, aValuesToBind, aDescription)
-	assert(gDB ~= nil)
-	assert(type(aSql) == "string")
-	assert(type(aValuesToBind) == "table" or not(aValuesToBind))
-	if not(aDescription) then
-		aDescription = debug.getinfo(1, 'S').source
-	end
-
-	local stmt = gDB:prepare(aSql)
-	if not(stmt) then
-		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
-	end
-	if ((aValuesToBind) and (aValuesToBind[1])) then
-		checkSql(stmt:bind_values(table.unpack(aValuesToBind)), aDescription .. ".bind")
-	end
-	local result = {}
-	local n = 0
-	for row in stmt:nrows() do
-		n = n + 1
-		result[n] = row
-	end
-	result.n = n
-	checkSql(stmt:finalize(), aDescription .. ".finalize")
-
-	return result
-end
-
-
-
-
-
---- Returns an array-table of all seen Anime
--- Each item is a table {aId = ..., seenDate = ...}
-function db.getSeenAnime()
-	assert(gDB ~= nil)
-
-	return db.getArrayFromQuery("SELECT aId, seenDate FROM Seen", {}, "getSeenAnime")
-end
-
-
-
-
-
---- Returns an array-table of all seen anime, together with basic details, suitable for display on the homepage
-function db.getSeenAnimeForHomepage()
-	assert(gDB ~= nil)
-
-	local rows = db.getArrayFromQuery([[
-		SELECT
-			s.aId AS aId,
-			s.seenDate AS seenDate,
-			d.startDate AS startDate,
-			d.endDate AS endDate,
-			d.numEpisodes AS numEpisodes,
-			d.pictureId AS pictureId,
-			t.language AS language,
-			t.kind AS kind,
-			t.title AS title
-		FROM Seen s
-		LEFT JOIN AnimeBaseDetails d ON d.aId = s.aId
-		LEFT JOIN AnimeTitle t ON t.aId = s.aId
-		ORDER BY s.seenDate DESC, t.language, t.kind
-	]])
-
-	-- Process the returned data - collapse multiple titles for a single anime:
-	local animeById = {}
-	for _, row in ipairs(rows) do
-		local a = animeById[row.aId]
-		if not(a) then
-			a =
-			{
-				aId = row.aId,
-				seenDate = row.seenDate,
-				startDate = row.startDate,
-				endDate = row.endDate,
-				numEpisodes = row.numEpisodes,
-				pictureId = row.pictureId,
-				titles = { n = 0 }
-			}
-			animeById[row.aId] = a
-		end
-
-		if (row.title) then
-			local titles = a.titles
-			titles.n = titles.n + 1
-			titles[titles.n] =
-			{
-				language = row.language,
-				kind = row.kind,
-				title = row.title
-			}
-		end
-	end
-
-	-- Convert dictionary to array-table, pick best titles:
-	local result = {}
-	local n = 0
-	for _, a in pairs(animeById) do
-		a.enTitle = db.pickBestTitle(a.titles, "en")
-		a.jaTitle = db.pickBestTitle(a.titles, "ja")
-		a.xjatTitle = db.pickBestTitle(a.titles, "x-jat")
-		n = n + 1
-		result[n] = a
-	end
-	result.n = n
-
-	return result
-end
-
-
-
-
-
---- Returns an array-table of anime aIds that have been marked as seen but have no details stored in the DB
-function db.getSeenWithoutDetails()
-	assert(gDB ~= nil)
-
-	local stmt = gDB:prepare([[
-		SELECT s.aId
-		FROM Seen AS s
-		WHERE NOT EXISTS (
-			SELECT 1
-			FROM AnimeBaseDetails AS b
-			WHERE b.aId = s.aId
-		);
-	]])
-	if not(stmt) then
-		error("SQL prepare failed (getSeenWithoutDetails): " .. gDB:errmsg())
-	end
-	local result = {}
-	local n = 0
-	for row in stmt:nrows() do
-		n = n + 1
-		result[n] = row.aId
-	end
-	result.n = n
-	return result
-end
-
-
-
-
-
---- Returns the details on the specified voice actor, as needed for the details page
--- Return nil if not found
-function db.getVoiceActorDetails(aVoiceActorId)
-	assert(gDB ~= nil)
-	assert(tonumber(aVoiceActorId))
-
-	local baseDetails = db.getArrayFromQuery("SELECT * FROM VoiceActor WHERE vaId = ?", {aVoiceActorId}, "getVoiceActorDetails")
-	if (not(baseDetails) or (baseDetails.n ~= 1)) then
-		return nil
-	end
-	local result = baseDetails[1]
-
-	-- Load all the characters:
-	result.characters = db.getArrayFromQuery([[
-		SELECT
-			acva.language,
-			acva.episodes,
-			acva.notes AS vaNotes,
-
-			c.characterId,
-			c.name,
-			c.description,
-			c.pictureId,
-
-			ac.aId,
-			abd.startDate AS animeStartDate,
-			abd.endDate AS animeEndDate,
-			CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
-			s.seenDate AS seenDate
-
-		FROM AnimeCharacterVoiceActor acva
-		JOIN AnimeCharacter ac    ON ac.acId = acva.acId
-		JOIN Character c          ON c.characterId = ac.characterId
-		JOIN AnimeBaseDetails abd ON abd.aId = ac.aId
-		LEFT JOIN Seen s          ON s.aId = ac.aId
-		WHERE acva.vaId = ?
-	]], {aVoiceActorId}, "getVoiceActorDetails.characters")
-
-	-- Add titles for the anime through a subquery:
-	local titles = db.getArrayFromQuery([[
-		SELECT *
-		FROM AnimeTitle
-		WHERE aId IN (
-			SELECT DISTINCT ac.aId
-			FROM AnimeCharacterVoiceActor acva
-			JOIN AnimeCharacter ac ON ac.acId = acva.acId
-			WHERE acva.vaId = ?
-		)
-	]], {aVoiceActorId}, "getVoiceActorDetails.animeTitles")
-	local titleByAnime = {}
-	for _, title in ipairs(titles) do
-		titleByAnime[title.aId] = titleByAnime[title.aId] or {n = 0}
-		titleByAnime[title.aId].n = titleByAnime[title.aId].n + 1
-		titleByAnime[title.aId][titleByAnime[title.aId].n] = title
-	end
-	for _, ch in ipairs(result.characters) do
-		ch.isSeen = (ch.isSeen == "1") or (ch.isSeen == 1)
-		ch.enTitle = db.pickBestTitle(titleByAnime[ch.aId], "en")
-		ch.jpTitle = db.pickBestTitle(titleByAnime[ch.aId], "jp")
-		ch.xjatTitle = db.pickBestTitle(titleByAnime[ch.aId], "x-jat")
-	end
-
-	return result
-end
-
-
-
-
-
---- Returns the voice actors currently stored in the DB, together with the number of characters they voiced
-function db.getVoiceActors()
-	return db.getArrayFromQuery([[
-		SELECT
-			va.*,
-			COUNT(acva.acId) AS numCharacters,
-			COUNT(DISTINCT s.aId) AS numSeenAnime
-		FROM VoiceActor AS va
-		LEFT JOIN AnimeCharacterVoiceActor AS acva
-			ON acva.vaId = va.vaId
-		LEFT JOIN AnimeCharacter AS ac
-			ON ac.acId = acva.acId
-		LEFT JOIN Seen AS s
-			ON s.aId = ac.aId
-		GROUP BY va.vaId
-	]], {}, "getVoiceActors")
-end
-
-
-
-
-
---- Returns true if the base AniDB data (Anime, AnimeTitle tables) have been populated
-function db.hasBaseAniDbData()
-	local stmt = gDB:prepare("SELECT COUNT(aId) as cnt FROM Anime")
-	if not(stmt) then
-		error("SQL prepare failed (hasBaseAniDbData): " .. gDB:errmsg())
-	end
-	for row in stmt:nrows() do
-		if (row.cnt > 0) then
-			return true
-		end
-	end
-	checkSql(stmt:finalize(), "hasBaseAniDbData.finalize")
-	return false
-end
-
-
-
-
-
---- Returns true if the specified Anime has an entry in the AnimeDetails table (and so is supposed
--- to have had its details queried from AniDB previously)
-function db.hasDetails(aId)
-	assert(gDB ~= nil)
-	assert(type(aId) == "number")
-
-	local stmt = gDB:prepare("SELECT COUNT(aId) as cnt FROM AnimeDetails WHERE aId = ?")
-	if not(stmt) then
-		error("SQL prepare failed (hasBaseAniDbData): " .. gDB:errmsg())
-	end
-	checkSql(stmt:bind_values(aId), "hasDetails.bind")
-	for row in stmt:nrows() do
-		if (row.cnt > 0) then
-			return true
-		end
-	end
-	checkSql(stmt:finalize(), "hasDetails.finalize")
-	return false
-end
-
-
-
-
-
---- Removes the anime from the Seen table
-function db.markAnimeNotSeen(aId)
-	assert(type(aId) == "number")
-
-	db.execBoundStatement(
-		"DELETE FROM Seen WHERE aId = ?",
-		{aId},
-		"markAnimeNotSeen"
-	)
-end
-
-
-
-
-
---- Marks an anime as seen
-function db.markAnimeSeen(aId, aDateTime)
-	assert(type(aId) == "number")
-	if not(aDateTime) then
-		aDateTime = os.time()
-	end
-	assert(type(aDateTime) == "number")
-	db.execBoundStatement(
-		"INSERT OR REPLACE INTO Seen (aId, seenDate) VALUES (?, ?)",
-		{aId, aDateTime},
-		"markAnimeSeen"
-	)
-end
-
-
-
-
-
---- Returns the "best" title from those specified, limited to the specified language
--- Returns nil if none found.
--- Prefers main title, then official title, then synonyms and last shorts
-function db.pickBestTitle(aTitlesFromDb, aLanguage)
-	assert(type(aTitlesFromDb) == "table")
-	assert(type(aLanguage) == "string")
-
-	local titles = {}
-	for _, row in ipairs(aTitlesFromDb) do
-		if (row.language == aLanguage) then
-			titles[row.kind] = row.title
-		end
-	end
-	return titles["main"] or titles["official"] or titles["syn"] or titles["short"]
-end
-
-
-
-
-
 --- Gets full details for a single anime
 function db.getAnimeDetails(aId)
 	assert(tonumber(aId))
@@ -868,33 +536,438 @@ end
 
 
 
---- Stores or updates details retrieved from AniDB
--- The details are a full details table parsed out of AniDB's HTTP API XML response
-function db.storeAnimeDetails(aDetails)
+--- Runs the specified SQL query, binding the specified values to it, and returns the results as an array-table of dict-tables
+-- aDescription is used for error logging.
+function db.getArrayFromQuery(aSql, aValuesToBind, aDescription)
 	assert(gDB ~= nil)
-	assert(type(aDetails) == "table")
-	local timer = perf.newTimer("db.storeAnimeDetails")
+	assert(type(aSql) == "string")
+	assert(type(aValuesToBind) == "table" or not(aValuesToBind))
+	if not(aDescription) then
+		aDescription = debug.getinfo(1, 'S').source
+	end
 
-	checkSql(gDB:exec("SAVEPOINT anime_details"), "storeAnimeDetails.savepoint")
-	db.storeAnimeBaseDetails(aDetails)
-	timer("BaseDetails")
-	db.storeAnimeRelated(aDetails)
-	timer("Related")
-	db.storeAnimeSimilar(aDetails)
-	timer("Similar")
-	db.storeAnimeRecommendations(aDetails)
-	timer("Recommendations")
-	db.storeAnimeCreators(aDetails)
-	timer("Creators")
-	db.storeAnimeCharacters(aDetails)
-	timer("Characters")
-	db.storeAnimeTags(aDetails)
-	timer("Tags")
-	db.storeAnimeEpisodes(aDetails)
-	timer("Episodes")
-	checkSql(gDB:exec("RELEASE SAVEPOINT anime_details"), "storeAnimeDetails.release")
+	local stmt = gDB:prepare(aSql)
+	if not(stmt) then
+		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
+	end
+	if ((aValuesToBind) and (aValuesToBind[1])) then
+		checkSql(stmt:bind_values(table.unpack(aValuesToBind)), aDescription .. ".bind")
+	end
+	local result = {}
+	local n = 0
+	for row in stmt:nrows() do
+		n = n + 1
+		result[n] = row
+	end
+	result.n = n
+	checkSql(stmt:finalize(), aDescription .. ".finalize")
+
+	return result
 end
 
+
+
+
+
+--- Returns the last DB update timestamp, or 0 if none
+function db.getLastAniDbUpdate()
+	assert(gDB ~= nil)
+
+	local stmt = gDB:prepare("SELECT value FROM KeyValue WHERE key = 'lastAniDbUpdate';")
+	if (not stmt) then
+		return 0
+	end
+	local ts = 0
+	for row in stmt:nrows() do
+		ts = tonumber(row.value) or 0
+	end
+	stmt:finalize()
+	return ts
+end
+
+
+
+
+--- Returns an array-table of all seen Anime
+-- Each item is a table {aId = ..., seenDate = ...}
+function db.getSeenAnime()
+	assert(gDB ~= nil)
+
+	return db.getArrayFromQuery("SELECT aId, seenDate FROM Seen", {}, "getSeenAnime")
+end
+
+
+
+
+
+--- Returns an array-table of all seen anime, together with basic details, suitable for display on the homepage
+function db.getSeenAnimeForHomepage()
+	assert(gDB ~= nil)
+
+	local rows = db.getArrayFromQuery([[
+		SELECT
+			s.aId AS aId,
+			s.seenDate AS seenDate,
+			d.startDate AS startDate,
+			d.endDate AS endDate,
+			d.numEpisodes AS numEpisodes,
+			d.pictureId AS pictureId,
+			t.language AS language,
+			t.kind AS kind,
+			t.title AS title
+		FROM Seen s
+		LEFT JOIN AnimeBaseDetails d ON d.aId = s.aId
+		LEFT JOIN AnimeTitle t ON t.aId = s.aId
+		ORDER BY s.seenDate DESC, t.language, t.kind
+	]])
+
+	-- Process the returned data - collapse multiple titles for a single anime:
+	local animeById = {}
+	for _, row in ipairs(rows) do
+		local a = animeById[row.aId]
+		if not(a) then
+			a =
+			{
+				aId = row.aId,
+				seenDate = row.seenDate,
+				startDate = row.startDate,
+				endDate = row.endDate,
+				numEpisodes = row.numEpisodes,
+				pictureId = row.pictureId,
+				titles = { n = 0 }
+			}
+			animeById[row.aId] = a
+		end
+
+		if (row.title) then
+			local titles = a.titles
+			titles.n = titles.n + 1
+			titles[titles.n] =
+			{
+				language = row.language,
+				kind = row.kind,
+				title = row.title
+			}
+		end
+	end
+
+	-- Convert dictionary to array-table, pick best titles:
+	local result = {}
+	local n = 0
+	for _, a in pairs(animeById) do
+		a.enTitle = db.pickBestTitle(a.titles, "en")
+		a.jaTitle = db.pickBestTitle(a.titles, "ja")
+		a.xjatTitle = db.pickBestTitle(a.titles, "x-jat")
+		n = n + 1
+		result[n] = a
+	end
+	result.n = n
+
+	return result
+end
+
+
+
+
+
+--- Returns an array-table of anime aIds that have been marked as seen but have no details stored in the DB
+function db.getSeenWithoutDetails()
+	assert(gDB ~= nil)
+
+	local stmt = gDB:prepare([[
+		SELECT s.aId
+		FROM Seen AS s
+		WHERE NOT EXISTS (
+			SELECT 1
+			FROM AnimeBaseDetails AS b
+			WHERE b.aId = s.aId
+		);
+	]])
+	if not(stmt) then
+		error("SQL prepare failed (getSeenWithoutDetails): " .. gDB:errmsg())
+	end
+	local result = {}
+	local n = 0
+	for row in stmt:nrows() do
+		n = n + 1
+		result[n] = row.aId
+	end
+	result.n = n
+	return result
+end
+
+
+
+
+
+--- Returns the details on the specified voice actor, as needed for the details page
+-- Return nil if not found
+function db.getVoiceActorDetails(aVoiceActorId)
+	assert(gDB ~= nil)
+	assert(tonumber(aVoiceActorId))
+
+	local baseDetails = db.getArrayFromQuery("SELECT * FROM VoiceActor WHERE vaId = ?", {aVoiceActorId}, "getVoiceActorDetails")
+	if (not(baseDetails) or (baseDetails.n ~= 1)) then
+		return nil
+	end
+	local result = baseDetails[1]
+
+	-- Load all the characters:
+	result.characters = db.getArrayFromQuery([[
+		SELECT
+			acva.language,
+			acva.episodes,
+			acva.notes AS vaNotes,
+
+			c.characterId,
+			c.name,
+			c.description,
+			c.pictureId,
+
+			ac.aId,
+			abd.startDate AS animeStartDate,
+			abd.endDate AS animeEndDate,
+			CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
+			s.seenDate AS seenDate
+
+		FROM AnimeCharacterVoiceActor acva
+		JOIN AnimeCharacter ac    ON ac.acId = acva.acId
+		JOIN Character c          ON c.characterId = ac.characterId
+		JOIN AnimeBaseDetails abd ON abd.aId = ac.aId
+		LEFT JOIN Seen s          ON s.aId = ac.aId
+		WHERE acva.vaId = ?
+	]], {aVoiceActorId}, "getVoiceActorDetails.characters")
+
+	-- Add titles for the anime through a subquery:
+	local titles = db.getArrayFromQuery([[
+		SELECT *
+		FROM AnimeTitle
+		WHERE aId IN (
+			SELECT DISTINCT ac.aId
+			FROM AnimeCharacterVoiceActor acva
+			JOIN AnimeCharacter ac ON ac.acId = acva.acId
+			WHERE acva.vaId = ?
+		)
+	]], {aVoiceActorId}, "getVoiceActorDetails.animeTitles")
+	local titleByAnime = {}
+	for _, title in ipairs(titles) do
+		titleByAnime[title.aId] = titleByAnime[title.aId] or {n = 0}
+		titleByAnime[title.aId].n = titleByAnime[title.aId].n + 1
+		titleByAnime[title.aId][titleByAnime[title.aId].n] = title
+	end
+	for _, ch in ipairs(result.characters) do
+		ch.isSeen = (ch.isSeen == "1") or (ch.isSeen == 1)
+		ch.enTitle = db.pickBestTitle(titleByAnime[ch.aId], "en")
+		ch.jpTitle = db.pickBestTitle(titleByAnime[ch.aId], "jp")
+		ch.xjatTitle = db.pickBestTitle(titleByAnime[ch.aId], "x-jat")
+	end
+
+	return result
+end
+
+
+
+
+
+--- Returns the voice actors currently stored in the DB, together with the number of characters they voiced
+function db.getVoiceActors()
+	return db.getArrayFromQuery([[
+		SELECT
+			va.*,
+			COUNT(acva.acId) AS numCharacters,
+			COUNT(DISTINCT s.aId) AS numSeenAnime
+		FROM VoiceActor AS va
+		LEFT JOIN AnimeCharacterVoiceActor AS acva
+			ON acva.vaId = va.vaId
+		LEFT JOIN AnimeCharacter AS ac
+			ON ac.acId = acva.acId
+		LEFT JOIN Seen AS s
+			ON s.aId = ac.aId
+		GROUP BY va.vaId
+	]], {}, "getVoiceActors")
+end
+
+
+
+
+
+--- Returns true if the base AniDB data (Anime, AnimeTitle tables) have been populated
+function db.hasBaseAniDbData()
+	local stmt = gDB:prepare("SELECT COUNT(aId) as cnt FROM Anime")
+	if not(stmt) then
+		error("SQL prepare failed (hasBaseAniDbData): " .. gDB:errmsg())
+	end
+	for row in stmt:nrows() do
+		if (row.cnt > 0) then
+			return true
+		end
+	end
+	checkSql(stmt:finalize(), "hasBaseAniDbData.finalize")
+	return false
+end
+
+
+
+
+
+--- Returns true if the specified Anime has an entry in the AnimeDetails table (and so is supposed
+-- to have had its details queried from AniDB previously)
+function db.hasDetails(aId)
+	assert(gDB ~= nil)
+	assert(type(aId) == "number")
+
+	local stmt = gDB:prepare("SELECT COUNT(aId) as cnt FROM AnimeDetails WHERE aId = ?")
+	if not(stmt) then
+		error("SQL prepare failed (hasBaseAniDbData): " .. gDB:errmsg())
+	end
+	checkSql(stmt:bind_values(aId), "hasDetails.bind")
+	for row in stmt:nrows() do
+		if (row.cnt > 0) then
+			return true
+		end
+	end
+	checkSql(stmt:finalize(), "hasDetails.finalize")
+	return false
+end
+
+
+
+
+
+--- Removes the anime from the Seen table
+function db.markAnimeNotSeen(aId)
+	assert(type(aId) == "number")
+
+	db.execBoundStatement(
+		"DELETE FROM Seen WHERE aId = ?",
+		{aId},
+		"markAnimeNotSeen"
+	)
+end
+
+
+
+
+
+--- Marks an anime as seen
+function db.markAnimeSeen(aId, aDateTime)
+	assert(type(aId) == "number")
+	if not(aDateTime) then
+		aDateTime = os.time()
+	end
+	assert(type(aDateTime) == "number")
+	db.execBoundStatement(
+		"INSERT OR REPLACE INTO Seen (aId, seenDate) VALUES (?, ?)",
+		{aId, aDateTime},
+		"markAnimeSeen"
+	)
+end
+
+
+
+
+
+--- Returns the "best" title from those specified, limited to the specified language
+-- Returns nil if none found.
+-- Prefers main title, then official title, then synonyms and last shorts
+function db.pickBestTitle(aTitlesFromDb, aLanguage)
+	assert(type(aTitlesFromDb) == "table")
+	assert(type(aLanguage) == "string")
+
+	local titles = {}
+	for _, row in ipairs(aTitlesFromDb) do
+		if (row.language == aLanguage) then
+			titles[row.kind] = row.title
+		end
+	end
+	return titles["main"] or titles["official"] or titles["syn"] or titles["short"]
+end
+
+
+
+
+
+--- Re-creates indices previously dropped by collectAndDropIndices()
+-- aIndexDefs is an array-table of {name = "", sql = ""}
+function db.recreateIndices(aIndexDefs)
+	assert(type(aIndexDefs) == "table")
+
+	for _, def in ipairs(aIndexDefs) do
+		assert(type(def.sql) == "string")
+		checkSql(db:exec(def.sql), "recreateIndices." .. tostring(def.name))
+	end
+end
+
+
+
+
+
+--- Searches Anime titles containing all given words of length >= 3
+-- Returns an array-table with {aId, details} items
+-- If the query matches the title perfectly (sans punctuation), areTitlesEqual = true is added into the item
+-- Up to 50 items are returned
+function db.searchAnimeTitles(aQuery)
+	assert(gDB ~= nil)
+	assert(type(aQuery) == "string")
+
+	local results = { n = 0 }
+	local n = 0
+
+	-- Get the list of searchable words:
+	local words = {}
+	for word in aQuery:gmatch("%S+") do
+		if (#word >= 3) then
+			words[#words + 1] = "%" .. word:lower() .. "%"
+		end
+	end
+	if (#words == 0) then
+		return results
+	end
+
+	-- Search the DB:
+	local sql = [[
+		SELECT DISTINCT aId
+		FROM AnimeTitle
+		WHERE 1 = 1
+	]]
+	for _ = 1, #words do
+		sql = sql .. " AND titleLower LIKE ?"
+	end
+	sql = sql .. " LIMIT 50;"
+
+	local stmt = gDB:prepare(sql)
+	if not(stmt) then
+		error("Failed to prepare search query: " .. (gDB:errmsg() or "unknown error"))
+	end
+	stmt:bind_values(table.unpack(words))
+	for row in stmt:nrows() do
+		n = n + 1
+		results[n] =
+		{
+			aId = row.aId,
+			details = db.getAnimeDetails(row.aId),
+		}
+		results[n].areTitlesEqual = areMultiTitlesEqual(aQuery, results[n].details.titles)
+	end
+	results.n = n
+
+	stmt:finalize()
+	return results
+end
+
+
+
+
+
+--- Sets the last DB update timestamp
+function db.setLastAniDbUpdate(aTimestamp)
+	assert(gDB ~= nil)
+
+	local stmt = gDB:prepare("INSERT OR REPLACE INTO KeyValue (key, value) VALUES ('lastAniDbUpdate', ?);")
+	checkSql(stmt:bind_values(tostring(aTimestamp)), "setLastAniDbUpdate.bind")
+	checkSql(stmt:step(), "setLastAniDbUpdate.step")
+	checkSql(stmt:finalize(), "setLastAniDbUpdate.finalize")
+end
 
 
 
@@ -936,130 +1009,6 @@ function db.storeAnimeBaseDetails(aDetails)
 	), "storeAnimeBaseDetails.bind")
 	checkSql(stmt:step(), "storeAnimeBaseDetails.step")
 	checkSql(stmt:finalize(), "storeAnimeBaseDetails.finalize")
-end
-
-
-
-
-
---- Stores or updates the relatedAnime details from AniDB API
--- aDetails is the full details table parsed out of AniDB's HTTP API XML response
-function db.storeAnimeRelated(aDetails)
-	assert(gDB ~= nil)
-	assert(type(aDetails) == "table")
-	assert(tonumber(aDetails.aId))
-	if not(aDetails.relatedAnime) then
-		return
-	end
-
-	db.execBoundStatement("DELETE FROM AnimeRelated WHERE aId = ?", {aDetails.aId}, "storeAnimeRelated")
-	local stmt = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeRelated(aId, relatedAid, relation)
-		VALUES (?, ?, ?)
-	]])
-	if not(stmt) then
-		error("Failed to prepare statement for storeAnimeRelated: " .. gDB:errmsg())
-	end
-	for _, rel in ipairs(aDetails.relatedAnime) do
-		assert(tonumber(rel.aId))
-		checkSql(stmt:bind_values(aDetails.aId, rel.aId, rel.relation), "storeAnimeRelated.bind")
-		checkSql(stmt:step(), "storeAnimeRelated.step")
-		checkSql(stmt:reset(), "storeAnimeRelated.reset")
-	end
-	checkSql(stmt:finalize(), "storeAnimeRelated.finalize")
-end
-
-
-
-
-
---- Stores or updates the similarAnime details from AniDB API
--- aDetails is the full details table parsed out of AniDB's HTTP API XML response
-function db.storeAnimeSimilar(aDetails)
-	assert(gDB ~= nil)
-	assert(type(aDetails) == "table")
-	assert(tonumber(aDetails.aId))
-	if not(aDetails.similarAnime) then
-		return
-	end
-
-	db.execBoundStatement("DELETE FROM AnimeSimilar WHERE aId = ?", {aDetails.aId}, "storeAnimeSimilar")
-	local stmt = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeSimilar(aId, similarAid)
-		VALUES (?, ?)
-	]])
-	if not(stmt) then
-		error("Failed to prepare statement for storeAnimeSimilar: " .. gDB:errmsg())
-	end
-	for _, rel in ipairs(aDetails.similarAnime) do
-		assert(tonumber(rel.aId))
-		checkSql(stmt:bind_values(aDetails.aId, rel.aId), "storeAnimeSimilar.bind")
-		checkSql(stmt:step(), "storeAnimeSimilar.step")
-		checkSql(stmt:reset(), "storeAnimeSimilar.reset")
-	end
-	checkSql(stmt:finalize(), "storeAnimeSimilar.finalize")
-end
-
-
-
-
-
---- Stores or updates the recommendations details from AniDB API
--- aDetails is the full details table parsed out of AniDB's HTTP API XML response
-function db.storeAnimeRecommendations(aDetails)
-	assert(gDB ~= nil)
-	assert(type(aDetails) == "table")
-	assert(tonumber(aDetails.aId))
-	if not(aDetails.recommendations) then
-		return
-	end
-
-	db.execBoundStatement("DELETE FROM AnimeRecommendation WHERE aId = ?", {aDetails.aId}, "storeAnimeRecommendations")
-	local stmt = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeRecommendation(aId, uId, kind, text)
-		VALUES (?, ?, ?, ?)
-	]])
-	if not(stmt) then
-		error("Failed to prepare statement for storeAnimeRecommendations: " .. gDB:errmsg())
-	end
-	for _, rec in ipairs(aDetails.recommendations) do
-		assert(tonumber(rec.uId))
-		checkSql(stmt:bind_values(aDetails.aId, rec.uId, rec.kind, rec.text), "storeAnimeRecommendations.bind")
-		checkSql(stmt:step(), "storeAnimeRecommendations.step")
-		checkSql(stmt:reset(), "storeAnimeRecommendations.reset")
-	end
-	checkSql(stmt:finalize(), "storeAnimeRecommendations.finalize")
-end
-
-
-
-
-
---- Stores or updates the creators details from AniDB API
--- aDetails is the full details table parsed out of AniDB's HTTP API XML response
-function db.storeAnimeCreators(aDetails)
-	assert(gDB ~= nil)
-	assert(type(aDetails) == "table")
-	assert(tonumber(aDetails.aId))
-	if not(aDetails.creators) then
-		return
-	end
-
-	db.execBoundStatement("DELETE FROM AnimeCreator WHERE aId = ?", {aDetails.aId}, "storeAnimeCreators")
-	local stmt = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeCreator(aId, id, kind, name)
-		VALUES (?, ?, ?, ?)
-	]])
-	if not(stmt) then
-		error("Failed to prepare statement for storeAnimeCreators: " .. gDB:errmsg())
-	end
-	for _, c in ipairs(aDetails.creators) do
-		assert(tonumber(c.id))
-		checkSql(stmt:bind_values(aDetails.aId, c.id, c.kind, c.name), "storeAnimeCreators.bind")
-		checkSql(stmt:step(), "storeAnimeCreators.step")
-		checkSql(stmt:reset(), "storeAnimeCreators.reset")
-	end
-	checkSql(stmt:finalize(), "storeAnimeCreators.finalize")
 end
 
 
@@ -1264,36 +1213,62 @@ end
 
 
 
---- Stores or updates the tags details from AniDB API
+--- Stores or updates the creators details from AniDB API
 -- aDetails is the full details table parsed out of AniDB's HTTP API XML response
-function db.storeAnimeTags(aDetails)
+function db.storeAnimeCreators(aDetails)
 	assert(gDB ~= nil)
 	assert(type(aDetails) == "table")
 	assert(tonumber(aDetails.aId))
-	if not(aDetails.tags) then
+	if not(aDetails.creators) then
 		return
 	end
 
-	db.execBoundStatement("DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
+	db.execBoundStatement("DELETE FROM AnimeCreator WHERE aId = ?", {aDetails.aId}, "storeAnimeCreators")
 	local stmt = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeTag(aId, id, weight)
-		VALUES (?, ?, ?)
+		INSERT OR IGNORE INTO AnimeCreator(aId, id, kind, name)
+		VALUES (?, ?, ?, ?)
 	]])
 	if not(stmt) then
-		error("Failed to prepare statement for storeAnimeTags: " .. gDB:errmsg())
+		error("Failed to prepare statement for storeAnimeCreators: " .. gDB:errmsg())
 	end
-	for _, tag in ipairs(aDetails.tags) do
-		assert(tonumber(tag.id))
-		local weight = tonumber(tag.weight) or 0
-		if (weight > 0) then
-			checkSql(stmt:bind_values(aDetails.aId, tag.id, weight), "storeAnimeTags.bind")
-			checkSql(stmt:step(), "storeAnimeTags.step")
-			checkSql(stmt:reset(), "storeAnimeTags.reset")
-		end
+	for _, c in ipairs(aDetails.creators) do
+		assert(tonumber(c.id))
+		checkSql(stmt:bind_values(aDetails.aId, c.id, c.kind, c.name), "storeAnimeCreators.bind")
+		checkSql(stmt:step(), "storeAnimeCreators.step")
+		checkSql(stmt:reset(), "storeAnimeCreators.reset")
 	end
-	checkSql(stmt:finalize(), "storeAnimeTags.finalize")
+	checkSql(stmt:finalize(), "storeAnimeCreators.finalize")
+end
 
-	-- TODO: Store the tags in the global tags table, for the parentId information
+
+
+
+
+--- Stores or updates details retrieved from AniDB
+-- The details are a full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeDetails(aDetails)
+	assert(gDB ~= nil)
+	assert(type(aDetails) == "table")
+	local timer = perf.newTimer("db.storeAnimeDetails")
+
+	checkSql(gDB:exec("SAVEPOINT anime_details"), "storeAnimeDetails.savepoint")
+	db.storeAnimeBaseDetails(aDetails)
+	timer("BaseDetails")
+	db.storeAnimeRelated(aDetails)
+	timer("Related")
+	db.storeAnimeSimilar(aDetails)
+	timer("Similar")
+	db.storeAnimeRecommendations(aDetails)
+	timer("Recommendations")
+	db.storeAnimeCreators(aDetails)
+	timer("Creators")
+	db.storeAnimeCharacters(aDetails)
+	timer("Characters")
+	db.storeAnimeTags(aDetails)
+	timer("Tags")
+	db.storeAnimeEpisodes(aDetails)
+	timer("Episodes")
+	checkSql(gDB:exec("RELEASE SAVEPOINT anime_details"), "storeAnimeDetails.release")
 end
 
 
@@ -1345,34 +1320,131 @@ end
 
 
 
---- Returns the last DB update timestamp, or 0 if none
-function db.getLastAniDbUpdate()
+--- Stores or updates the recommendations details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeRecommendations(aDetails)
 	assert(gDB ~= nil)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	if not(aDetails.recommendations) then
+		return
+	end
 
-	local stmt = gDB:prepare("SELECT value FROM KeyValue WHERE key = 'lastAniDbUpdate';")
-	if (not stmt) then
-		return 0
+	db.execBoundStatement("DELETE FROM AnimeRecommendation WHERE aId = ?", {aDetails.aId}, "storeAnimeRecommendations")
+	local stmt = gDB:prepare([[
+		INSERT OR IGNORE INTO AnimeRecommendation(aId, uId, kind, text)
+		VALUES (?, ?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeRecommendations: " .. gDB:errmsg())
 	end
-	local ts = 0
-	for row in stmt:nrows() do
-		ts = tonumber(row.value) or 0
+	for _, rec in ipairs(aDetails.recommendations) do
+		assert(tonumber(rec.uId))
+		checkSql(stmt:bind_values(aDetails.aId, rec.uId, rec.kind, rec.text), "storeAnimeRecommendations.bind")
+		checkSql(stmt:step(), "storeAnimeRecommendations.step")
+		checkSql(stmt:reset(), "storeAnimeRecommendations.reset")
 	end
-	stmt:finalize()
-	return ts
+	checkSql(stmt:finalize(), "storeAnimeRecommendations.finalize")
 end
 
 
 
 
---- Sets the last DB update timestamp
-function db.setLastAniDbUpdate(aTimestamp)
-	assert(gDB ~= nil)
 
-	local stmt = gDB:prepare("INSERT OR REPLACE INTO KeyValue (key, value) VALUES ('lastAniDbUpdate', ?);")
-	checkSql(stmt:bind_values(tostring(aTimestamp)), "setLastAniDbUpdate.bind")
-	checkSql(stmt:step(), "setLastAniDbUpdate.step")
-	checkSql(stmt:finalize(), "setLastAniDbUpdate.finalize")
+--- Stores or updates the relatedAnime details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeRelated(aDetails)
+	assert(gDB ~= nil)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	if not(aDetails.relatedAnime) then
+		return
+	end
+
+	db.execBoundStatement("DELETE FROM AnimeRelated WHERE aId = ?", {aDetails.aId}, "storeAnimeRelated")
+	local stmt = gDB:prepare([[
+		INSERT OR IGNORE INTO AnimeRelated(aId, relatedAid, relation)
+		VALUES (?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeRelated: " .. gDB:errmsg())
+	end
+	for _, rel in ipairs(aDetails.relatedAnime) do
+		assert(tonumber(rel.aId))
+		checkSql(stmt:bind_values(aDetails.aId, rel.aId, rel.relation), "storeAnimeRelated.bind")
+		checkSql(stmt:step(), "storeAnimeRelated.step")
+		checkSql(stmt:reset(), "storeAnimeRelated.reset")
+	end
+	checkSql(stmt:finalize(), "storeAnimeRelated.finalize")
 end
+
+
+
+
+
+--- Stores or updates the similarAnime details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeSimilar(aDetails)
+	assert(gDB ~= nil)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	if not(aDetails.similarAnime) then
+		return
+	end
+
+	db.execBoundStatement("DELETE FROM AnimeSimilar WHERE aId = ?", {aDetails.aId}, "storeAnimeSimilar")
+	local stmt = gDB:prepare([[
+		INSERT OR IGNORE INTO AnimeSimilar(aId, similarAid)
+		VALUES (?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeSimilar: " .. gDB:errmsg())
+	end
+	for _, rel in ipairs(aDetails.similarAnime) do
+		assert(tonumber(rel.aId))
+		checkSql(stmt:bind_values(aDetails.aId, rel.aId), "storeAnimeSimilar.bind")
+		checkSql(stmt:step(), "storeAnimeSimilar.step")
+		checkSql(stmt:reset(), "storeAnimeSimilar.reset")
+	end
+	checkSql(stmt:finalize(), "storeAnimeSimilar.finalize")
+end
+
+
+
+
+
+--- Stores or updates the tags details from AniDB API
+-- aDetails is the full details table parsed out of AniDB's HTTP API XML response
+function db.storeAnimeTags(aDetails)
+	assert(gDB ~= nil)
+	assert(type(aDetails) == "table")
+	assert(tonumber(aDetails.aId))
+	if not(aDetails.tags) then
+		return
+	end
+
+	db.execBoundStatement("DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
+	local stmt = gDB:prepare([[
+		INSERT OR IGNORE INTO AnimeTag(aId, id, weight)
+		VALUES (?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeAnimeTags: " .. gDB:errmsg())
+	end
+	for _, tag in ipairs(aDetails.tags) do
+		assert(tonumber(tag.id))
+		local weight = tonumber(tag.weight) or 0
+		if (weight > 0) then
+			checkSql(stmt:bind_values(aDetails.aId, tag.id, weight), "storeAnimeTags.bind")
+			checkSql(stmt:step(), "storeAnimeTags.step")
+			checkSql(stmt:reset(), "storeAnimeTags.reset")
+		end
+	end
+	checkSql(stmt:finalize(), "storeAnimeTags.finalize")
+
+	-- TODO: Store the tags in the global tags table, for the parentId information
+end
+
 
 
 
@@ -1442,78 +1514,6 @@ function db.updateAniDbDataFromDump(aXmlString)
 	db.setLastAniDbUpdate(os.time())
 	checkSql(gDB:exec("COMMIT TRANSACTION"), "updateAniDbDataFromDump.commit")
 	checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "updateAniDbDataFromDump.fkon")
-end
-
-
-
-
-
---- Re-creates indices previously dropped by collectAndDropIndices()
--- aIndexDefs is an array-table of {name = "", sql = ""}
-function db.recreateIndices(aIndexDefs)
-	assert(type(aIndexDefs) == "table")
-
-	for _, def in ipairs(aIndexDefs) do
-		assert(type(def.sql) == "string")
-		checkSql(db:exec(def.sql), "recreateIndices." .. tostring(def.name))
-	end
-end
-
-
-
-
-
---- Searches Anime titles containing all given words of length >= 3
--- Returns an array-table with {aId, details} items
--- If the query matches the title perfectly (sans punctuation), areTitlesEqual = true is added into the item
--- Up to 50 items are returned
-function db.searchAnimeTitles(aQuery)
-	assert(gDB ~= nil)
-	assert(type(aQuery) == "string")
-
-	local results = { n = 0 }
-	local n = 0
-
-	-- Get the list of searchable words:
-	local words = {}
-	for word in aQuery:gmatch("%S+") do
-		if (#word >= 3) then
-			words[#words + 1] = "%" .. word:lower() .. "%"
-		end
-	end
-	if (#words == 0) then
-		return results
-	end
-
-	-- Search the DB:
-	local sql = [[
-		SELECT DISTINCT aId
-		FROM AnimeTitle
-		WHERE 1 = 1
-	]]
-	for _ = 1, #words do
-		sql = sql .. " AND titleLower LIKE ?"
-	end
-	sql = sql .. " LIMIT 50;"
-
-	local stmt = gDB:prepare(sql)
-	if not(stmt) then
-		error("Failed to prepare search query: " .. (gDB:errmsg() or "unknown error"))
-	end
-	stmt:bind_values(table.unpack(words))
-	for row in stmt:nrows() do
-		n = n + 1
-		results[n] =
-		{
-			aId = row.aId,
-			details = db.getAnimeDetails(row.aId),
-		}
-		results[n].areTitlesEqual = areMultiTitlesEqual(aQuery, results[n].details.titles)
-	end
-	results.n = n
-
-	stmt:finalize()
-	return results
 end
 
 
