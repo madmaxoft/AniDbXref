@@ -7,9 +7,7 @@ Tracks various ideas that could be implemented
 
 
 
-- Move all user-data into a separate DB file
-	- Smaller backups
-	- Easier sync between machines
+- Main page: Show pictures, hide IDs, linkify names
 - Titles: Normalize how titles are queried and picked (synonyms are picked instead of official)
 - AnimeDetails: Sort relatedAnime as prequel-sequel-others
 - Display related anime
@@ -23,10 +21,6 @@ Tracks various ideas that could be implemented
 - Prepare all DB statements on startup
 	- Helps catch statement errors / schema mismatch
 	- Improves perf
-- Picture cache using a separate SQLite DB
-	- Large and thumbnails for each pictureId
-	- Request the picture from upstream upon not-cached
-	- Also create mini-pictures?
 - Season display
 	- Display all season's titles, highlight seen
 - Watchlist
@@ -45,6 +39,7 @@ Tracks various ideas that could be implemented
 
 
 Done:
+- Picture cache using a separate SQLite DB
 - Move all user-data into a separate DB file
 	- Smaller backups
 	- Easier sync between machines

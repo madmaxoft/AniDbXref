@@ -49,17 +49,18 @@ end
 
 --- Reads and parses an incoming HTTP request line and headers
 -- Returns method (string), path (string) and headers (combined lowercase-dict- and array- table)
+-- Also returns the whole first line, as a debugging help
 function M.readRequestHeaders(aClient)
-	local request = aClient:receive("*l")
+	local request, msg = aClient:receive("*l")
 	if not(request) then
-		return nil, nil, nil
+		return nil, msg
 	end
 
 	local method, path = request:match("^(%S+)%s+(%S+)")
 	local headers = { n = 0 }
 
 	while (true) do
-		local line = aClient:receive("*l")
+		local line, msg = aClient:receive("*l")
 		if (not(line) or (line == "")) then
 			break
 		end
@@ -72,7 +73,7 @@ function M.readRequestHeaders(aClient)
 		end
 	end
 
-	return method, path, headers
+	return method, path, headers, request
 end
 
 
@@ -80,6 +81,7 @@ end
 
 
 --- Returns the full request body up to Content-Length as a string
+-- Returns nil and error message on failure
 function M.readBody(aClient, aHeaders)
 	local length = tonumber(aHeaders["content-length"] or 0)
 	if (length <= 0) then
@@ -87,8 +89,8 @@ function M.readBody(aClient, aHeaders)
 	end
 
 	local body, err = aClient:receive(length)
-	if (not body) then
-		error("Failed to read request body: " .. tostring(err))
+	if not(body) then
+		return nil, string.format("Failed to read request body: %s", tostring(err))
 	end
 
 	return body

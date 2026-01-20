@@ -36,7 +36,7 @@
 						<td><%= a.vaId %></td>
 						<td><%= a.name %></td>
 						<td><% if (a.pictureId) then %>
-						<img src="https://anidb.net/images/65/<%= a.pictureId %>-thumb.jpg" />
+						<img src="/picture?id=<%= a.pictureId %>&size=thumb" />
 						<% end %>
 						</td>
 						<td><%= a.numCharacters %> / <%= a.numSeenAnime %> seen</td>

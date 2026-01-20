@@ -40,7 +40,7 @@ end
 	<td>
 		<!-- Picture, if available: -->
 		<% if (details.pictureId) then %>
-		<img src="https://anidb.net/images/main/<%= details.pictureId %>" />
+		<img src="/picture?id=<%= details.pictureId %>" />
 		<hr />
 		<% end %>
 
@@ -112,7 +112,7 @@ end
 			<tr>
 				<td><a href="/anime/<%= ani.relatedAid %>">
 					<% if (ani.pictureId) then %>
-					<img src="https://anidb.net/images/65/<%= ani.pictureId %>-thumb.jpg" />
+					<img src="/picture?id=<%= ani.pictureId %>&size=thumb" />
 					<% end %>
 				</td>
 				<td><a href="/anime/<%= ani.relatedAid %>"><%= pickTitle(ani.titles) %></a></td>
@@ -140,7 +140,7 @@ end
 			<tr>
 				<td><a href="/anime/<%= ani.similarAid %>">
 					<% if (ani.pictureId) then %>
-					<img src="https://anidb.net/images/65/<%= ani.pictureId %>-thumb.jpg" />
+					<img src="/picture?id=<%= ani.pictureId %>&size=thumb" />
 					<% end %>
 				</td>
 				<td><a href="/anime/<%= ani.similarAid %>"><%= pickTitle(ani.titles) %></a></td>
@@ -215,7 +215,7 @@ end
 					<%= ch.name %>
 					<% if (ch.pictureId) then %>
 					<br />
-					<img src="https://anidb.net/images/main/<%= ch.pictureId %>" /><br />
+					<img src="/picture?id=<%= ch.pictureId %>&size=thumb" /><br />
 					<% end %>
 				</td>
 				<td><% for _, va in ipairs(ch.voiceActors or {}) do %>
@@ -223,7 +223,7 @@ end
 					<%= va.name or "(unknown voice actor)" %>
 					<% if (va.pictureId) then %>
 					<br />
-					<img src="https://anidb.net/images/65/<%= va.pictureId %>-thumb.jpg" />
+					<img src="/picture?id=<%= va.pictureId %>&size=thumb" />
 					<% end %>
 					<br />
 					</a><% end %>

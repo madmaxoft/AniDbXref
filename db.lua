@@ -887,6 +887,28 @@ end
 
 
 
+--- Returns the data stored for the specified picture and size in the DB
+-- Returns nil if no data.
+-- aSize is either "regular" or "thumb"
+function db.pictureData(aPictureId, aSize)
+	assert(type(aPictureId) == "string")
+	assert(type(aSize) == "string")
+
+	local row, msg = db.getArrayFromQuery([[
+		SELECT data FROM Picture
+		WHERE pictureId = ? AND size = ?
+	]], {aPictureId, aSize}, "pictureData")
+	-- log("db", "pic: row = %s, row[1] = %s, row[1].data = %s", tostring(row), tostring((row or {})[1]), tostring(((row or {})[1] or {}).data))
+	if not(row and row[1] and row[1].data) then
+		return nil, msg
+	end
+	return row[1].data
+end
+
+
+
+
+
 --- Re-creates indices previously dropped by collectAndDropIndices()
 -- aIndexDefs is an array-table of {name = "", sql = ""}
 function db.recreateIndices(aIndexDefs)
@@ -1443,6 +1465,32 @@ function db.storeAnimeTags(aDetails)
 	checkSql(stmt:finalize(), "storeAnimeTags.finalize")
 
 	-- TODO: Store the tags in the global tags table, for the parentId information
+end
+
+
+
+
+
+--- Stores the data for the specified picture
+function db.storePictureData(aPictureId, aPictureSize, aPictureData)
+	assert(gDB ~= nil)
+	assert(type(aPictureId) == "string")
+	assert(type(aPictureSize) == "string")
+	assert(type(aPictureData) == "string")
+
+	local stmt = gDB:prepare([[
+		INSERT INTO Picture(pictureId, size, data)
+		VALUES (?, ?, ?)
+		ON CONFLICT(pictureId, size) DO UPDATE SET
+			data = excluded.data;
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storePictureData: " .. gDB:errmsg())
+	end
+	checkSql(stmt:bind_values(aPictureId, aPictureSize, aPictureData), "storePictureData.bind")
+	checkSql(stmt:step(), "storePictureData.step")
+	checkSql(stmt:reset(), "storePictureData.reset")
+	checkSql(stmt:finalize(), "storePictureData.finalize")
 end
 
 

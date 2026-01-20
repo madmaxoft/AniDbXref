@@ -16,7 +16,7 @@
 <% if details.pictureId then %>
 <tr>
 	<td>
-	<img src="https://anidb.net/images/main/<%= details.pictureId %>" />
+	<img src="/picture?id=<%= details.pictureId %>" />
 	</td>
 </tr>
 <% end %>
@@ -74,7 +74,7 @@ end
 			<tr <%- rowClassForSeen(ch.isSeen) %>>
 				<td>
 				<% if (ch.pictureId) then %>
-				<img src="https://anidb.net/images/65/<%= ch.pictureId %>-thumb.jpg" />
+				<img src="/picture?id=<%= ch.pictureId %>&size=thumb" />
 				<% else %>
 				<% end %>
 				</td>

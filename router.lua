@@ -39,6 +39,7 @@ router.routes =
 		{ path = "/import/test",           handler = require("Handlers.importUI").getImportTest },
 		{ path = "/import",                handler = require("Handlers.importUI").get },
 		{ path = "/force-update-details/", handler = require("Handlers.forceUpdateDetails") },
+		{ path = "/picture",               handler = require("Handlers.picture") },
 		{ path = "/search?",               handler = require("Handlers.search") },
 		{ path = "/shutdown",              handler = require("Handlers.shutdown") },
 		{ path = "/static/",               handler = require("Handlers.static") },

@@ -350,6 +350,42 @@ local upgrades = {
 		},
 	},
 
+	-- Version 8:
+	{
+		scripts =
+		{
+			-- Create the new table:
+			[[
+				CREATE TABLE Pic.Picture_new (
+					pictureId TEXT NOT NULL,
+					size TEXT NOT NULL,
+					data BLOB,
+					PRIMARY KEY (pictureId, size)
+				);
+			]],
+
+			-- Copy existing data into the new table:
+			[[
+				INSERT INTO Pic.Picture_new (pictureId, size, data)
+				SELECT CAST(pictureId AS TEXT), 'regular', data
+				FROM Pic.Picture
+				WHERE data IS NOT NULL;
+			]],
+			[[
+				INSERT INTO Pic.Picture_new (pictureId, size, data)
+				SELECT CAST(pictureId AS TEXT), 'thumb', dataThumb
+				FROM Pic.Picture
+				WHERE dataThumb IS NOT NULL;
+			]],
+
+			-- Drop the old table:
+			[[ DROP TABLE Pic.Picture; ]],
+
+			-- Rename the new table to the original name:
+			[[ ALTER TABLE Pic.Picture_new RENAME TO Picture; ]],
+		},
+	},
+
 	-- Future upgrades can be added here
 }
 
