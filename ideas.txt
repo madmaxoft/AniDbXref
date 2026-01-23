@@ -7,7 +7,7 @@ Tracks various ideas that could be implemented
 
 
 
-- Main page: Show pictures, hide IDs, linkify names
+- Upload newly queried details from AniDB back into AniDbMirror
 - Titles: Normalize how titles are queried and picked (synonyms are picked instead of official)
 - AnimeDetails: Sort relatedAnime as prequel-sequel-others
 - Display related anime
@@ -39,6 +39,7 @@ Tracks various ideas that could be implemented
 
 
 Done:
+- Main page: Show pictures, hide IDs, linkify names
 - Picture cache using a separate SQLite DB
 - Move all user-data into a separate DB file
 	- Smaller backups

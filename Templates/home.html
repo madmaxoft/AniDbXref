@@ -41,25 +41,29 @@
 			<thead>
 				<tr>
 					<th>ID</th>
+					<th>Titles</th>
 					<th>Start date</th>
-					<th>EN Title</th>
-					<th>JP Title</th>
-					<th>X-JP Title</th>
 					<th>Seen Date</th>
-					<th>Action</th>
 				</tr>
 			</thead>
 			<tbody>
 				<% for i = 1, seenAnime.n do
 					local a = seenAnime[i] %>
 					<tr>
-						<td><%= a.aId %></td>
+						<td>
+							<% if (a.pictureId) then %>
+							<a href="/anime/<%= a.aId %>"><img src="/picture?id=<%= a.pictureId %>&size=thumb" /></a>
+							<% end %>
+						</td>
+						<td>
+						<a href="/anime/<%= a.aId %>">
+						<%= a.enTitle or "" %><br />
+						<%= a.jaTitle or "" %><br />
+						<%= a.xjatTitle or "" %>
+						</a>
+						</td>
 						<td><%= a.startDate %></td>
-						<td><%= a.enTitle or "" %></td>
-						<td><%= a.jaTitle or "" %></td>
-						<td><%= a.xjatTitle or "" %></td>
 						<td><nobr><%= os.date("%Y-%m-%d", tonumber(a.seenDate)) %></nobr></td>
-						<td><a href="/anime/<%= a.aId %>">Details</a></td>
 					</tr>
 				<% end %>
 			</tbody>
