@@ -109,6 +109,40 @@ end
 
 
 
+--- Adds the specified tags to the global Tag table
+-- aTags is an array-table of {tagId= ..., parentId = ..., name = ..., description = ..., pictureId = ..., ...}
+function db.addGlobalTags(aTags)
+	assert(type(aTags) == "table")
+	assert(gDB ~= nil)
+
+	local stmt = gDB:prepare([[
+		INSERT INTO Tag
+			(tagId, parentId, name, description, pictureId)
+		VALUES
+			(?, ?, ?, ?, ?)
+		ON CONFLICT(tagId) DO UPDATE SET
+			parentId = excluded.parentId,
+			name = excluded.name,
+			description = excluded.description,
+			pictureId = excluded.pictureId
+		]]
+	)
+	if not(stmt) then
+		error(string.format("Failed to prepare statement for inserting Tags: %s", gDB:errmsg()))
+	end
+
+	for _, tag in ipairs(aTags) do
+		checkSql(stmt:bind_values(tag.tagId, tag.parentId, tag.name, tag.description, tag.pictureId), "addGlobalTags.bind")
+		checkSql(stmt:step(), "addGlobalTags.step")
+		checkSql(stmt:reset(), "addGlobalTags.reset")
+	end
+	checkSql(stmt:finalize(), "addGlobalTags.finalize")
+end
+
+
+
+
+
 --- Returns an array-table of all anime IDs in the DB.
 -- Returns an empty array on empty DB.
 -- Returns nil and error message on error.
@@ -191,6 +225,9 @@ end
 --- Executes the specified statement, binding the specified values to it.
 -- aDescription is used for error logging.
 function db.execBoundStatement(aSql, aValuesToBind, aDescription)
+	assert(type(aSql) == "string")
+	assert(type(aValuesToBind) == "table")
+	assert(type(aDescription) == "string")
 	assert(gDB ~= nil)
 
 	local stmt = gDB:prepare(aSql)

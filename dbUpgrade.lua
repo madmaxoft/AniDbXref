@@ -386,6 +386,23 @@ local upgrades = {
 		},
 	},
 
+	-- Version 9:
+	{
+		scripts =
+		{
+			[[ ALTER TABLE AnimeTag RENAME COLUMN id to tagId ]],
+			[[
+				CREATE TABLE Tag (
+					tagId INTEGER PRIMARY KEY,
+					parentId INGETER,
+					name TEXT,
+					description TEXT,
+					pictureId TEXT
+				);
+			]],
+		},
+	}
+
 	-- Future upgrades can be added here
 }
 
