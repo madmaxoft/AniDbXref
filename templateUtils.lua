@@ -33,19 +33,19 @@ function utils.pickBestTitle(aTitlesFromDb, aLanguage)
 		end
 		anyTitles[row.kind or ""] = row.title
 	end
-	local res = titles["main"] or titles["official"] or titles["syn"] or titles["short"]
+	local res = titles["main"] or titles["official"] or titles["syn"] or titles["short"] or titles[""]
 	if (res) then
 		return res
 	end
 
 	-- No title in this language found, use "en":
-	res = enTitles["main"] or enTitles["official"] or enTitles["syn"] or enTitles["short"]
+	res = enTitles["main"] or enTitles["official"] or enTitles["syn"] or enTitles["short"] or enTitles[""]
 	if (res) then
 		return res
 	end
 
 	-- No title in this language or "en", use any:
-	return anyTitles["main"] or anyTitles["official"] or anyTitles["syn"] or anyTitles["short"]
+	return anyTitles["main"] or anyTitles["official"] or anyTitles["syn"] or anyTitles["short"] or anyTitles[""]
 end
 
 

@@ -57,9 +57,7 @@
 						</td>
 						<td>
 						<a href="/anime/<%= a.aId %>">
-						<%= a.enTitle or "" %><br />
-						<%= a.jaTitle or "" %><br />
-						<%= a.xjatTitle or "" %>
+						<%= utils.pickBestTitle(a.titles, "en") %>
 						</a>
 						</td>
 						<td><%= a.startDate %></td>

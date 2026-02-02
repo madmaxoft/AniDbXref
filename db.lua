@@ -794,6 +794,7 @@ function db.getVoiceActorDetails(aVoiceActorId)
 	end
 	for _, ch in ipairs(result.characters) do
 		ch.isSeen = (ch.isSeen == "1") or (ch.isSeen == 1)
+		ch.animeTitles = titleByAnime[ch.aId]
 		ch.enTitle = db.pickBestTitle(titleByAnime[ch.aId], "en")
 		ch.jpTitle = db.pickBestTitle(titleByAnime[ch.aId], "jp")
 		ch.xjatTitle = db.pickBestTitle(titleByAnime[ch.aId], "x-jat")

@@ -25,14 +25,6 @@
 
 <!-- Characters -->
 <%
---- Converts a timestamp to an YYYY-MM-DD string
-local function toIsoDate(aTimeStamp)
-	if not(aTimeStamp) then
-		return ""
-	end
-	return os.date("!%Y-%m-%d", aTimeStamp)
-end
-
 if (details.characters.n > 0) then
 -- Sort the characters, first by isSeen, then by anime airdate year, then by anime enTitle:
 table.sort(details.characters, function (aChar1, aChar2)
@@ -79,9 +71,9 @@ end
 				<% end %>
 				</td>
 				<td><%= ch.name %></td>
-				<td><a href="/anime/<%= ch.aId %>"><%= ch.enTitle or ch.jaTitle or ch.xjatTitle %></a></td>
+				<td><a href="/anime/<%= ch.aId %>"><%= utils.pickBestTitle(ch.animeTitles, "en") %></a></td>
 				<td><%= ch.animeStartDate %></td>
-				<td><%= toIsoDate(ch.seenDate) or "" %></td>
+				<td><%= utils.toIsoDate(ch.seenDate) or "" %></td>
 			</tr>
 			<% end %>
 		</table>

@@ -2,39 +2,17 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<title><%= details.enTitle or details.xjatTitle %></title>
+	<title><%= utils.pickBestTitle(details.titles, "en") %> - AniDbXref</title>
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body>
 <a href="/">Back to home</a> |
 <a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a> |
 <a href="/force-update-details/<%= aId %>">Force update details</a>
-<h1><%= details.enTitle or details.xjatTitle %></h1>
+<h1><%= utils.pickBestTitle(details.titles, "en") %></h1>
 <% if not(details.description or details.startDate) then %>
 <p>Anime details not received yet, check back later.</p>
 <% else %>
-<%
---- Converts a timestamp to an YYYY-MM-DD string, used by the <input type="date"> element.
-local function toIsoDate(aTimeStamp)
-	if not(aTimeStamp) then
-		return ""
-	end
-	return os.date("!%Y-%m-%d", aTimeStamp)
-end
-
---- Picks the best title among the various possibilities
-local function pickTitle(aTitles)
-	if not(aTitles) then
-		return "[no title]"
-	end
-	assert(type(aTitles) == "table")
-	local titles = {}
-	for _, title in ipairs(aTitles or {}) do
-		titles[title.language] = title.title
-	end
-	return titles["en"] or titles["x-jat"] or titles["jp"]
-end
-%>
 <table>
 <tr>
 	<td>
@@ -52,7 +30,7 @@ end
 				</label>
 				<label>
 				on:
-				<input type="date" name="seenDateYmd" value="<%= toIsoDate(details.seenDateYmd) %>">
+				<input type="date" name="seenDateYmd" value="<%= utils.toIsoDate(details.seenDateYmd) %>">
 				</label>
 				<button type="submit">Apply</button>
 		</form>
@@ -115,10 +93,10 @@ end
 					<img src="/picture?id=<%= ani.pictureId %>&size=thumb" />
 					<% end %>
 				</td>
-				<td><a href="/anime/<%= ani.relatedAid %>"><%= pickTitle(ani.titles) %></a></td>
+				<td><a href="/anime/<%= ani.relatedAid %>"><%= utils.pickBestTitle(ani.titles, "en") %></a></td>
 				<td><%= ani.relation %></td>
 				<td><%= ani.startDate %></td>
-				<td><%= toIsoDate(ani.seenDate) %></td>
+				<td><%= utils.toIsoDate(ani.seenDate) %></td>
 			</tr>
 			<% end %>
 		</table>
@@ -143,9 +121,9 @@ end
 					<img src="/picture?id=<%= ani.pictureId %>&size=thumb" />
 					<% end %>
 				</td>
-				<td><a href="/anime/<%= ani.similarAid %>"><%= pickTitle(ani.titles) %></a></td>
+				<td><a href="/anime/<%= ani.similarAid %>"><%= utils.pickBestTitle(ani.titles, "en") %></a></td>
 				<td><%= ani.startDate %></td>
-				<td><%= toIsoDate(ani.seenDate) %></td>
+				<td><%= utils.toIsoDate(ani.seenDate) %></td>
 			</tr>
 			<% end %>
 		</table>
@@ -167,16 +145,6 @@ end
 			end
 			return (tostring(aEpisode1.episodeNumber) < tostring(aEpisode2.episodeNumber))
 		end)
-
-		--- Picks the best title among the various possibilities
-		local function pickTitle(aTitles)
-			assert(type(aTitles) == "table")
-			local titles = {}
-			for _, title in ipairs(aTitles or {}) do
-				titles[title.language] = title.title
-			end
-			return titles["en"] or titles["x-jat"] or titles["jp"]
-		end
 		%>
 		<a name="episodes"><h2>Episodes</h2></a>
 		<table>
@@ -189,7 +157,7 @@ end
 			<% for _, epi in ipairs(details.episodes) do %>
 			<tr>
 				<td><%= epi.episodeNumber %></td>
-				<td><%= pickTitle(epi.titles) %></td>
+				<td><%= utils.pickBestTitle(epi.titles, "en") or tostring(epi.titles) %></td>
 				<td><%= epi.airDate %></td>
 				<td><%= epi.length %></td>
 			</tr>
