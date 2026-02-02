@@ -12,7 +12,26 @@
 <h1><%= utils.pickBestTitle(details.titles, "en") %></h1>
 <% if not(details.description or details.startDate) then %>
 <p>Anime details not received yet, check back later.</p>
-<% else %>
+<% else
+
+-- Sort the relatedAnime as prequel-sequel-others:
+table.sort(details.relatedAnime or {},
+	function(aAnime1, aAnime2)
+		if (aAnime1.relation == "prequel") then
+			return true
+		end
+		if (aAnime2.relation == "prequel") then
+			return false
+		end
+		if (aAnime1.relation == "sequel") then
+			return true
+		end
+		if (aAnime2.relation == "sequel") then
+			return false
+		end
+	end
+)
+%>
 <table>
 <tr>
 	<td>
