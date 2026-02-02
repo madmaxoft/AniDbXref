@@ -14,7 +14,7 @@ local httpResponse = require("httpResponse")
 return function (aClient, aPath)
 	local relativePath = aPath:match("^/[Ss]tatic/(.*)")
 	if (not relativePath) then
-		httpResponse.send(aClient, "404 Not Found")
+		httpResponse.sendError(aClient, "404 Not Found", "Resource not found")
 		return
 	end
 
@@ -22,7 +22,7 @@ return function (aClient, aPath)
 	local filePath = "Static/" .. relativePath
 	local f = io.open(filePath, "rb")
 	if not(f) then
-		httpResponse.send(aClient, "404 Not Found")
+		httpResponse.sendError(aClient, "404 Not Found", "Resource not found")
 		return
 	end
 	local content = f:read("*a")

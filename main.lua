@@ -54,6 +54,7 @@ local db = require("db")
 require("aniDbDetails")
 local requestQueue = require("requestQueue")
 local router = require("router")
+local templateUtils = require("templateUtils")
 
 
 

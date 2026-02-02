@@ -21,7 +21,5 @@ return function(aClient, aPath, aHeaders)
 	end
 
 	local details = db.getVoiceActorDetails(vaId)
-	local template = require("Templates").voiceActorDetails
-	local html = template({ details = details, vaId = vaId })
-	httpResponse.send(aClient, 200, nil, html)
+	httpResponse.sendTemplate(aClient, "voiceActorDetails", { details = details, vaId = vaId })
 end

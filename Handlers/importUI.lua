@@ -58,13 +58,13 @@ local function handlePostDetailsFile(aClient, aPath, aRequestHeaders, aFileConte
 	-- XML-parse the contents:
 	local parsedLom = lomParser.parse(aFileContents)
 	if not(parsedLom) then
-		return httpResponse.send(aClient, "400 Bad upload", nil, "FAILED to xml-parse the file")
+		return httpResponse.sendError(aClient, "400 Bad upload", "FAILED to xml-parse the file")
 	end
 
 	-- Transform the parsed LOM object into the details table:
 	local parsedDetails = aniDbDetails.transformParsedIntoDetails(parsedLom)
 	if not(parsedDetails.aId) then
-		return httpResponse.send(aClient, "400 Bad upload", nil, "FAILED to transform AniDB API XML to details.")
+		return httpResponse.sendError(aClient, "400 Bad upload", "FAILED to transform AniDB API XML to details.")
 	end
 
 	db.storeAnimeDetails(parsedDetails)
@@ -77,8 +77,7 @@ end
 
 --- Handles the GET request for "/import", displaying a file-upload form
 function I.get(aClient)
-	local body = require("Templates").import()
-	return httpResponse.send(aClient, "200 OK", nil, body)
+	return httpResponse.sendTemplate(aClient, "import", {})
 end
 
 
@@ -105,10 +104,9 @@ function I.getReview(aClient, aPath, aRequestHandlers)
 	local id = tonumber(string.match(aPath, "^/import/review/(%d+)$"))
 	local session = import.getSession(id)
 	if not(session) then
-		return httpResponse.send(aClient, "400 Bad session", nil, "No such session")
+		return httpResponse.sendError(aClient, "400 Bad session", "No such session")
 	end
-	local body = require("Templates").importReview({sessionId = session.id, items = session.items})
-	return httpResponse.send(aClient, "200 OK", nil, body)
+	return httpResponse.sendTemplate(aClient, "importReview", {sessionId = session.id, items = session.items})
 end
 
 
@@ -130,7 +128,7 @@ function I.post(aClient, aPath, aRequestHeaders)
 		return handlePostDetailsFile(aClient, aPath, aRequestHeaders, detailsFileContents)
 	end
 
-	return httpResponse.send(aClient, "400 Bad upload", nil, "No idea how to handle the file")
+	return httpResponse.sendError(aClient, "400 Bad upload", "No idea how to handle the file")
 end
 
 
@@ -148,7 +146,7 @@ function I.postReview(aClient, aPath, aRequestHeaders)
 	local sessionId = tonumber(string.match(aPath, "^/import/review/(%d+)$"))
 	local session = import.getSession(sessionId)
 	if not(session) then
-		return httpResponse.send(aClient, "400 Bad session", nil, "No such session")
+		return httpResponse.sendError(aClient, "400 Bad session", "No such session")
 	end
 
 	local rawBody = httpRequest.readBody(aClient, aRequestHeaders)

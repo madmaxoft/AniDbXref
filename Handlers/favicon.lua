@@ -22,6 +22,6 @@ return function(aClient)
 	if (faviconData) then
 		require("httpResponse").send(aClient, "200 OK", nil, faviconData)
 	else
-		require("httpResponse").send(aClient, "404 Not found")
+		require("httpResponse").sendError(aClient, "404 Not found", "")
 	end
 end

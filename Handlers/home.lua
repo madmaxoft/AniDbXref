@@ -9,9 +9,8 @@ local db = require("db")
 
 
 return function (aClient)
-	local body = require("Templates").home({
+	return require("httpResponse").sendTemplate(aClient, "home", {
 		hasAniDbData = db.hasBaseAniDbData(),
 		seenAnime = db.getSeenAnimeForHomepage(),
 	})
-	require("httpResponse").send(aClient, "200 OK", nil, body)
 end

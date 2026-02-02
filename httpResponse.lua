@@ -3,6 +3,7 @@
 
 local templates = require("Templates")
 local log = require("logger").log
+local templateUtils = require("templateUtils")
 
 
 
@@ -67,8 +68,7 @@ end
 
 --- Sends an HTTP error together with a nicely formatted error page containing the specified code and text
 function httpResponse.sendError(aClient, aErrorCode, aErrorText)
-	local html = require("Templates").errorPage({errorText = aErrorText, errorCode = aErrorCode})
-	return httpResponse.send(aClient, aErrorCode, nil, html)
+	return httpResponse.sendTemplate(aClient, "errorPage", {errorText = aErrorText, errorCode = aErrorCode})
 end
 
 
@@ -78,10 +78,7 @@ end
 --- Sends a simple page with a message
 -- If title is not given, "AniDbXref" is used
 function httpResponse.sendSimpleMessage(aClient, aMessage, aTitle)
-	assert(type(aMessage) == "string")
-
-	local html = templates.simpleMessage({title = aTitle, message = aMessage})
-	return httpResponse.send(aClient, 200, nil, html)
+	return httpResponse.sendTemplate(aClient, "simpleMessage", {title = aTitle or "AniDbXref", message = aMessage})
 end
 
 
@@ -98,6 +95,7 @@ function httpResponse.sendTemplate(aClient, aTemplateName, aTemplateParams)
 	if not(template) then
 		return httpResponse.sendError(aClient, 500, string.format("Template %s failed, inspect log for details", aTemplateName))
 	end
+	aTemplateParams.utils = templateUtils
 	local html, msg = template(aTemplateParams)
 	if not(html) then
 		log("httpResponse", "Template %s execution failed: %s", aTemplateName, tostring(msg))
