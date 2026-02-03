@@ -73,7 +73,7 @@ table.sort(details.relatedAnime or {},
 
 
 	<td>
-		<%= details.description or "" %>
+		<%- utils.htmlizeDescription(details.description or "") or "" %>
 
 		<!-- Mini-nav-bar: -->
 		<p> |
@@ -215,7 +215,7 @@ table.sort(details.relatedAnime or {},
 					<br />
 					</a><% end %>
 				</td>
-				<td><%= ch.description or "" %></td>
+				<td><%- utils.htmlizeDescription(ch.description or "") %></td>
 			</tr>
 			<% end %>
 		</table>

@@ -14,6 +14,58 @@ local utils = {}
 
 
 
+local gHtmlEscapeEntities = {
+  ['&'] = '&amp;',
+  ['<'] = '&lt;',
+  ['>'] = '&gt;',
+  ['"'] = '&quot;',
+  ["'"] = '&#039;'
+}
+
+
+
+
+--- Escapes all characters that have special meaning in HTML with their respective HTML entities
+function utils.htmlEscape(aStr)
+	assert(type(aStr) == "string")
+
+	return (aStr:gsub([=[["><'&]]=], gHtmlEscapeEntities))
+end
+
+
+
+
+
+--- Rewrites the specified description, parsing links and changing anidb.net links into our own.
+-- Also changes linebreaks into <br />
+function utils.htmlizeDescription(aDesc)
+	assert(type(aDesc) == "string")
+
+	-- Format commonly used sequences:
+	local res = "<p>" .. utils.htmlEscape(aDesc) .. "</p>"
+	res = res:gsub("\r\n", "</p><p>"):gsub("\n", "</p><p>"):gsub("\r", "</p><p>")
+	res = res:gsub("<p>%s*Note:(.-)</p>", "<p><i>Note: %1</i></p>")
+	res = res:gsub("<p>%s*%*(.-)</p>", "<p><i>%1</i></p>")
+	res = res:gsub("(https*://%S*) %[(.-)%]", "<a href=\"%1\">%2</a>")
+
+	-- Replace anidb.net links with our own:
+	res = res:gsub("http://anidb.net/([a-zA-Z0-9]+)",
+		function(aUrlPath)
+			local prefix, number = aUrlPath:match("([a-zA-Z]+)([0-9]+)")
+			if (prefix == "a") then
+				return "/anime/" .. tostring(number)
+			end
+			return "http://anidb.net/" .. aUrlPath
+		end
+	)
+
+	return res
+end
+
+
+
+
+
 --- Returns the "best" title from those specified, limited to the specified language
 -- Returns nil if none found.
 -- Prefers main title, then official title, then synonyms and last shorts
