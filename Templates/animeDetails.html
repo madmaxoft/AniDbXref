@@ -31,6 +31,16 @@ table.sort(details.relatedAnime or {},
 		end
 	end
 )
+
+-- Sort the titles by language, then by kind:
+table.sort(details.titles,
+	function(aTitle1, aTitle2)
+		if (aTitle1.language == aTitle2.language) then
+			return (aTitle1.kind < aTitle2.kind)
+		end
+		return (aTitle1.language < aTitle2.language)
+	end
+)
 %>
 <table>
 <tr>
@@ -62,6 +72,7 @@ table.sort(details.relatedAnime or {},
 			<% for _, title in ipairs(details.titles or {}) do %>
 				<tr>
 					<td><%= title.language %></td>
+					<td><%= title.kind %></td>
 					<td><%= title.title %></td>
 				</tr>
 			<% end %>
@@ -74,6 +85,31 @@ table.sort(details.relatedAnime or {},
 
 	<td>
 		<%- utils.htmlizeDescription(details.description or "") or "" %>
+
+		<!-- Base details: -->
+		<table>
+			<tr>
+				<th>Kind</th>
+				<td><%= details.kind %></td>
+			</tr>
+			<tr>
+				<th>Start date</th>
+				<td><%= details.startDate %></td>
+			</tr>
+			<tr>
+				<th>End date</th>
+				<td><%= details.endDate %></td>
+			</tr>
+			<tr>
+				<th>URL</th>
+				<td>
+					<% if (details.url) then %>
+					<a href="<%= details.url %>"><%= details.url %></a>
+					<% end %>
+				</td>
+			</tr>
+
+		</table>
 
 		<!-- Mini-nav-bar: -->
 		<p> |
