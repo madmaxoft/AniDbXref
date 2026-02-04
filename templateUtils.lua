@@ -46,6 +46,7 @@ function utils.htmlizeDescription(aDesc)
 	res = res:gsub("\r\n", "</p><p>"):gsub("\n", "</p><p>"):gsub("\r", "</p><p>")
 	res = res:gsub("<p>%s*Note:(.-)</p>", "<p><i>Note: %1</i></p>")
 	res = res:gsub("<p>%s*%*(.-)</p>", "<p><i>%1</i></p>")
+	res = res:gsub("%[i%](.-)%[/i%]", "<i>%1</i>")
 	res = res:gsub("(https*://%S*) %[(.-)%]", "<a href=\"%1\">%2</a>")
 
 	-- Replace anidb.net links with our own:
