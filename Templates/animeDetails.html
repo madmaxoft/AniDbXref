@@ -41,6 +41,29 @@ table.sort(details.titles,
 		return (aTitle1.language < aTitle2.language)
 	end
 )
+
+-- Sort the tags by their weight, then alphabeically:
+table.sort(details.tags,
+	function(aTag1, aTag2)
+		if (
+			not(aTag1.weight and aTag2.weight) or
+			(aTag1.weight == aTag2.weight)
+		) then
+			return (aTag1.name < aTag2.name)
+		end
+		return (aTag1.weight > aTag2.weight)
+	end
+)
+
+--- Returns a formatted percentage for the weight of the specified tag, or empty string if not present.
+local function tagPercentage(aTag)
+	assert(type(aTag) == "table")
+
+	if not(aTag.weight) then
+		return ""
+	end
+	return string.format("%.0f%%", aTag.weight / 10)
+end
 %>
 <table>
 <tr>
@@ -84,8 +107,6 @@ table.sort(details.titles,
 
 
 	<td>
-		<%- utils.htmlizeDescription(details.description or "") or "" %>
-
 		<!-- Base details: -->
 		<table>
 			<tr>
@@ -108,8 +129,16 @@ table.sort(details.titles,
 					<% end %>
 				</td>
 			</tr>
-
 		</table>
+
+		<%- utils.htmlizeDescription(details.description or "") or "" %>
+
+		<!-- Tags: -->
+		<h2>Tags</h2>
+		|
+		<% for _, tag in ipairs(details.tags) do %>
+		<%= tag.name %> <%= tagPercentage(tag) %> |
+		<% end %>
 
 		<!-- Mini-nav-bar: -->
 		<p> |

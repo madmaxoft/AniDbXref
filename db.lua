@@ -557,7 +557,16 @@ end
 function db.getAnimeDetails_tags(aId)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery("SELECT * FROM AnimeTag WHERE aId = ?", {aId}, "getAnimeDetails_tags")
+	return db.getArrayFromQuery([[
+		SELECT
+			AnimeTag.tagId AS tagId,
+			AnimeTag.weight AS weight,
+			Tag.name AS name,
+			Tag.description AS description
+		FROM AnimeTag
+		LEFT JOIN Tag ON Tag.tagId = AnimeTag.tagId
+		WHERE aId = ?
+	]], {aId}, "getAnimeDetails_tags")
 end
 
 
