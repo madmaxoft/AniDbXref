@@ -4,6 +4,7 @@
 local sqlite3 = require("lsqlite3")
 local perf = require("perf")
 local log = require("logger").log
+local utils = require("utils")
 
 local db = {}
 local gDB = nil  -- The actual DB connection object
@@ -160,6 +161,58 @@ function db.allAnimeIDs()
 		res[idx] = idRec.aId
 	end
 	res.n = dictArray.n
+	return res
+end
+
+
+
+
+
+--- Returns an array-table of all the anime in the specified season
+-- Each item contains the base details and an array of titles
+-- aSeason is a season specification, such as "2026-1" for winter 2026
+function db.animeInSeason(aSeason)
+	assert(type(aSeason) == "string")
+
+	local seasonBounds, msg = utils.seasonToYmdBounds(aSeason)
+	if not(seasonBounds) then
+		return nil, string.format("Unknown season bounds: %s", tostring(msg))
+	end
+
+	-- Query base details:
+	local res = db.getArrayFromQuery([[
+		SELECT
+			AnimeBaseDetails.*,
+			CASE WHEN Seen.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
+			Seen.seenDate AS seenDate
+		FROM AnimeBaseDetails
+		LEFT JOIN Seen ON (AnimeBaseDetails.aId = Seen.aId)
+		WHERE length(startDate) = 10 AND startDate >= ? AND startDate <= ?
+	]], {seasonBounds.startDateYmd, seasonBounds.endDateYmd}, "animeInSeason.baseDetails")
+	local byId = {}  -- dict of aId -> anime
+	for _, anime in ipairs(res) do
+		byId[anime.aId] = anime
+		anime.isSeen = (anime.isSeen == "1") or (anime.isSeen == 1)
+	end
+
+	-- Query titles:
+	local titles = db.getArrayFromQuery([[
+		SELECT
+			AnimeTitle.aId AS aId,
+			AnimeTitle.title AS title,
+			AnimeTitle.kind AS kind,
+			AnimeTitle.language AS language
+		FROM AnimeTitle
+		LEFT JOIN AnimeBaseDetails ON AnimeTitle.aId = AnimeBaseDetails.aId
+		WHERE length(AnimeBaseDetails.startDate) = 10 AND AnimeBaseDetails.startDate >= ? AND AnimeBaseDetails.startDate <= ?
+	]], {seasonBounds.startDateYmd, seasonBounds.endDateYmd}, "animeInSeason.titles")
+	for _, title in ipairs(titles) do
+		local titles = byId[title.aId].titles or {n = 0}
+		titles.n = titles.n + 1
+		titles[titles.n] = title
+		byId[title.aId].titles = titles
+	end
+
 	return res
 end
 

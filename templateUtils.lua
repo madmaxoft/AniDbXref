@@ -2,13 +2,14 @@
 
 --[[
 Provides utility functions that are injected into each template call as the `utils` member.
+All the utils in the utils.lua package are inserted.
 --]]
 
 
 
 
 
-local utils = {}
+local utils = require("utils")
 
 
 

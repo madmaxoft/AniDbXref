@@ -114,6 +114,19 @@ end
 				<td><%= details.kind %></td>
 			</tr>
 			<tr>
+				<th>Season</th>
+				<td>
+					<%
+					if (string.match(details.startDate, "%d%d%d%d%-%d%d%-%d%d")) then
+					local season = utils.ymdToSeason(details.startDate)
+					%>
+					<a href="/season/<%= season %>">
+					<%= utils.seasonToDescription(season) %>
+					</a>
+					<% end %>
+				</td>
+			</tr>
+			<tr>
 				<th>Start date</th>
 				<td><%= details.startDate %></td>
 			</tr>

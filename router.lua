@@ -41,6 +41,7 @@ router.routes =
 		{ path = "/force-update-details/", handler = require("Handlers.forceUpdateDetails") },
 		{ path = "/picture",               handler = require("Handlers.picture") },
 		{ path = "/search?",               handler = require("Handlers.search") },
+		{ path = "/season",                handler = require("Handlers.season") },
 		{ path = "/shutdown",              handler = require("Handlers.shutdown") },
 		{ path = "/static/",               handler = require("Handlers.static") },
 		{ path = "/Static/",               handler = require("Handlers.static") },

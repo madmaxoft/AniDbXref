@@ -3,5 +3,6 @@
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.sqlite-journal
 Static/favicon*
 Backups/

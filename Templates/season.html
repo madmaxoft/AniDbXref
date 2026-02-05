@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title><%= seasonDescription %> season - AniDbXref</title>
+	<link rel="stylesheet" href="/Static/main.css" />
+</head>
+<body> |
+<a href="/">Back to home</a> |
+<a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a> |
+<h1><%= seasonDescription %> season</h1>
+<%
+-- Sort the anime first by seen, then by title:
+for _, ani in ipairs(anime) do
+	ani.title = utils.pickBestTitle(ani.titles, "en")
+end
+table.sort(anime,
+	function(aAnime1, aAnime2)
+		if (aAnime1.isSeen) then
+			if (aAnime2.isSeen) then
+				return (aAnime1.title < aAnime2.title)
+			end
+			return true
+		end
+		if (aAnime2.isSeen) then
+			return false
+		end
+		return (aAnime1.title < aAnime2.title)
+	end
+)
+
+--- Returns the class for <tr> to use based in the isSeen value
+function rowClassForSeen(aIsSeen)
+	if (aIsSeen) then
+		return "class=\"isSeen\""
+	end
+	return ""
+end
+%>
+
+<!-- NavBar: seasons -->
+<p>
+<% for year = seasonYear - 1, seasonYear + 1 do
+	for idx = 1, 4 do
+		local s = tostring(year) .. "-" .. tostring(idx)
+		seasonDescription = utils.seasonToDescription(s)
+		if (s == season) then
+%>
+| <%= seasonDescription %>
+<%
+		else
+%>
+| <a href="/season/<%= s %>"><%= seasonDescription %></a>
+<%
+		end
+	end
+end
+%>
+| </p>
+
+<!-- Main contents -->
+<table>
+	<% for _, ani in ipairs(anime) do %>
+	<tr <%- rowClassForSeen(ani.isSeen) %>>
+		<td><a href="/anime/<%= ani.aId %>">
+			<% if (ani.pictureId) then %>
+			<img src="/picture?id=<%= ani.pictureId %>&size=thumb" />
+			<% end %>
+		</td>
+		<td><a href="/anime/<%= ani.aId %>"><%= ani.title %></a></td>
+		<td><%= ani.startDate %></td>
+		<td><%= utils.toIsoDate(ani.seenDate) %></td>
+	</tr>
+	<% end %>
+</table>
+</body>
+</html>
