@@ -1549,7 +1549,7 @@ function db.storeAnimeTags(aDetails)
 
 	db.execBoundStatement("DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
 	local stmt = gDB:prepare([[
-		INSERT OR IGNORE INTO AnimeTag(aId, id, weight)
+		INSERT OR IGNORE INTO AnimeTag(aId, tagId, weight)
 		VALUES (?, ?, ?)
 	]])
 	if not(stmt) then
@@ -1558,7 +1558,7 @@ function db.storeAnimeTags(aDetails)
 	for _, tag in ipairs(aDetails.tags) do
 		assert(tonumber(tag.id))
 		local weight = tonumber(tag.weight) or 0
-		if (weight > 0) then
+		if (weight >= 0) then
 			checkSql(stmt:bind_values(aDetails.aId, tag.id, weight), "storeAnimeTags.bind")
 			checkSql(stmt:step(), "storeAnimeTags.step")
 			checkSql(stmt:reset(), "storeAnimeTags.reset")
