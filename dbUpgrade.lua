@@ -401,6 +401,25 @@ local upgrades = {
 				);
 			]],
 		},
+	},
+
+	-- Version 10:
+	{
+		scripts =
+		{
+			[[ ALTER TABLE AnimeBaseDetails ADD COLUMN isAdultRestricted INTEGER NOT NULL DEFAULT 0]],
+			[[
+				UPDATE AnimeBaseDetails
+				SET isAdultRestricted = 1
+				WHERE aId IN (
+					SELECT at.aId
+					FROM AnimeTag AS at
+					INNER JOIN Tag AS t
+						ON t.tagId = at.tagId
+					WHERE t.name = '18 restricted'
+				);
+			]]
+		},
 	}
 
 	-- Future upgrades can be added here

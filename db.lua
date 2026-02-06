@@ -1552,6 +1552,8 @@ function db.storeAnimeTags(aDetails)
 		return
 	end
 
+	-- TODO: Store the tags in the global tags table, for the parentId information
+
 	db.execBoundStatement("DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO AnimeTag(aId, tagId, weight)
@@ -1571,7 +1573,7 @@ function db.storeAnimeTags(aDetails)
 	end
 	checkSql(stmt:finalize(), "storeAnimeTags.finalize")
 
-	-- TODO: Store the tags in the global tags table, for the parentId information
+	db.updateAnimeBaseDetailsIsAdultRestricted(aDetails.aId)
 end
 
 
@@ -1669,6 +1671,29 @@ function db.updateAniDbDataFromDump(aXmlString)
 	db.setLastAniDbUpdate(os.time())
 	checkSql(gDB:exec("COMMIT TRANSACTION"), "updateAniDbDataFromDump.commit")
 	checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "updateAniDbDataFromDump.fkon")
+end
+
+
+
+
+
+--- Updates the specified anime's isAdultRestricted flag based on the anime's tags
+function db.updateAnimeBaseDetailsIsAdultRestricted(aId)
+	assert(gDB ~= nil)
+	assert(tonumber(aId))
+
+	gDB:execBoundStatement([[
+		UPDATE AnimeBaseDetails
+		SET isAdultRestricted =
+			EXISTS (
+				SELECT 1
+				FROM AnimeTag at
+				JOIN Tag t ON t.tagId = at.tagId
+				WHERE at.aId = AnimeBaseDetails.aId
+				AND t.name = '18 restricted'
+			)
+		WHERE aId = ?
+	]], {aId}, "updateAnimeBaseDetailsIsAdultRestricted")
 end
 
 
