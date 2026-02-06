@@ -510,7 +510,7 @@ local function transformParsedIntoDetails_tag(aParsedLom)
 
 	return
 	{
-		id = attr.id,
+		tagId = attr.id,
 		parentId = attr.parentid,
 		weight = attr.weight,
 		infobox = attr.infobox,  -- Whether the tag is shown in the main infobox

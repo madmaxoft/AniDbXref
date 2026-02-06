@@ -1552,8 +1552,10 @@ function db.storeAnimeTags(aDetails)
 		return
 	end
 
-	-- TODO: Store the tags in the global tags table, for the parentId information
+	-- First add the tags to the global table, if not already there:
+	db.addGlobalTags(aDetails.tags)
 
+	-- Then add the per-anime tags:
 	db.execBoundStatement("DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO AnimeTag(aId, tagId, weight)
@@ -1566,13 +1568,14 @@ function db.storeAnimeTags(aDetails)
 		assert(tonumber(tag.id))
 		local weight = tonumber(tag.weight) or 0
 		if (weight >= 0) then
-			checkSql(stmt:bind_values(aDetails.aId, tag.id, weight), "storeAnimeTags.bind")
+			checkSql(stmt:bind_values(aDetails.aId, tag.tagId, weight), "storeAnimeTags.bind")
 			checkSql(stmt:step(), "storeAnimeTags.step")
 			checkSql(stmt:reset(), "storeAnimeTags.reset")
 		end
 	end
 	checkSql(stmt:finalize(), "storeAnimeTags.finalize")
 
+	-- Based on the tags, update the 18+ restriction detail:
 	db.updateAnimeBaseDetailsIsAdultRestricted(aDetails.aId)
 end
 
@@ -1694,6 +1697,20 @@ function db.updateAnimeBaseDetailsIsAdultRestricted(aId)
 			)
 		WHERE aId = ?
 	]], {aId}, "updateAnimeBaseDetailsIsAdultRestricted")
+end
+
+
+
+
+
+--- Returns the watchlist array-table for the specified season
+function db.watchlistInSeason(aSeason)
+	return db.getArrayFromQuery(
+		[[
+			SELECT * FROM Watchlist
+			WHERE watchSeason = ?
+		]], {aSeason}, "watchlistInSeason"
+	)
 end
 
 
