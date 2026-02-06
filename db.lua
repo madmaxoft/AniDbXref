@@ -1409,8 +1409,12 @@ function db.storeAnimeEpisodes(aDetails)
 		return
 	end
 
+	local timer = perf.newTimer("db.storeAnimeEpisodes")
+
 	db.execBoundStatement("DELETE FROM AnimeEpisodeTitle WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.title")
+	timer("delEpisodeTitles")
 	db.execBoundStatement("DELETE FROM AnimeEpisode WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.episode")
+	timer("delEpisodes")
 	local stmt = gDB:prepare([[
 		INSERT INTO AnimeEpisode(aId, id, kind, episodeNumber, length, airDate)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -1438,6 +1442,7 @@ function db.storeAnimeEpisodes(aDetails)
 	end
 	checkSql(stmtTitles:finalize(), "storeAnimeEpisodesT.finalize")
 	checkSql(stmt:finalize(), "storeAnimeEpisodes.finalize")
+	timer("inserted")
 end
 
 

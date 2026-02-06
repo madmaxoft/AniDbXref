@@ -18,7 +18,7 @@ local perf = require("perf")
 
 --- The minimum ID to update
 -- Used for resuming after a break / error
-local gMinId = 19660
+local gMinId = 0
 
 
 
@@ -72,6 +72,7 @@ end
 -- Config:
 perf.silenceTimer("db.storeAnimeCharacters")
 perf.silenceTimer("db.storeAnimeDetails")
+perf.silenceTimer("db.storeAnimeEpisodes")
 perf.silenceTimer("updateAnime")
 
 print("Reading all IDs...")
@@ -80,6 +81,7 @@ local numAll = #allIDs
 local numSkipped = 0
 print("Processing " .. numAll .. " items...")
 local timeStarted = os.time()
+db.execBoundStatement("PRAGMA foreign_keys = off", {}, "fk.off")
 db.beginTransaction()
 for idx, id in ipairs(allIDs) do
 	print("id: " .. tostring(id))
@@ -107,5 +109,7 @@ for idx, id in ipairs(allIDs) do
 		numSkipped = numSkipped + 1
 	end
 end
+print("Committing the last batch.")
 db.commitTransaction()
+db.execBoundStatement("PRAGMA foreign_keys = on", {}, "fk.on")
 print("Done.")
