@@ -301,7 +301,7 @@ function db.getAnimeDetails(aId)
 	assert(tonumber(aId))
 
 	-- Get the base details:
-	local result = db.getArrayFromQuery([[
+	local result, msg = db.getArrayFromQuery([[
 		SELECT
 			abd.aId AS aId,
 			abd.startDate AS startDate,
@@ -319,7 +319,8 @@ function db.getAnimeDetails(aId)
 		WHERE abd.aId = ? LIMIT 1;
 	]], {aId}, "getAnimeDetails.BaseDetails")
 	if (not(result) or not(result[1])) then
-		return nil, "Failed to query base details"
+		log("db", "Failed to query base details for aId %s: %s", tostring(aId), tostring(msg))
+		return nil, "Failed to query base details: " .. tostring(msg)
 	end
 	result = result[1]
 
@@ -1069,9 +1070,9 @@ function db.searchAnimeTitles(aQuery)
 		results[n] =
 		{
 			aId = row.aId,
-			details = db.getAnimeDetails(row.aId),
+			details = db.getAnimeDetails(row.aId) or {episodes = {n = 0}, titles = {n = 0}, characters = {n = 0}, tags = {n = 0}},
 		}
-		results[n].areTitlesEqual = areMultiTitlesEqual(aQuery, results[n].details.titles)
+		results[n].areTitlesEqual = areMultiTitlesEqual(aQuery, results[n].details.titles or {})
 	end
 	results.n = n
 
