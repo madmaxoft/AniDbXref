@@ -31,7 +31,7 @@ local gTimeBetweenRequestsIdle = 1
 local RQ =
 {
 	thread = nil,  -- The background thread in which the processing takes place. Initialized by RQ.start()
-	queue = {}     -- The queue to process. Array-table of animeID-s.
+	queue = {}     -- The queue to process. Array-table of { animeId = ..., shouldSkipCaches = ... }
 }
 
 
@@ -39,16 +39,25 @@ local RQ =
 
 
 --- Adds the specified anime to the end of the queue to be downloaded in the background
-function RQ.add(aAnimeId)
-	-- If already in queue, bail out:
+-- If aShouldSkipCaches is true, only AniDB.net is queried, not the other caches (local, xoft.cz)
+function RQ.add(aAnimeId, aShouldSkipCaches)
+	aShouldSkipCaches = (aShouldSkipCaches == true)  -- Explicitly convert to a boolean
+
+	-- If already in queue, merge flags and bail out:
 	for i = 1, #RQ.queue do
-		if (RQ.queue[i] == aAnimeId) then
+		local item = RQ.queue[i]
+		if (item.animeId == aAnimeId) then
+			item.shouldSkipCaches = item.shouldSkipCaches or aShouldSkipCaches
 			return
 		end
 	end
 
 	-- Not in the queue, append:
-	table.insert(RQ.queue, aAnimeId)
+	table.insert(RQ.queue,
+	{
+		animeId = aAnimeId,
+		shouldSkipCaches = aShouldSkipCaches
+	})
 	copas.wakeup(RQ.thread)
 end
 
@@ -56,19 +65,28 @@ end
 
 
 
---- Adds the specified anime to the end of the queue to be downloaded in the background
-function RQ.addToFront(aAnimeId)
-	-- If already in queue, move to front:
+--- Adds the specified anime to the front of the queue
+-- If aShouldSkipCaches is true, only AniDB.net is queried, not the other caches (local, xoft.cz)
+function RQ.addToFront(aAnimeId, aShouldSkipCaches)
+	aShouldSkipCaches = (aShouldSkipCaches == true)
+
+	-- If already in queue, move to front and merge flags:
 	for i = 1, #RQ.queue do
-		if (RQ.queue[i] == aAnimeId) then
+		local item = RQ.queue[i]
+		if (item.animeId == aAnimeId) then
+			item.shouldSkipCaches = item.shouldSkipCaches or aShouldSkipCaches
 			table.remove(RQ.queue, i)
-			table.insert(RQ.queue, 1, aAnimeId)
+			table.insert(RQ.queue, 1, item)
 			return
 		end
 	end
 
 	-- Not in the queue, insert to front:
-	table.insert(RQ.queue, 1, aAnimeId)
+	table.insert(RQ.queue, 1,
+	{
+		animeId = aAnimeId,
+		shouldSkipCaches = aShouldSkipCaches
+	})
 	copas.wakeup(RQ.thread)
 end
 
@@ -81,11 +99,11 @@ end
 function RQ.run()
 	while not(copas.exiting()) do
 		if (#RQ.queue > 0) then
-			local animeId = table.remove(RQ.queue, 1)
-			local isOk, err = aniDbDetails.updateDetailsInDb(animeId)
+			local item = table.remove(RQ.queue, 1)
+			local isOk, err = aniDbDetails.updateDetailsInDb(item.animeId, item.shouldSkipCaches)
 			if not(isOk) then
 				-- TODO: Add a timeout value to the queue so that the ID is not retried immediately
-				table.insert(RQ.queue, animeId)  -- Return the aId to the queue for later
+				table.insert(RQ.queue, item)  -- Return the item to the queue for later
 			end
 		end
 		if (#RQ.queue > 0) then

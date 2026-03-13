@@ -17,7 +17,7 @@ return function(aClient, aPath, aHeaders)
 		return httpResponse.sendError(aClient, 400, "Invalid aId")
 	end
 
-	requestQueue.addToFront(aId)
+	requestQueue.addToFront(aId, true)
 
 	httpResponse.sendRedirect(aClient, "/anime/" .. tostring(aId))
 end

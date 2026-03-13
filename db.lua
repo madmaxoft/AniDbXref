@@ -1566,7 +1566,7 @@ function db.storeAnimeTags(aDetails)
 		error("Failed to prepare statement for storeAnimeTags: " .. gDB:errmsg())
 	end
 	for _, tag in ipairs(aDetails.tags) do
-		assert(tonumber(tag.id))
+		assert(tonumber(tag.tagId))
 		local weight = tonumber(tag.weight) or 0
 		if (weight >= 0) then
 			checkSql(stmt:bind_values(aDetails.aId, tag.tagId, weight), "storeAnimeTags.bind")
@@ -1686,7 +1686,7 @@ function db.updateAnimeBaseDetailsIsAdultRestricted(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
-	gDB:execBoundStatement([[
+	db.execBoundStatement([[
 		UPDATE AnimeBaseDetails
 		SET isAdultRestricted =
 			EXISTS (

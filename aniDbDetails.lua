@@ -623,23 +623,28 @@ end
 --   5. http://api.anidb.net:9001/httpapi...
 -- Auto-inflates the result if the server used gzip encoding
 -- If the file was requested through API, saves it locally under "AniDB/aIdHundreds/aId.xml"
-function M.fetchXml(aId)
+-- If aShouldSkipCaches is true, only AniDB.net is queried, not the other caches
+function M.fetchXml(aId, aShouldSkipCaches)
 	assert(tonumber(aId))
+	assert(type(aShouldSkipCaches) == "boolean")
 
 	-- Check each source:
 	local isReadFromFile = true
 	local canonicalFolder = string.format("AniDB/%d", math.floor(aId / 100))
 	local canonicalFileName = string.format("%s/%d.xml", canonicalFolder, aId)
-	local response = readFileContents(canonicalFileName)
-	if not(response) then
-		response = readFileContents(string.format("AniDB/%d.xml", aId))
-	end
-	if not(response) then
-		response = readFileContents(string.format("AniDB/%.03d/%d.xml", math.floor(aId / 100), aId))
-	end
-	if not(response) then
-		isReadFromFile = false
-		response = fetchUrl("https://xoft.cz/AniDbMirror/api/get?id=" .. aId)
+	local response
+	if not(aShouldSkipCaches) then
+		response = readFileContents(canonicalFileName)
+		if not(response) then
+			response = readFileContents(string.format("AniDB/%d.xml", aId))
+		end
+		if not(response) then
+			response = readFileContents(string.format("AniDB/%.03d/%d.xml", math.floor(aId / 100), aId))
+		end
+		if not(response) then
+			isReadFromFile = false
+			response = fetchUrl("https://xoft.cz/AniDbMirror/api/get?id=" .. aId)
+		end
 	end
 	if not(response) then
 		response = fetchUrlWithRateLimit(
@@ -732,9 +737,10 @@ end
 
 
 --- Synchronously downloads the details for the specified anime and updates the DB with the data
+-- If aShouldSkipCaches is true, only AniDB.net is queried, not the other caches (local, xoft.cz)
 -- Returns true if successful, nil and error message on failure
-function M.updateDetailsInDb(aAnimeId)
-	local xml, msg = M.fetchXml(aAnimeId)
+function M.updateDetailsInDb(aAnimeId, aShouldSkipCaches)
+	local xml, msg = M.fetchXml(aAnimeId, aShouldSkipCaches)
 	if not(xml) then
 		return nil, msg
 	end
