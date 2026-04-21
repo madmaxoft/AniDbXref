@@ -4,26 +4,22 @@
 Servers static files from the Static subfolder
 --]]
 
-local httpResponse = require("httpResponse")
-
 
 
 
 
 --- Serves static files from Static folder
-return function (aClient, aPath)
-	local relativePath = aPath:match("^/[Ss]tatic/(.*)")
+return function (aRequest, aResponse)
+	local relativePath = aRequest:path():match("^/[Ss]tatic/(.*)")
 	if (not relativePath) then
-		httpResponse.sendError(aClient, "404 Not Found", "Resource not found")
-		return
+		return aResponse:sendError(404, "Not Found")
 	end
 
 	-- Read the local file:
 	local filePath = "Static/" .. relativePath
 	local f = io.open(filePath, "rb")
 	if not(f) then
-		httpResponse.sendError(aClient, "404 Not Found", "Resource not found")
-		return
+		return aResponse:sendError(404, "Not Found")
 	end
 	local content = f:read("*a")
 	f:close()
@@ -36,6 +32,6 @@ return function (aClient, aPath)
 	elseif (filePath:match("%.png$")) then contentType = "image/png"
 	elseif (filePath:match("%.jpg$")) then contentType = "image/jpeg"
 	elseif (filePath:match("%.gif$")) then contentType = "image/gif" end
-
-	httpResponse.send(aClient, "200 OK", { ["Content-Type"] = contentType }, content)
+	aResponse:setContentType(contentType)
+	aResponse:sendRawDataWithLength(content)
 end

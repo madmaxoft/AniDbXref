@@ -7,59 +7,234 @@ local templateUtils = require("templateUtils")
 
 
 
+--[[ HttpResponse class prototype.
+Each instance has the following members:
+	mSocket
+	mStatusCode (number)
+	mStatusText
+	mHeaders  (dict-table of lowercased header name -> value)
+	mHasSentHeaders
+	mShouldClose
+--]]
+local M = {}
+M.__index = M
 
-local httpResponse = {}
 
 
 
 
-
---- Sends a complete HTTP response
-function httpResponse.send(aClient, aStatus, aHeaders, aBody)
-	aStatus = aStatus or "200 OK"
-	aHeaders = aHeaders or {}
-	aBody = aBody or ""
-
-	-- We can use simple shortcut: string means the content type we want to send:
-	if (type(aHeaders) == "string") then
-		aHeaders = { ["Content-Type"] = aHeaders }
-	end
-
-	-- Ensure Content-Length is set
-	if (not aHeaders["Content-Length"]) then
-		aHeaders["Content-Length"] = tostring(#aBody)
-	end
-
-	-- Default Content-Type
-	if (not aHeaders["Content-Type"]) then
-		aHeaders["Content-Type"] = "text/html; charset=utf-8"
-	end
-
-	-- Build response string
-	local response = "HTTP/1.1 " .. aStatus .. "\r\n"
-	for k, v in pairs(aHeaders) do
-		response = response .. k .. ": " .. v .. "\r\n"
-	end
-	response = response .. "\r\n" .. aBody
-
-	-- Send over socket
-	aClient:send(response)
+function M.new(aSocket)
+	local self =
+	{
+		mSocket = aSocket,
+		mStatusCode = 200,
+		mStatusText = "OK",
+		mHeaders = {},
+		mHasSentHeaders = false,
+		mShouldClose = false,
+	}
+	setmetatable(self, M)
+	return self
 end
 
 
 
 
 
--- Add a "write" synonym to "send":
-httpResponse.write = httpResponse.send
+function M:setStatus(aCode, aText)
+	assert(tonumber(aCode))
+
+	if (self.mHasSentHeaders) then
+		assert(false, "Headers have already been sent")
+		return
+	end
+
+	self.mStatusCode = tonumber(aCode)
+	self.mStatusText = aText or ""
+end
 
 
 
 
 
---- Sends an HTTP redirect (302) response
-function httpResponse.sendRedirect(aClient, aDestination)
-	aClient:send("HTTP/1.1 302 Moved\r\nLocation: " .. aDestination .. "\r\n\r\n")
+function M:setHeader(aName, aValue)
+	if (self.mHasSentHeaders) then
+		assert(false, "Headers have already been sent")
+		return
+	end
+
+	self.mHeaders[aName:lower()] = aValue
+end
+
+
+
+
+
+function M:header(aName)
+	if not(aName) then
+		return nil
+	end
+
+	return self.mHeaders[aName:lower()]
+end
+
+
+
+
+
+function M:setContentLength(aLength)
+	assert(tonumber(aLength))
+
+	self:setHeader("Content-Length", tostring(aLength))
+end
+
+
+
+
+
+function M:setContentType(aContentType)
+	assert(type(aContentType) == "string")
+
+	self:setHeader("Content-Type", aContentType)
+end
+
+
+
+
+
+function M:setConnectionClose()
+	self.mShouldClose = true
+	self:setHeader("Connection", "close")
+end
+
+
+
+
+
+function M:sendHeaders()
+	assert(self)
+	assert(self.mSocket)
+
+	-- If headers were already sent, complain:
+	if (self.mHasSentHeaders) then
+		assert(false, "Headers have already been sent")
+		return
+	end
+
+	-- Set the "Connection" header based on mShouldClose:
+	if not(self:header("connection")) then
+		if (self.mShouldClose) then
+			self:setHeader("Connection", "close")
+		else
+			self:setHeader("Connection", "keep-alive")
+		end
+	end
+
+	-- Send the HTTP status line:
+	local statusLine = string.format(
+		"HTTP/1.1 %d %s\r\n",
+		self.mStatusCode,
+		self.mStatusText
+	)
+	self.mSocket:send(statusLine)
+
+	-- Send the HTTP headers:
+	for key, value in pairs(self.mHeaders) do
+		local line = string.format("%s: %s\r\n", key, value)
+		self.mSocket:send(line)
+	end
+	self.mSocket:send("\r\n")
+	self.mHasSentHeaders = true
+end
+
+
+
+
+
+function M:write(aData)
+	assert(self)
+	assert(self.mSocket)
+
+	if not(self.mHasSentHeaders) then
+		self:sendHeaders()
+	end
+
+	if not(aData) then
+		return
+	end
+
+	self.mSocket:send(aData)
+end
+
+
+
+
+
+function M:finish()
+	assert(self)
+	assert(self.mSocket)
+
+	if not(self.mHasSentHeaders) then
+		self:setContentLength(0)
+		self:sendHeaders()
+	end
+end
+
+
+
+
+
+--- Sends an HTTP redirect (302) to the specified destination
+function M:sendRedirect(aDestination)
+	assert(self)
+	assert(self.mSocket)
+	assert(type(aDestination) == "string")
+
+	self:setStatus(302, "Found")
+	self:setHeader("Location", aDestination)
+	self:setContentLength(0)
+	self:sendHeaders()
+end
+
+
+
+
+
+--- Sends the specified raw data as the http response body
+-- Sets the content-length header based on the data length
+function M:sendRawDataWithLength(aData)
+	assert(type(aData) == "string")
+
+	self:setContentLength(#aData)
+	self:write(aData)
+end
+
+
+
+
+
+--- Sends a plain text body with the currently set headers
+function M:sendPlainText(aText)
+	assert(self)
+	assert(self.mSocket)
+	assert(type(aText) == "string")
+
+	self:setHeader("Content-Type", "text/plain; charset=utf-8")
+	self:sendRawDataWithLength(aText)
+end
+
+
+
+
+
+--- Sends an html text body with the currently set headers.
+function M:sendHtml(aHtml)
+	assert(self)
+	assert(self.mSocket)
+	assert(type(aHtml) == "string")
+
+	self:setHeader("Content-Type", "text/html; charset=utf-8")
+	self:sendRawDataWithLength(aHtml)
 end
 
 
@@ -67,18 +242,25 @@ end
 
 
 --- Sends an HTTP error together with a nicely formatted error page containing the specified code and text
-function httpResponse.sendError(aClient, aErrorCode, aErrorText)
-	return httpResponse.sendTemplate(aClient, "errorPage", {errorText = aErrorText, errorCode = aErrorCode})
-end
+function M:sendError(aErrorCode, aErrorText)
+	assert(self)
+	assert(self.mSocket)
+	assert(tonumber(aErrorCode))
 
-
-
-
-
---- Sends a simple page with a message
--- If title is not given, "AniDbXref" is used
-function httpResponse.sendSimpleMessage(aClient, aMessage, aTitle)
-	return httpResponse.sendTemplate(aClient, "simpleMessage", {title = aTitle or "AniDbXref", message = aMessage})
+	local template = templates["errorPage"]
+	if not(template) then
+		log("httpResponse", "errorPage template not present while responding with error %d / %s", aErrorCode, tostring(aErrorText))
+		self:setStatus(500)
+		return self:sendPlainText("Cannot load error page template")
+	end
+	local html, msg = template({errorText = aErrorText, errorCode = aErrorCode})
+	if not(html) then
+		log("httpResponse", "errorPage template execution failed: %s", tostring(msg))
+		self:setStatus(500)
+		return self:sendPlainText("Cannot render error page: " .. tostring(msg))
+	end
+	self:setStatus(aErrorCode)
+	return self:sendHtml(html)
 end
 
 
@@ -87,25 +269,40 @@ end
 
 --- Executes the specified template using the specified params, then sends the result to the client as HTML
 -- If the template fails, sends an error page
-function httpResponse.sendTemplate(aClient, aTemplateName, aTemplateParams)
+function M:sendTemplate(aTemplateName, aTemplateParams)
+	assert(self)
+	assert(self.mSocket)
 	assert(type(aTemplateName) == "string")
 	assert(type(aTemplateParams) == "table")
 
 	local template = templates[aTemplateName]
 	if not(template) then
-		return httpResponse.sendError(aClient, 500, string.format("Template %s failed, inspect log for details", aTemplateName))
+		return self:sendError(500, string.format("Template %s failed, inspect log for details", aTemplateName))
 	end
-	aTemplateParams.utils = templateUtils
+
+	-- DEBUG: Reloading the utils on each call for fast development cycle:
+	aTemplateParams.utils = dofile("templateUtils.lua")
+
 	local html, msg = template(aTemplateParams)
 	if not(html) then
 		log("httpResponse", "Template %s execution failed: %s", aTemplateName, tostring(msg))
-		return httpResponse.sendError(aClient, 500, string.format("Template %s execution failed: %s", aTemplateName, tostring(msg)))
+		return self:sendError(500, string.format("Template %s execution failed: %s", aTemplateName, tostring(msg)))
 	end
-	return httpResponse.send(aClient, 200, nil, html)
+	return self:sendHtml(html)
 end
 
 
 
 
 
-return httpResponse
+--- Sends a simple page with a message
+-- If title is not given, "AniDbXref" is used
+function M:sendSimpleMessage(aMessage, aTitle)
+	return self:sendTemplate("simpleMessage", {title = aTitle or "AniDbXref", message = aMessage})
+end
+
+
+
+
+
+return M

@@ -8,14 +8,13 @@
 
 
 local db = require("db")
-local httpResponse = require("httpResponse")
 
 
 
 
 
-return function (aClient, aPath, aParams, aHeaders)
-	return httpResponse.sendTemplate(aClient, "voiceActors",
+return function (aRequest, aResponse)
+	return aResponse:sendTemplate("voiceActors",
 		{
 			voiceActors = db.getVoiceActors(),
 			hasAniDbData = db.hasBaseAniDbData()

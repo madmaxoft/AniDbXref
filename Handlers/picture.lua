@@ -126,10 +126,10 @@ end
 
 
 
-return function(aClient, aRequestPath, aRequestHeaders)
-	local path, params = httpRequest.parseRequestPath(aRequestPath)
+return function(aRequest, aResponse)
+	local path, params = aRequest:parsePathAndQuery()
 	if not(params and params["id"]) then
-		httpResponse.sendError(aClient, 404, "id parameter not found")
+		aResponse:sendError(404, "id parameter not found")
 		return
 	end
 	local pictureId = params["id"]
@@ -138,7 +138,8 @@ return function(aClient, aRequestPath, aRequestHeaders)
 	-- Search the cache:
 	local picData, msg = db.pictureData(pictureId, pictureSize)
 	if (picData) then
-		return httpResponse.send(aClient, 200, "image/jpeg", picData)
+		aResponse:setContentType("image/jpeg")
+		return aResponse:sendRawDataWithLength(picData)
 	end
 
 	-- Not in the cache, request from anidb:
@@ -150,7 +151,8 @@ return function(aClient, aRequestPath, aRequestHeaders)
 	end
 	if (picData) then
 		db.storePictureData(pictureId, pictureSize, picData)
-		return httpResponse.send(aClient, 200, "image/jpeg", picData)
+		aResponse:setContentType("image/jpeg")
+		return aResponse:sendRawDataWithLength(picData)
 	end
-	return httpResponse.sendError(aClient, 404, "Failed to download from AniDB.")
+	return aResponse:sendError(404, "Failed to download from AniDB.")
 end

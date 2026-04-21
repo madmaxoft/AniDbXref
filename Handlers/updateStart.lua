@@ -5,14 +5,48 @@ Starts the AniDB dump update in background
 --]]
 
 local log = require("logger").log
+local db = require("db")
 
 
 
 
 
-return function(aClient, aRequestPath, aRequestHeaders)
-	local db = require("db")
-	local httpResponse = require("httpResponse")
+local function updateThread()
+	log("update", "Starting update from AniDB dump...")
+	local http = require("socket.http")
+	local ltn12 = require("ltn12")
+	local zlib = require("zlib")
+
+	-- Download dump
+	local tmpFile = "anime-titles.xml.gz"
+	if not(isLocal) then
+		log("update", "Downloading AniDB dump...")
+		local f = assert(io.open(tmpFile, "wb"))
+		local isOK, code = http.request{ url = "http://anidb.net/api/anime-titles.xml.gz", sink = ltn12.sink.file(f) }
+		if (not(isOK) or (code ~= 200)) then
+			log("update", "Failed to download AniDB dump: %s", tostring(code))
+			return
+		end
+	end
+
+	-- Decompress
+	log("update", "Decompressing AniDB dump...")
+	local gzFile = assert(io.open(tmpFile, "rb"))
+	local gzData = gzFile:read("*a")
+	gzFile:close()
+	local xmlString = zlib.inflate()(gzData)
+
+	-- Update DB using module-local connection
+	log("update", "Updating the AniDB data in the DB...")
+	db.updateAniDbDataFromDump(xmlString)
+	log("update", "Update finished.")
+end
+
+
+
+
+
+return function(aRequest, aResponse)
 	local lastUpdate = db.getLastAniDbUpdate()
 	local now = os.time()
 	local nextAllowed = lastUpdate + 24 * 3600
@@ -20,41 +54,12 @@ return function(aClient, aRequestPath, aRequestHeaders)
 	if (not(isLocal) and ((now - lastUpdate) < 24 * 3600)) then
 		local lastStr = os.date("%Y-%m-%d %H:%M:%S", lastUpdate)
 		local nextStr = os.date("%Y-%m-%d %H:%M:%S", nextAllowed)
-		return httpResponse.sendError(aClient, 403,
+		return aResponse:sendError(403,
 			string.format("Update blocked: last dump processed at %s, next allowed at %s", lastStr, nextStr)
 		)
 	end
 
-	require("copas").addthread(function()
-		log("update", "Starting update from AniDB dump...")
-		local http = require("socket.http")
-		local ltn12 = require("ltn12")
-		local zlib = require("zlib")
+	require("copas").addthread(updateThread)
 
-		-- Download dump
-		local tmpFile = "anime-titles.xml.gz"
-		if not(isLocal) then
-			log("update", "Downloading AniDB dump...")
-			local f = assert(io.open(tmpFile, "wb"))
-			local isOK, code = http.request{ url = "http://anidb.net/api/anime-titles.xml.gz", sink = ltn12.sink.file(f) }
-			if (not(isOK) or (code ~= 200)) then
-				log("update", "Failed to download AniDB dump: %s", tostring(code))
-				return
-			end
-		end
-
-		-- Decompress
-		log("update", "Decompressing AniDB dump...")
-		local gzFile = assert(io.open(tmpFile, "rb"))
-		local gzData = gzFile:read("*a")
-		gzFile:close()
-		local xmlString = zlib.inflate()(gzData)
-
-		-- Update DB using module-local connection
-		log("update", "Updating the AniDB data in the DB...")
-		db.updateAniDbDataFromDump(xmlString)
-		log("update", "Update finished.")
-	end)
-
-	httpResponse.sendSimpleMessage(aClient, "Update started in background.")
+	aResponse:sendSimpleMessage("Update started in background.")
 end

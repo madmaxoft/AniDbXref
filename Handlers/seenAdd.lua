@@ -4,8 +4,6 @@
 Marks an anime as seen and returns to home
 --]]
 
-local httpRequest = require("httpRequest")
-local httpResponse = require("httpResponse")
 local db = require("db")
 local requestQueue = require("requestQueue")
 local log = require("logger").log
@@ -14,14 +12,19 @@ local log = require("logger").log
 
 
 
-return function(aClient, aRequestPath, aRequestHeaders)
+return function(aRequest, aResponse)
 	-- Only POST should reach here
-	local body = httpRequest.readBody(aClient, aRequestHeaders)
-	local form = httpRequest.parseFormUrlEncoded(body)
+	assert(aRequest:method() == "POST")
+
+	local body = aRequest:readAll()
+	local form = aRequest.parseFormUrlEncoded(body)
+	if not(form) then
+		return aResponse:sendError(400, "Failed to parse request body")
+	end
 
 	local aId = tonumber(form.aId)
 	if not(aId) then
-		return httpResponse.sendError(aClient, 400, "Missing or invalid aId parameter")
+		return aResponse:sendError(400, "Missing or invalid aId parameter")
 	end
 
 	-- Mark as seen in the DB:
@@ -29,7 +32,7 @@ return function(aClient, aRequestPath, aRequestHeaders)
 		db.markAnimeSeen(aId)
 	end)
 	if not(ok) then
-		return httpResponse.sendError(aClient, 500, "Database error: " .. tostring(err))
+		return aResponse:sendError(500, "Database error: " .. tostring(err))
 	end
 
 	-- Add to request queue so that the details are queried soon:
@@ -37,5 +40,5 @@ return function(aClient, aRequestPath, aRequestHeaders)
 
 	-- Redirect to home:
 	log("seen-add", "Marked %d as seen. Redirecting to home.", aId)
-	httpResponse.sendRedirect(aClient, "/")
+	aResponse:sendRedirect("/")
 end

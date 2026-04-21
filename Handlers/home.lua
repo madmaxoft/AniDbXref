@@ -8,8 +8,8 @@ local db = require("db")
 
 
 
-return function (aClient)
-	return require("httpResponse").sendTemplate(aClient, "home", {
+return function (aRequest, aResponse)
+	return aResponse:sendTemplate("home", {
 		hasAniDbData = db.hasBaseAniDbData(),
 		seenAnime = db.getSeenAnimeForHomepage(),
 	})

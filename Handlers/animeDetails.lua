@@ -5,9 +5,7 @@ Implements handlers for displaying the anime details page and handling the forms
 --]]
 
 local db = require("db")
-local httpResponse = require("httpResponse")
 local requestQueue = require("requestQueue")
-local httpRequest = require("httpRequest")
 local multipart = require("multipart")
 local log = require("logger").log
 local perf = require("perf")
@@ -45,10 +43,10 @@ end
 
 
 
-function AD.get(aClient, aPath, aRequestHeaders)
-	local aId = tonumber(aPath:match("^/anime/(%d+)$"))
+function AD.get(aRequest, aResponse)
+	local aId = tonumber(aRequest:path():match("^/anime/(%d+)$"))
 	if not(aId) then
-		return httpResponse.sendError(aClient, 400, "Invalid aId")
+		return aResponse:sendError(400, "Invalid aId")
 	end
 
 	local timer = perf.newTimer("animeDetails.get")
@@ -58,7 +56,7 @@ function AD.get(aClient, aPath, aRequestHeaders)
 		requestQueue.add(aId)
 	end
 
-	httpResponse.sendTemplate(aClient, "animeDetails", { details = details, aId = aId })
+	aResponse:sendTemplate("animeDetails", { details = details, aId = aId })
 	timer("Send response")
 end
 
@@ -66,27 +64,27 @@ end
 
 
 
-function AD.postSetSeen(aClient, aPath, aRequestHeaders)
-	local rawBody = httpRequest.readBody(aClient, aRequestHeaders)
-	local form = multipart(rawBody, aRequestHeaders["content-type"])
+function AD.postSetSeen(aRequest, aResponse)
+	local rawBody = aRequest:readAll()
+	local form = multipart(rawBody, aRequest:header("content-type"))
 
 	local aId = tonumber((form:get("aId") or {}).value)
 	if not(aId) then
-		return httpResponse.sendError(aClient, 400, "Bad or missing aId")
+		return aResponse:sendError(400, "Bad or missing aId")
 	end
 
 	if ((form:get("isSeen") or {}).value) then
 		local seenDateYmd = (form:get("seenDateYmd") or {}).value
 		local seenDate = parseYmd(seenDateYmd)
 		if not(seenDate) then
-			return httpResponse.sendError(aClient, "Bad or missing seenDateYmd")
+			return aResponse:sendError(400, "Bad or missing seenDateYmd")
 		end
 		db.markAnimeSeen(aId, seenDate)
 	else
 		db.markAnimeNotSeen(aId)
 	end
 
-	httpResponse.sendRedirect(aClient, "/anime/" .. aId)
+	aResponse:sendRedirect("/anime/" .. aId)
 end
 
 

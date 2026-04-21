@@ -126,6 +126,32 @@ end
 
 
 
+--- Returns the day-of-week index of the specified YMD date (1 = Mon, 7 = Sun)
+-- Returns nil and error message on failure
+function utils.ymdDayOfWeek(aDateYmd)
+	assert(type(aDateYmd) == "string")
+
+	local y, m, d = aDateYmd:match("(%d+)%-(%d+)%-(%d+)")
+	if not(y and m and d) then
+		return nil, "Failed to parse YMD"
+	end
+	y = tonumber(y)
+	m = tonumber(m)
+	d = tonumber(d)
+	if not(y and m and d) then
+		return nil, "Non-numeric year, month or day"
+	end
+	local dt = os.date("*t", os.time({year = y, month = m, day = d}))
+	if (dt.wday == 0) then
+		return 7
+	end
+	return dt.wday
+end
+
+
+
+
+
 --- Returns whether the specified YMD date string is within the specified season
 function utils.ymdInSeason(aDateYmd, aSeason)
 	local bounds = utils.seasonToYmdBounds(aSeason)

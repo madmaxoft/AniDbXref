@@ -4,20 +4,18 @@
 Handles the request to force an update to details even when they are already in the DB
 --]]
 
-local httpResponse = require("httpResponse")
 local requestQueue = require("requestQueue")
 
 
 
 
-
-return function(aClient, aPath, aHeaders)
-	local aId = tonumber(aPath:match("^/force%-update%-details/(%d+)$"))
+return function(aRequest, aResponse)
+	local aId = tonumber(aRequest:path():match("^/force%-update%-details/(%d+)$"))
 	if not(aId) then
-		return httpResponse.sendError(aClient, 400, "Invalid aId")
+		return aResponse:sendError(400, "Invalid aId")
 	end
 
 	requestQueue.addToFront(aId, true)
 
-	httpResponse.sendRedirect(aClient, "/anime/" .. tostring(aId))
+	aResponse:sendRedirect("/anime/" .. tostring(aId))
 end

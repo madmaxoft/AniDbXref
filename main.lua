@@ -48,8 +48,8 @@ local multipart = requireWithHelp("multipart", "multipart")
 -- Load the templates and utils:
 local log = require("logger").log
 require("Templates")
-require("httpResponse")
-require("httpRequest")
+local httpResponse = require("httpResponse")
+local httpRequest  = require("httpRequest")
 local db = require("db")
 require("aniDbDetails")
 local requestQueue = require("requestQueue")
@@ -61,14 +61,36 @@ local utils = require("utils")
 
 
 
+--- Handles a single connected client, possibly with keep-alive:
+local function clientLoop(aSocket)
+	while true do
+		local req, err = httpRequest.createFromSocket(aSocket)
+		if not req then
+			break
+		end
+		local resp = httpResponse.new(aSocket)
+		router.handleRequest(req, resp)
+		resp:finish()
+		req:discardUnreadBody()
+		if not(req:shouldKeepAlive(resp)) then
+			break
+		end
+	end
+	aSocket:close()
+end
+
+
+
+
+
 --- Starts the Copas HTTP server on port 8080
 local function startServer()
 	local serverSocket = assert(socket.bind("*", 8080))
 	log("main", "Server running on http://localhost:8080/")
 
-	copas.mainServer = serverSocket
+	copas.mainServerSocket = serverSocket
 	copas.addserver(serverSocket, function(aSocket)
-		router.handleRequest(copas.wrap(aSocket))
+		clientLoop(copas.wrap(aSocket))
 	end)
 
 	copas.loop()

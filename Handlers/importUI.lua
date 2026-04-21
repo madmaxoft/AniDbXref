@@ -13,8 +13,6 @@ The handlers are returned in a table as named functions
 
 
 
-local httpResponse = require("httpResponse")
-local httpRequest = require("httpRequest")
 local import = require("importSeenFromPlaces")
 local multipart = require("multipart")
 local db = require("db")
@@ -32,7 +30,7 @@ local I = {}
 
 
 --- Handles the POST request for "/import" for the places.sqlite file
-local function handlePostPlacesFile(aClient, aPath, aRequestHeaders, aFileContents)
+local function handlePostPlacesFile(aRequest, aResponse, aFileContents)
 	-- Store to a temp disk file:
 	require("lfs").mkdir("Import")
 	local fileName = string.format("Import/%s.sqlite", os.date("%Y-%m-%d-%H-%M-%S"))
@@ -44,9 +42,9 @@ local function handlePostPlacesFile(aClient, aPath, aRequestHeaders, aFileConten
 	local session = import.buildSession(fileName)
 	os.remove(fileName)
 	if (session.items.n == 0) then
-		return httpResponse.sendRedirect(aClient, "/")
+		return aResponse:sendRedirect("/")
 	end
-	return httpResponse.sendRedirect(aClient, "/import/review/" .. session.id)
+	return aResponse:sendRedirect("/import/review/" .. session.id)
 end
 
 
@@ -54,21 +52,21 @@ end
 
 
 --- Handles the POST request for "/import" for a details XML file
-local function handlePostDetailsFile(aClient, aPath, aRequestHeaders, aFileContents)
+local function handlePostDetailsFile(aRequest, aResponse, aFileContents)
 	-- XML-parse the contents:
 	local parsedLom = lomParser.parse(aFileContents)
 	if not(parsedLom) then
-		return httpResponse.sendError(aClient, "400 Bad upload", "FAILED to xml-parse the file")
+		return aResponse:sendError(400, "FAILED to xml-parse the file")
 	end
 
 	-- Transform the parsed LOM object into the details table:
 	local parsedDetails = aniDbDetails.transformParsedIntoDetails(parsedLom)
 	if not(parsedDetails.aId) then
-		return httpResponse.sendError(aClient, "400 Bad upload", "FAILED to transform AniDB API XML to details.")
+		return aResponse:sendError(400, "FAILED to transform AniDB API XML to details.")
 	end
 
 	db.storeAnimeDetails(parsedDetails)
-	return httpResponse.sendRedirect(aClient, "/")
+	return aResponse:sendRedirect("/")
 end
 
 
@@ -76,8 +74,8 @@ end
 
 
 --- Handles the GET request for "/import", displaying a file-upload form
-function I.get(aClient)
-	return httpResponse.sendTemplate(aClient, "import", {})
+function I.get(aRequest, aResponse)
+	return aResponse:sendTemplate("import", {})
 end
 
 
@@ -86,12 +84,12 @@ end
 
 --- Handles the GET request for "/import/test", a testing endpoint that builds a session
 -- from an existing "Import/places.sqlite" file. Used for testing.
-function I.getImportTest(aClient, aPath, aRequestHeaders)
+function I.getImportTest(aRequest, aResponse)
 	local session = import.buildSession("Import/places.sqlite")
 	if (session.items.n == 0) then
-		return httpResponse.sendRedirect(aClient, "/import")
+		return aResponse:sendRedirect("/import")
 	end
-	return httpResponse.sendRedirect(aClient, "/import/review/" .. session.id)
+	return aResponse:sendRedirect("/import/review/" .. session.id)
 end
 
 
@@ -100,13 +98,13 @@ end
 
 --- Handles the GET request for "/import/review/<id>"
 -- Shows the form for the user to review the matches in the specified session
-function I.getReview(aClient, aPath, aRequestHandlers)
-	local id = tonumber(string.match(aPath, "^/import/review/(%d+)$"))
+function I.getReview(aRequest, aResponse)
+	local id = tonumber(string.match(aRequest:path(), "^/import/review/(%d+)$"))
 	local session = import.getSession(id)
 	if not(session) then
-		return httpResponse.sendError(aClient, "400 Bad session", "No such session")
+		return aResponse:sendError(400, "Bad session")
 	end
-	return httpResponse.sendTemplate(aClient, "importReview", {sessionId = session.id, items = session.items})
+	return aResponse:sendTemplate("importReview", {sessionId = session.id, items = session.items})
 end
 
 
@@ -115,20 +113,20 @@ end
 
 --- Handles the POST request for "/import", parsing the uploaded file and processing it
 -- Bases the processing on the name of the form element that the browser sends
-function I.post(aClient, aPath, aRequestHeaders)
+function I.post(aRequest, aResponse)
 	-- Extract the uploaded file contents:
-	local body = httpRequest.readBody(aClient, aRequestHeaders)
-	local m = multipart(body, aRequestHeaders["content-type"])
+	local body = aRequest:readAll()
+	local m = multipart(body, aRequest:header("content-type"))
 	local placesFileContents = (m:get("placesFile") or {}).value
 	if (placesFileContents) then
-		return handlePostPlacesFile(aClient, aPath, aRequestHeaders, placesFileContents)
+		return handlePostPlacesFile(aRequest, aResponse, placesFileContents)
 	end
 	local detailsFileContents = (m:get("detailsFile") or {}).value
 	if (detailsFileContents) then
-		return handlePostDetailsFile(aClient, aPath, aRequestHeaders, detailsFileContents)
+		return handlePostDetailsFile(aRequest, aResponse, detailsFileContents)
 	end
 
-	return httpResponse.sendError(aClient, "400 Bad upload", "No idea how to handle the file")
+	return aResponse:sendError(400, "Bad upload")
 end
 
 
@@ -141,16 +139,16 @@ end
 --   - if a search is selected, performs a new search and updates the candidates for the item
 --   - if no radio is selected, doesn't do anything (keeps the item as-is)
 -- If there are no items to process anymore, finishes the session and redirects back to home.
-function I.postReview(aClient, aPath, aRequestHeaders)
+function I.postReview(aRequest, aResponse)
 	-- Find the correct session:
-	local sessionId = tonumber(string.match(aPath, "^/import/review/(%d+)$"))
+	local sessionId = tonumber(string.match(aRequest:path(), "^/import/review/(%d+)$"))
 	local session = import.getSession(sessionId)
 	if not(session) then
-		return httpResponse.sendError(aClient, "400 Bad session", "No such session")
+		return aResponse:sendError(400, "No such session")
 	end
 
-	local rawBody = httpRequest.readBody(aClient, aRequestHeaders)
-	local form = multipart(rawBody, aRequestHeaders["content-type"])
+	local rawBody = aRequest:readAll()
+	local form = multipart(rawBody, aRequest:header("content-type"))
 
 	-- Process all items:
 	for i = 1, session.items.n do
@@ -192,11 +190,11 @@ function I.postReview(aClient, aPath, aRequestHeaders)
 	-- If complete, redirect to home:
 	if (session.items.n == 0) then
 		import.removeSession(sessionId)
-		return httpResponse.sendRedirect(aClient, "/")
+		return aResponse:sendRedirect("/")
 	end
 
 	-- Redirect to the session form again:
-	return httpResponse.sendRedirect(aClient, "/import/review/" .. session.id)
+	return aResponse:sendRedirect("/import/review/" .. session.id)
 end
 
 

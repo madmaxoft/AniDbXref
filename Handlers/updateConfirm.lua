@@ -8,12 +8,12 @@ Displays confirmation page for starting AniDB dump update
 
 
 
-return function(aClient, aRequestPath, aRequestHeaders)
+return function(aRequest, aResponse)
 	local lastUpdate = require("db").getLastAniDbUpdate() or 0
 	local now = os.time()
 	local nextAllowed = lastUpdate + 24 * 3600
 
-	return require("httpResponse").sendTemplates(aClient, "updateConfirm",
+	return aResponse:sendTemplate("updateConfirm",
 		{
 			lastUpdate = os.date("%Y-%m-%d %H:%M:%S", lastUpdate),
 			nextUpdate = os.date("%Y-%m-%d %H:%M:%S", nextAllowed),

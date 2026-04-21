@@ -19,6 +19,8 @@ local templates = {}
 
 
 local function loadTemplate(aTemplateName)
+	assert(type(aTemplateName) == "string")
+
 	local path = "Templates/" .. aTemplateName .. ".html"
 	local f = assert(io.open(path, "rb"))
 	local content = f:read("*a")

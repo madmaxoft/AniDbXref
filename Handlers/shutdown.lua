@@ -5,14 +5,14 @@ Implements the handler for the /shutdown HTTP endpoint
 --]]
 
 local copas = require("copas")
-local httpResponse = require("httpResponse")
 
 
 
 
 
-return function(aClient)
-	httpResponse.sendSimpleMessage(aClient, "Shutting down")
-	copas.removeserver(copas.mainServer)
+return function(aRequest, aResponse)
+	aResponse:setConnectionClose()
+	aResponse:sendSimpleMessage("Shutting down")
+	copas.removeserver(copas.mainServerSocket)
 	copas.exit()
 end

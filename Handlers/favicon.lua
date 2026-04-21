@@ -18,10 +18,10 @@ end
 
 
 
-return function(aClient)
+return function(aRequest, aResponse)
 	if (faviconData) then
-		require("httpResponse").send(aClient, "200 OK", nil, faviconData)
+		aResponse:sendRawDataWithLength(faviconData)
 	else
-		require("httpResponse").sendError(aClient, "404 Not found", "")
+		aResponse:sendError(404, "Not found")
 	end
 end
