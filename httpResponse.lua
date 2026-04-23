@@ -283,10 +283,13 @@ function M:sendTemplate(aTemplateName, aTemplateParams)
 	-- DEBUG: Reloading the utils on each call for fast development cycle:
 	aTemplateParams.utils = dofile("templateUtils.lua")
 
-	local html, msg = template(aTemplateParams)
-	if not(html) then
-		log("httpResponse", "Template %s execution failed: %s", aTemplateName, tostring(msg))
-		return self:sendError(500, string.format("Template %s execution failed: %s", aTemplateName, tostring(msg)))
+	local isOK, html, msg = pcall(template, aTemplateParams)
+	if not(isOK) then
+		-- DEBUG:
+		templates.dump(aTemplateName)
+
+		log("httpResponse", "Template %s execution failed: %s %s", aTemplateName, tostring(html), tostring(msg))
+		return self:sendError(500, string.format("Template %s execution failed: %s", aTemplateName, tostring(html)))
 	end
 	return self:sendHtml(html)
 end

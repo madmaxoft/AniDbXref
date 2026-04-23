@@ -25,7 +25,7 @@ local function loadTemplate(aTemplateName)
 	local f = assert(io.open(path, "rb"))
 	local content = f:read("*a")
 	f:close()
-	return etlua.compile(content)
+	return etlua.compile(content, '@' .. path)
 end
 
 
@@ -45,5 +45,27 @@ setmetatable(templates,
 		end
 	}
 )
+
+
+
+
+--- Dumps the Lua code for the specified template to a file "${aTemplateName}.compiledLua"
+function templates.dump(aTemplateName)
+	assert(type(aTemplateName) == "string")
+
+	local path = "Templates/" .. aTemplateName .. ".html"
+	local f = assert(io.open(path, "rb"))
+	local content = f:read("*a")
+	f:close()
+	local parser = etlua.Parser()
+	local luaCode = parser:compile_to_lua(content)
+	f = assert(io.open("Templates/" .. aTemplateName .. ".compiledLua", "wb"))
+	f:write(luaCode)
+	f:close()
+end
+
+
+
+
 
 return templates

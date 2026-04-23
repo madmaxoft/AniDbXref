@@ -6,3 +6,4 @@
 *.sqlite-journal
 Static/favicon*
 Backups/
+*.compiledLua
