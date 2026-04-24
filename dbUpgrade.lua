@@ -420,6 +420,27 @@ local upgrades = {
 				);
 			]]
 		},
+	},
+
+	-- Version 11:
+	{
+		scripts =
+		{
+			[[
+				CREATE TABLE UserData.Watchlist (
+					itemId INTEGER PRIMARY KEY,
+					watchlistSeason TEXT,
+					dayOfWeek INTEGER,
+					time TEXT,
+					aId INTEGER,
+					caption TEXT,
+					url TEXT
+				);
+			]],
+			[[
+				CREATE INDEX UserData.idx_Watchlist_watchlistSeason ON Watchlist(watchlistSeason);
+			]],
+		}
 	}
 
 	-- Future upgrades can be added here

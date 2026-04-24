@@ -144,6 +144,36 @@ end
 
 
 
+--- Adds the specified anime to the user's watchlist
+-- Queries the details to add them into the watchlist along the anime
+function db.addToWatchlist(aId, aWatchlistSeason)
+	assert(type(aId) == "number")
+	assert(type(aWatchlistSeason) == "string")
+
+	-- Query the details:
+	local details, msg = db.getAnimeDetails(aId)
+	if not(details) then
+		return nil, "Failed to query anime details: " .. tostring(msg)
+	end
+
+	local dayOfWeek = utils.ymdDayOfWeek(details.startDate)
+	local caption = utils.pickBestTitle(details.titles, "en") or tostring(aId)
+	db.execBoundStatement([[
+		INSERT INTO UserData.Watchlist
+			(watchlistSeason, dayOfWeek, time, aId, url, caption)
+		VALUES
+			(?, ?, ?, ?, ?, ?)
+		]],
+		{ aWatchlistSeason, dayOfWeek, time, aId, url, caption },
+		"addToWatchlist"
+	)
+	return true
+end
+
+
+
+
+
 --- Returns an array-table of all anime IDs in the DB.
 -- Returns an empty array on empty DB.
 -- Returns nil and error message on error.
@@ -1704,14 +1734,51 @@ end
 
 
 
---- Returns the watchlist array-table for the specified season
+--- Returns the watchlist for the specified season
 function db.watchlistInSeason(aSeason)
-	return db.getArrayFromQuery(
-		[[
-			SELECT * FROM Watchlist
-			WHERE watchSeason = ?
-		]], {aSeason}, "watchlistInSeason"
-	)
+	-- Query the base watchlist:
+	local watchlist = db.getArrayFromQuery(
+	[[
+		SELECT * FROM Watchlist
+		WHERE watchlistSeason = ?
+	]], {aSeason}, "watchlistInSeason")
+	local byId = {}
+	for _, w in ipairs(watchlist) do
+		byId[w.aId] = w
+	end
+
+	-- Enrich with anime base details:
+	local details = db.getArrayFromQuery(
+	[[
+		SELECT AnimeBaseDetails.*
+		FROM AnimeBaseDetails
+		LEFT JOIN Watchlist ON (AnimeBaseDetails.aId = Watchlist.aId)
+		WHERE Watchlist.watchlistSeason = ?
+	]], {aSeason}, "watchlistInSeason.details")
+	for _, d in ipairs(details) do
+		assert(type(byId[d.aId]) == "table")
+		byId[d.aId].details = d
+	end
+
+	-- Enrich with all the titles:
+	local titles = db.getArrayFromQuery(
+	[[
+		SELECT AnimeTitle.*
+		FROM AnimeTitle
+		LEFT JOIN Watchlist ON (AnimeTitle.aId = Watchlist.aId)
+		WHERE Watchlist.watchlistSeason = ?
+	]], {aSeason}, "watchlistInSeason.titles")
+	for _, title in ipairs(titles) do
+		local ani = byId[title.aId]
+		assert(type(ani) == "table")
+		assert(type(ani.details) == "table")
+		local aniTitles = ani.details.titles or {n = 0}
+		aniTitles.n = aniTitles.n + 1
+		aniTitles[aniTitles.n] = title
+		ani.details.titles = aniTitles
+	end
+
+	return watchlist
 end
 
 

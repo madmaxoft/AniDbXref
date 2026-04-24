@@ -7,7 +7,6 @@
 </head>
 <body> |
 <a href="/">Back to home</a> |
-<a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a> |
 <h1><%= seasonDescription %> season</h1>
 <%
 -- Sort the anime first by seen, then by title:
@@ -43,14 +42,14 @@ end
 <% for year = seasonYear - 1, seasonYear + 1 do
 	for idx = 1, 4 do
 		local s = tostring(year) .. "-" .. tostring(idx)
-		seasonDescription = utils.seasonToDescription(s)
+		local sDesc = utils.seasonToDescription(s)
 		if (s == season) then
 %>
-| <%= seasonDescription %>
+| <%= sDesc %>
 <%
 		else
 %>
-| <a href="/season/<%= s %>"><%= seasonDescription %></a>
+| <a href="/season/<%= s %>"><%= sDesc %></a>
 <%
 		end
 	end

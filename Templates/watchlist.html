@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title><%= seasonDescription %> watchlist - AniDbXref</title>
+	<link rel="stylesheet" href="/Static/main.css" />
+</head>
+<body> |
+<a href="/">Back to home</a> |
+<h1><%= seasonDescription %> watchlist</h1>
+
+<%
+-- Group and sort the watchlist by dayOfWeek:
+local byDayOfWeek = {}  -- dayOfWeek -> array-table of watchlist items
+local byAid = {}  -- aId -> watchlist item
+local maxN = 0  -- Max number of watchlist items in a single day-slot
+for day = 1, 8 do
+	byDayOfWeek[day] = {n = 0}
+end
+for _, w in ipairs(watchlist) do
+	assert(type(w.dayOfWeek) == "number")
+	local lst = byDayOfWeek[w.dayOfWeek]
+	lst.n = lst.n + 1
+	lst[lst.n] = w
+	byDayOfWeek[w.dayOfWeek] = lst
+	if (lst.n > maxN) then
+		maxN = lst.n
+	end
+	if (w.aId) then
+		byAid[w.aId] = w
+	end
+end
+for day = 1, 8 do
+	table.sort(byDayOfWeek[day],
+		function (aWatchlist1, aWatchlist2)
+			return ((aWatchlist1.time or "") < (aWatchlist2.time or ""))
+		end
+	)
+end
+
+-- Group and sort the (unwatched) anime by dayOfWeek:
+local animeByDayOfWeek = {}  -- dayOfWeek -> array-table of anime
+local animeMaxN = 0  -- Max number of anime in a single day-slot
+for day = 1, 8 do
+	animeByDayOfWeek[day] = {n = 0}
+end
+for _, ani in ipairs(seasonAnime) do
+	local dow = ani.dayOfWeek
+	if (dow and not(byAid[ani.aId])) then
+		local lst = animeByDayOfWeek[dow] or {n = 0}
+		lst.n = lst.n + 1
+		lst[lst.n] = ani
+		animeByDayOfWeek[dow] = lst
+		if (lst.n > animeMaxN) then
+			animeMaxN = lst.n
+		end
+	end
+end
+%>
+
+
+
+<!-- NavBar: seasons -->
+<p>
+<% local currentSeasonDesc = utils.currentSeason()
+for year = seasonYear - 1, seasonYear + 1 do
+	for idx = 1, 4 do
+		local s = tostring(year) .. "-" .. tostring(idx)
+		local sDesc = utils.seasonToDescription(s)
+		if (s == season) then
+%>
+| <%= sDesc %>
+<%
+		elseif (s <= currentSeasonDesc) then
+%>
+| <a href="/watchlist/<%= s %>"><%= sDesc %></a>
+<%
+		end
+	end
+end
+%>
+| </p>
+
+
+
+
+
+<h2>Current watchlist</h2>
+<table>
+	<tr>
+		<th>Monday</th>
+		<th>Tuesday</th>
+		<th>Wednesday</th>
+		<th>Thursday</th>
+		<th>Friday</th>
+		<th>Saturday</th>
+		<th>Sunday</th>
+		<th>Older</th>
+	</tr>
+
+	<% for i = 1, maxN do %>
+	<tr>
+		<% for dow = 1, 8 do %>
+		<td>
+			<%
+			local watchlistItem = byDayOfWeek[dow][i]
+			if (watchlistItem) then
+			%>
+				<a href="/anime/<%= watchlistItem.aId %>"><%= watchlistItem.caption %></a><br />
+				<% if (watchlistItem.time) then %>
+				<%= watchlistItem.time %>
+				<% end %>
+			<% end %>
+		</td>
+		<% end %>
+	</tr>
+	<% end %>
+</table>
+
+
+
+
+
+<h2>Available</h2>
+<table>
+	<tr>
+		<th>Monday</th>
+		<th>Tuesday</th>
+		<th>Wednesday</th>
+		<th>Thursday</th>
+		<th>Friday</th>
+		<th>Saturday</th>
+		<th>Sunday</th>
+		<th>Unknown</th>
+	</tr>
+	<% for i = 1, animeMaxN do %>
+	<tr>
+		<% for dow = 1, 8 do %>
+			<td>
+				<%
+				local ani = animeByDayOfWeek[dow][i]
+				if (ani) then
+				%>
+				<a href="/anime/<%= ani.aId %>">
+					<% if (ani.pictureId) then %>
+					<img src="/picture?id=<%= ani.pictureId %>&size=thumb" />
+					<% end %>
+					<a href="/anime/<%= ani.aId %>"><%= ani.title or utils.pickBestTitle(ani.titles, "en") %></a><br />
+					<form action="/watchlist/add" method="post" style="display:inline">
+						<input type="hidden" name="aId" value="<%= ani.aId %>" />
+						<input type="hidden" name="watchlistSeason" value="<%= season %>" />
+						<button type="submit">Add</button>
+					</form>
+			<% end %>
+			</td>
+		<% end %>
+	</tr>
+	<% end %>
+</table>
+</body>
+</html>

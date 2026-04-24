@@ -15,6 +15,8 @@
 
 	<table border=1 cellspacing=0>
 	<tr>
+	<th><a href="/watchlist">Watchlist</a></th>
+	<th><a href="/season">Seasons</a></th>
 	<th>
 	<form action="/search" method="get">
 		<input type="text" name="q" placeholder="Search anime" style="width:500px">
@@ -22,7 +24,6 @@
 	</form>
 	</th>
 	<th><a href="/voiceActors">Voice actors</a></th>
-	<th><a href="/season">Seasons</a></th>
 	<th><a href="/update-confirm">Update AniDB data</a></th>
 	<th><a href="/import">Import data</a></th>
 	<th><a href="/shutdown">Shutdown</a></th>
@@ -34,7 +35,7 @@
 	<%
 	else
 		table.sort(seenAnime, function (aAnime1, aAnime2)
-			return (aAnime1.seenDate < aAnime2.seenDate)
+			return (aAnime1.seenDate > aAnime2.seenDate)
 		end)
 	%>
 		<p>
