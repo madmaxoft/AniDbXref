@@ -276,7 +276,7 @@ local function requestFromAniDb(aPictureId, aSize)
 
 	-- Read the HTTP response:
 	local httpCode, httpResponse, headers, firstLine = httpRequest.readRequestHeaders(conn.socket)
-	if not(headers) then
+	if (httpCode ~= "200") then
 		log("picture", "Failed to read http headers from AniDB response for picture %s. %s | %s | %s; firstLine \"%s\"",
 			aPictureId,
 			tostring(httpCode),

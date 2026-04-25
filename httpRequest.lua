@@ -1,7 +1,7 @@
 -- httpRequest.lua
 
 --[[
-Implements the HttpRequest class representing a single HTTP request from the client.
+Implements the HttpRequest class representing a single HTTP request incoming from the client.
 The object is created by reading all the headers from a connection: httpRequest.createFromSocket()
 Also implements various helper functions, such as urlDecode(), readRequestHeaders() etc.
 --]]
