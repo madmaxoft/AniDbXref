@@ -441,7 +441,21 @@ local upgrades = {
 				CREATE INDEX UserData.idx_Watchlist_watchlistSeason ON Watchlist(watchlistSeason);
 			]],
 		}
-	}
+	},
+
+	-- Version 12:
+	{
+		scripts =
+		{
+			[[
+				CREATE TABLE UserData.Config
+				(
+					identifier TEXT PRIMARY KEY,
+					dbValue TEXT NOT NULL
+				);
+			]]
+		}
+	},
 
 	-- Future upgrades can be added here
 }

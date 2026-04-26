@@ -198,6 +198,17 @@ end
 
 
 
+--- Returns an array-table of all config values, as {identifier = "", dbValue = ""} items
+-- Returns an empty array on empty DB.
+-- Returns nil and error message on error.
+function db.allConfigValues()
+	return db.getArrayFromQuery("SELECT * FROM UserData.Config", {}, "allConfigValues")
+end
+
+
+
+
+
 --- Returns an array-table of all the anime in the specified season
 -- Each item contains the base details and an array of titles
 -- aSeason is a season specification, such as "2026-1" for winter 2026
@@ -1108,6 +1119,29 @@ function db.searchAnimeTitles(aQuery)
 
 	stmt:finalize()
 	return results
+end
+
+
+
+
+
+--- Stores the specified config value
+-- NOTE: the config module does conversion between ConfigValue and the DbValue
+function db.setConfigValue(aIdentifier, aDbValue)
+	if (aDbValue) then
+		local stmt = gDB:prepare([[
+			INSERT INTO Config(identifier, dbValue)
+			VALUES(?, ?)
+			ON CONFLICT(identifier)
+			DO UPDATE SET dbValue = excluded.dbValue
+		]])
+		stmt:bind_values(aIdentifier, aDbValue)
+		stmt:step()
+		stmt:reset()
+		stmt:finalize()
+	else
+		db.execBoundStatement([[DELETE FROM Config WHERE identifier = ?]], {aIdentifier}, "setConfigValue")
+	end
 end
 
 
