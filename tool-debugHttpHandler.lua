@@ -24,4 +24,6 @@ local theRequest =
 
 local theResponse = require("httpResponse").new({})
 local router = require("router")
+
+-- This should fail only in mSocket.send() not being defined:
 router.handleRequest(theRequest, theResponse)

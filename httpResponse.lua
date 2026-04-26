@@ -280,14 +280,11 @@ function M:sendTemplate(aTemplateName, aTemplateParams)
 		return self:sendError(500, string.format("Template %s failed, inspect log for details", aTemplateName))
 	end
 
-	-- DEBUG: Reloading the utils on each call for fast development cycle:
+	-- DEBUG: Reload the utils on each call for fast development cycle:
 	aTemplateParams.utils = dofile("templateUtils.lua")
 
 	local isOK, html, msg = pcall(template, aTemplateParams)
 	if not(isOK) then
-		-- DEBUG:
-		templates.dump(aTemplateName)
-
 		log("httpResponse", "Template %s execution failed: %s %s", aTemplateName, tostring(html), tostring(msg))
 		return self:sendError(500, string.format("Template %s execution failed: %s", aTemplateName, tostring(html)))
 	end
