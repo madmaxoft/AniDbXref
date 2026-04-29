@@ -56,3 +56,42 @@ td {
 {
 	background-color: #eee;
 }
+
+
+
+
+
+/* Config editor: support for description in hint: */
+.config-id
+{
+	white-space: nowrap;
+	font-family: monospace;
+}
+
+.config-tooltip
+{
+	position: relative;
+	cursor: help;
+}
+
+.config-tooltip-text
+{
+	display: none;
+	position: absolute;
+	left: 0;
+	top: 100%;
+
+	background: #ffffe0;
+	border: 1px solid #ccc;
+	padding: 6px;
+
+	white-space: normal;
+	width: 300px;
+
+	z-index: 100;
+}
+
+.config-tooltip:hover .config-tooltip-text
+{
+	display: block;
+}

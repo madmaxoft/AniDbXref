@@ -3,7 +3,9 @@
 
 local templates = require("Templates")
 local log = require("logger").log
-local templateUtils = require("templateUtils")
+local config = require("config")
+
+
 
 
 
@@ -18,6 +20,20 @@ Each instance has the following members:
 --]]
 local M = {}
 M.__index = M
+
+
+
+
+
+config.registerDefinitions({
+	{
+		identifier = "hotreload.templateutils",
+		description = "Reload template utils before executing each HTML template",
+		category = "Reload code",
+		valueType = "bool",
+		default = false,
+	},
+})
 
 
 
@@ -280,9 +296,14 @@ function M:sendTemplate(aTemplateName, aTemplateParams)
 		return self:sendError(500, string.format("Template %s failed, inspect log for details", aTemplateName))
 	end
 
-	-- DEBUG: Reload the utils on each call for fast development cycle:
-	aTemplateParams.utils = dofile("templateUtils.lua")
+	-- If configured, reload the templateUtils on each call for fast development cycle of the utils:
+	if (config.get("hotreload.templateutils")) then
+		aTemplateParams.utils = dofile("templateUtils.lua")(aTemplateParams)
+	else
+		aTemplateParams.utils = require("templateUtils")(aTemplateParams)
+	end
 
+	-- Execute the template:
 	local isOK, html, msg = pcall(template, aTemplateParams)
 	if not(isOK) then
 		log("httpResponse", "Template %s execution failed: %s %s", aTemplateName, tostring(html), tostring(msg))

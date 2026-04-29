@@ -54,8 +54,35 @@ local db = require("db")
 require("aniDbDetails")
 local requestQueue = require("requestQueue")
 local router = require("router")
-local templateUtils = require("templateUtils")
 local utils = require("utils")
+local config = require("config")
+
+
+
+
+
+config.registerDefinitions(
+{
+	{
+		identifier = "http.port",
+		description = "The port on which the main app HTTP server listens on. Must be free on the local system.",
+		category = "HTTP",
+		valueType = "number",
+		default = 8080,
+		validator = function(aValue)
+			aValue = tonumber(aValue)
+			if not(aValue) then
+				return nil, "Not a number"
+			end
+			if ((aValue < 0) or (aValue > 65535)) then
+				return nil, "Out of range; valid range is 0 - 65536."
+			end
+			return true
+		end,
+		isRestartRequired = true,
+	}
+})
+config.loadAll()
 
 
 
@@ -85,8 +112,9 @@ end
 
 --- Starts the Copas HTTP server on port 8080
 local function startServer()
-	local serverSocket = assert(socket.bind("*", 8080))
-	log("main", "Server running on http://localhost:8080/")
+	local port = config.get("http.port")
+	local serverSocket = assert(socket.bind("*", port))
+	log("main", "Server running on http://localhost:" .. port .. "/")
 
 	copas.mainServerSocket = serverSocket
 	copas.addserver(serverSocket, function(aSocket)

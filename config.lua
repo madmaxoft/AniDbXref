@@ -14,14 +14,17 @@ config.registerDefinitions(...)
 config.get("some.value")
 
 Config definitions specify the generic behavior of the config:
-	- identifier [compulsory] - the globally-unique config identifier
-	- description [compulsory] - the user-visible description of the config value
-	- valueType [compulsory] - one of "string", "number", "bool"
-	- default [compulsory] - the default value used when not present in the DB
+	- identifier [required] - the globally-unique config identifier
+	- description [required] - the user-visible description of the config value
+	- valueType [required] - one of "string", "number", "bool"
+	- default [required] - the default value used when not present in the DB
 	- validator - the function(aValue) that should return true if value is acceptable, nil and message if not
 	- category - the UI category to put the setting in
-	- order - the UI order within the category
+	- orderInCategory - the UI order within the category
 	- isRestartRequired - if true, the setting will not apply unti lapp restart
+
+The main module must, beside requiring the config module and registering definitions, call loadAll() once all
+the definitions are registered.
 --]]
 
 
@@ -98,6 +101,10 @@ function config.registerDefinitions(aDefinitions)
 		assert(type(def.valueType) == "string")
 		assert(not(gDefinitions[def.identifier]))  -- Duplicate definition
 
+		-- Defaults for UI:
+		def.category = def.category or "General"
+		def.orderInCategory = def.orderInCategory or 1000
+
 		-- Check the valueType:
 		assert(
 			(def.valueType == "string") or
@@ -124,7 +131,7 @@ end
 
 
 --- Returns definition for identifier
-function config.getDefinition(aIdentifier)
+function config.definition(aIdentifier)
 	return gDefinitions[aIdentifier]
 end
 
@@ -152,7 +159,50 @@ end
 
 
 
+--- Returns the model of the current config suitable for an editor
+-- Returns an array-table of {identifier = "", description = "", valueType = "", value = ..., default = ...,
+-- category = "", orderInCategory = ..., isRestartRequired = ...}
+-- The value member is only provided if explicitly set
+-- The array is sorted by category and orderInCategory
+function config.editorModel()
+	local result = {}
+	local n = 0
+	for id, def in pairs(gDefinitions) do
+		n = n + 1
+		result[n] =
+		{
+			identifier = id,
+			description = def.description,
+			valueType = def.valueType,
+			value = gValues[id],
+			default = def.default,
+			category = def.category,
+			orderInCategory = def.orderInCategory,
+			isRestartRequired = def.isRestartRequired,
+		}
+	end
+	result.n = n
+	table.sort(result,
+		function(a, b)
+			if (a.category ~= b.category) then
+				return (a.category < b.category)
+			end
+			if (a.orderInCategory ~= b.orderInCategory) then
+				return (a.orderInCategory < b.orderInCategory)
+			end
+			return (a.identifier < b.identifier)
+		end
+	)
+	require("logger").log("config", "Editor model has %d items", result.n)
+	return result
+end
+
+
+
+
+
 --- Validates and stores the value
+-- If the new value is nil, removes the setting
 -- Returns true on success, nil and error message on error (no definition, validation error)
 function config.set(aIdentifier, aValue)
 	local def = gDefinitions[aIdentifier]
@@ -160,9 +210,12 @@ function config.set(aIdentifier, aValue)
 		return nil, string.format("Unknown config key: %s", aIdentifier)
 	end
 
-	local isOK, err = config.validate(aIdentifier, aValue)
-	if not(isOK) then
-		return nil, err
+	-- Validate, unless nil ( = revert value to default, always possible)
+	if (aValue) then
+		local isOK, err = config.validate(aIdentifier, aValue)
+		if not(isOK) then
+			return nil, "Validation failed: " .. tostring(err)
+		end
 	end
 
 	gValues[aIdentifier] = aValue
@@ -194,7 +247,7 @@ end
 
 
 --- Returns all values (merged defaults + overrides)
-function config.getAll()
+function config.allValues()
 	local result = {}
 
 	for id, def in pairs(gDefinitions) do
@@ -228,14 +281,4 @@ end
 
 
 
---- Initializes the module upon startup
-local function init()
-	config.loadAll()
-end
-
-
-
-
-
-init()
 return config

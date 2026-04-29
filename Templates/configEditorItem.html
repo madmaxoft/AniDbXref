@@ -1,0 +1,51 @@
+<tr>
+
+<td class="config-id">
+	<span class="config-tooltip">
+		<%= item.identifier %>
+		<span class="config-tooltip-text">
+			<%= item.description %>
+		</span>
+	</span>
+</td>
+
+<td>
+
+<form method="POST" action="/config">
+
+	<input type="hidden" name="id" value="<%= item.identifier %>" />
+
+	<% local value = item.value or item.default %>
+
+	<% if (item.valueType == "bool") then %>
+
+		<input type="hidden" name="value" value="0" />
+		<input type="checkbox" name="value" value="1"
+			<% if (value) then %>checked<% end %>
+		/>
+
+	<% elseif (item.valueType == "number") then %>
+
+		<input type="number" name="value" value="<%= value %>" />
+
+	<% else %>
+
+		<input type="text" name="value" value="<%= value %>" />
+
+	<% end %>
+
+</td>
+
+<td>
+
+	<button type="submit" name="action" value="set">Save</button>
+
+	<% if (item.value ~= nil) then %>
+		<button type="submit" name="action" value="revert">Revert</button>
+	<% end %>
+
+</form>
+
+</td>
+
+</tr>

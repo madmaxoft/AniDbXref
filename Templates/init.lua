@@ -7,12 +7,34 @@ and exposes them by name (without extension).
 
 local etlua = require("etlua")
 local log = require("logger").log
+local config = require("config")
 
 
 
 
 
+--- The module API, returned from requiring this file
+-- Behaves as a dict-table of TemplateName -> TemplateFunction, but lazy-evaluated
 local templates = {}
+
+--- Cache of the loaded templates (unless config option `hotreload.templates` is enabled)
+-- TemplateName -> TemplateFunction
+local gCache = {}
+
+
+
+
+
+
+config.registerDefinitions({
+	{
+		identifier = "hotreload.templates",
+		description = "Reload each HTML template before executing it",
+		category = "Reload code",
+		valueType = "bool",
+		default = false,
+	},
+})
 
 
 
@@ -76,34 +98,32 @@ end
 setmetatable(templates,
 	{
 		__index = function(t, aTemplateName)
-			local tmplFunc, msg = loadTemplate(aTemplateName)
-			if not(tmplFunc) then
-				log("templates", "Failed to load template %s: %s", aTemplateName, tostring(msg))
+		local isHotReload = config.get("hotreload.templates")
+
+		-- Use cache only when hotreload disabled:
+		if not(isHotReload) then
+			local cached = gCache[aTemplateName]
+			if (cached) then
+				return cached
 			end
-			-- rawset(t, aTemplateName, tmplFunc)  -- Uncomment to not-reload
-			return tmplFunc, msg
 		end
+
+		-- Load from disk:
+		local tmplFunc, msg = loadTemplate(aTemplateName)
+		if not(tmplFunc) then
+			log("templates", "Failed to load template %s: %s", aTemplateName, tostring(msg))
+			return nil, msg
+		end
+
+		-- Store in cache only when hotreload disabled:
+		if not(isHotReload) then
+			gCache[aTemplateName] = tmplFunc
+		end
+
+		return tmplFunc, msg
+	end
 	}
 )
-
-
-
-
---- Dumps the Lua code for the specified template to a file "${aTemplateName}.compiledLua"
-function templates.dump(aTemplateName)
-	assert(type(aTemplateName) == "string")
-
-	local path = "Templates/" .. aTemplateName .. ".html"
-	local f = assert(io.open(path, "rb"))
-	local content = f:read("*a")
-	f:close()
-	local parser = etlua.Parser()
-	local luaCode = parser:compile_to_lua(content)
-	f = assert(io.open("Templates/" .. aTemplateName .. ".compiledLua", "wb"))
-	f:write(luaCode)
-	f:close()
-end
-
 
 
 

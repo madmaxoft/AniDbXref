@@ -3,6 +3,11 @@
 --[[
 Provides utility functions that are injected into each template call as the `utils` member.
 All the utils in the utils.lua package are inserted.
+
+Since the utils are bound to the template, they need to be initialized with the template environment,
+so the module returns a function that needs to be called with the template environment as its parameter:
+
+	aTemplateParams.utils = require("templateUtils")(aTemplateParams)
 --]]
 
 
@@ -118,4 +123,31 @@ end
 
 
 
-return utils
+
+--- Returns a new table that has members from both environments
+-- If a value is in both environments, the main environment takes precedence
+local function mergeEnv(aMainEnv, aSecondaryEnv)
+	local merged = {}
+	for k, v in pairs(aSecondaryEnv or {}) do
+		merged[k] = v
+	end
+	for k, v in pairs(aMainEnv or {}) do
+		merged[k] = v
+	end
+	return merged
+end
+
+
+
+
+
+-- Wrap the module in a function that generates a new context for each template environment:
+return function(aEnv)
+	local res = {__index = utils}
+	setmetatable(res, res)
+	res.include = function(aTemplateName, aSubEnv)
+		local templates = require("Templates")
+		return templates[aTemplateName](mergeEnv(aSubEnv, aEnv))
+	end
+	return res
+end

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Configuration - AniDbXref</title>
+	<link rel="stylesheet" href="/Static/main.css" />
+</head>
+<body> |
+<a href="/">Back to home</a> |
+<h1>Configuration</h1>
+
+<%
+table.sort(config,
+	function (aConfig1, aConfig2)
+		return (aConfig1.identifier < aConfig2.identifier)
+	end
+)
+
+%>
+
+<table class="config-table">
+	<tr>
+		<th>Identifier</th>
+		<th>Value</th>
+		<th>Action</th>
+	</tr>
+
+	<% for _, item in ipairs(config) do %>
+		<%- utils.include("configEditorItem", { item = item }) %>
+	<% end %>
+
+</table>
+
+<!--
+<%
+local currentCategory = nil
+for _, item in ipairs(config) do
+%>
+	<%
+	local category = item.category or "General"
+	if (category ~= currentCategory) then
+		currentCategory = category
+	%>
+		<hr />
+		<h2><%= category %></h2>
+	<%
+	end
+	%>
+
+	<%- utils.include("configEditorItem", { item = item }) %>
+<% end %>
+-->
+
+</body>
+</html>

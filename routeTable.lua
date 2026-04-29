@@ -15,6 +15,7 @@ return {
 	GET =
 	{
 		{ path = "/anime/",                handler = require("Handlers.animeDetails").get },
+		{ path = "/config",                handler = require("Handlers.configEditor").get },
 		{ path = "/favicon.ico",           handler = require("Handlers.favicon") },
 		{ path = "/import/review/",        handler = require("Handlers.importUI").getReview },
 		{ path = "/import/test",           handler = require("Handlers.importUI").getImportTest },
@@ -35,6 +36,7 @@ return {
 	POST =
 	{
 		{ path = "/anime/setSeen",  handler = require("Handlers.animeDetails").postSetSeen },
+		{ path = "/config",         handler = require("Handlers.configEditor").post },
 		{ path = "/import/review/", handler = require("Handlers.importUI").postReview },
 		{ path = "/import",         handler = require("Handlers.importUI").post },
 		{ path = "/seen/add",       handler = require("Handlers.seenAdd") },
