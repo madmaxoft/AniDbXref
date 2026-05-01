@@ -80,7 +80,7 @@ config.registerDefinitions(
 			return true
 		end,
 		isRestartRequired = true,
-	}
+	},
 })
 config.loadAll()
 

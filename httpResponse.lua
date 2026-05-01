@@ -326,4 +326,18 @@ end
 
 
 
+function M:sendUnauthorized(aRealm)
+	assert(type(self) == "table")
+	assert(self.sendUnauthorized)
+	assert(self.setHeader)
+	assert(type(aRealm) == "string")
+
+	self:setHeader("WWW-Authenticate", "Basic realm = " .. aRealm)
+	return self:sendError(401, "Unauthorized")
+end
+
+
+
+
+
 return M

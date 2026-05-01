@@ -14,12 +14,43 @@ local httpRequest = require("httpRequest")
 local httpResponse = require("httpResponse")
 local socket = require("socket")
 local log = require("logger").log
+local config = require("config")
+local mime = require("mime")
 
 
 
 
 
 local router = {}
+
+
+
+
+
+config.registerDefinitions({
+	{
+		identifier = "http.auth.username",
+		description = "The username to request for accessing the site. Empty means no auth is required.",
+		category = "HTTP",
+		valueType = "string",
+		default = "",
+	},
+	{
+		identifier = "http.auth.password",
+		description = "The password tied to the username. Ignored when username is empty.",
+		category = "HTTP",
+		valueType = "string",
+		isSecret = true,
+		default = "",
+	},
+	{
+		identifier = "http.auth.realm",
+		description = "The realm (server name) used for asking the user for their login. Ignored when username is empty.",
+		category = "HTTP",
+		valueType = "string",
+		default = "AniDbXref",
+	},
+})
 
 
 
@@ -69,6 +100,24 @@ function router.handleRequest(aRequest, aResponse)
 	assert(aResponse)
 	assert(aResponse.setHeader)  -- Is it an HttpResponse object?
 
+	-- Check auth, if configured:
+	local expUsername = config.get("http.auth.username")
+	if (expUsername ~= "") then
+		local expPassword = config.get("http.auth.password")
+		local authHeader = aRequest:header("authorization")
+		local authRealm = config.get("http.auth.realm")
+		if not(authHeader) then
+			log("router.auth", "Auth header not received")
+			return aResponse:sendUnauthorized(authRealm)
+		end
+		local expAuthStr = "Basic " .. mime.b64(expUsername .. ":" .. expPassword)
+		if (expAuthStr ~= authHeader) then
+			log("router.auth", "Auth header is wrong, exp %s, got %s", expAuthStr, authHeader)
+			return aResponse:sendUnauthorized(authRealm)
+		end
+	end
+
+	-- Process the request:
 	local handler = router.match(aRequest)
 	if (handler) then
 		local beginTime = socket.gettime()
