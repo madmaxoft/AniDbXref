@@ -95,3 +95,49 @@ td {
 {
 	display: block;
 }
+
+
+
+
+
+/* Config table striping: */
+.config-table tbody tr:nth-child(odd)
+{
+	background: #f0f0f0;
+}
+
+.config-table tbody tr:nth-child(even)
+{
+	background: #ffffff;
+}
+
+
+
+
+
+/* Config table: stretch input column */
+.config-table th:nth-child(2),
+.config-table td:nth-child(2)
+{
+	width: 100%;
+}
+
+.config-table input[type="text"],
+.config-table input[type="number"]
+{
+	width: 100%;
+	box-sizing: border-box;
+}
+.config-table input[type="password"]
+{
+	width: 45%;
+}
+.config-id
+{
+	white-space: nowrap;
+	font-family: monospace;
+}
+.config-table td:last-child
+{
+	white-space: nowrap;
+}

@@ -22,6 +22,8 @@ Config definitions specify the generic behavior of the config:
 	- category - the UI category to put the setting in
 	- orderInCategory - the UI order within the category
 	- isRestartRequired - if true, the setting will not apply unti lapp restart
+	- isSecret - if true, the editor UI will make the entry masked and will require entering twice for confirmation (string values only)
+	- isMultiline - if true, the editor UI will use a multiline textarea instead of a single line input (string values only)
 
 The main module must, beside requiring the config module and registering definitions, call loadAll() once all
 the definitions are registered.
@@ -179,9 +181,13 @@ function config.editorModel()
 			category = def.category,
 			orderInCategory = def.orderInCategory,
 			isRestartRequired = def.isRestartRequired,
+			isSecret = def.isSecret,
+			isMultiline = def.isMultiline,
 		}
 	end
 	result.n = n
+
+	-- Sort by category, then by order in category:
 	table.sort(result,
 		function(a, b)
 			if (a.category ~= b.category) then
@@ -193,7 +199,6 @@ function config.editorModel()
 			return (a.identifier < b.identifier)
 		end
 	)
-	require("logger").log("config", "Editor model has %d items", result.n)
 	return result
 end
 

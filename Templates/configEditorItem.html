@@ -17,8 +17,23 @@
 
 	<% local value = item.value or item.default %>
 
-	<% if (item.valueType == "bool") then %>
+	<% if (item.isSecret) then %>
+		<input
+			type="password"
+			name="value"
+			placeholder="<% if (item.value ~= nil) then %>********<% else %>(not set)<%end %>"
+		/>
+		<input
+			type="password"
+			name="confirm"
+			placeholder="(type again to confirm)"
+		/>
 
+	<% elseif (item.isMultiline) then %>
+
+		<textarea name="value"><%= value %></textarea>
+
+	<% elseif (item.valueType == "bool") then %>
 		<input type="hidden" name="value" value="0" />
 		<input type="checkbox" name="value" value="1"
 			<% if (value) then %>checked<% end %>
