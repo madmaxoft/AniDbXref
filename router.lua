@@ -29,14 +29,14 @@ local router = {}
 
 config.registerDefinitions({
 	{
-		identifier = "http.auth.username",
-		description = "The username to request for accessing the site. Empty means no auth is required.",
+		identifier = "http.auth.full.username",
+		description = "The username that is allowed full access to the site. Empty means no auth is required.",
 		category = "HTTP",
 		valueType = "string",
 		default = "",
 	},
 	{
-		identifier = "http.auth.password",
+		identifier = "http.auth.full.password",
 		description = "The password tied to the username. Ignored when username is empty.",
 		category = "HTTP",
 		valueType = "string",
@@ -45,10 +45,25 @@ config.registerDefinitions({
 	},
 	{
 		identifier = "http.auth.realm",
-		description = "The realm (server name) used for asking the user for their login. Ignored when username is empty.",
+		description = "The realm (server name) used for asking the user for their login. Ignored when the full username is empty.",
 		category = "HTTP",
 		valueType = "string",
 		default = "AniDbXref",
+	},
+	{
+		identifier = "http.auth.readonly.username",
+		description = "The username that is allowed access to the site in a ReadOnly mode. Empty means no auth is required. Ignored when main username is empty.",
+		category = "HTTP",
+		valueType = "string",
+		default = "",
+	},
+	{
+		identifier = "http.auth.readonly.password",
+		description = "The password tied to the ReadOnly username. Ignored when ReadOnly username is empty.",
+		category = "HTTP",
+		valueType = "string",
+		isSecret = true,
+		default = "",
 	},
 })
 
@@ -93,6 +108,48 @@ end
 
 
 
+--- Evaluates the request's auth status - auth OK, ReadOnly or Denied
+-- Returns true if auth succeeded (OK or ReadOnly)
+-- ReadOnly is marked into the request table as an isReadOnly property
+local function evaluateAuth(aRequest)
+	assert(aRequest)
+	assert(aRequest.header)  -- Is it an HttpRequest object?
+
+	local expUsername = config.get("http.auth.full.username")
+	local authHeader = aRequest:header("authorization")
+	if (expUsername == "") then
+		-- No auth is needed
+		return true
+	end
+
+	-- Check full auth:
+	local expPassword = config.get("http.auth.full.password")
+	if not(authHeader) then
+		log("router.auth", "Auth header not received")
+		return false
+	end
+	local expAuthStr = "Basic " .. mime.b64(expUsername .. ":" .. expPassword)
+	if (expAuthStr == authHeader) then
+		return true
+	end
+
+	local roUsername = config.get("http.auth.readonly.username")
+	if (roUsername ~= "") then
+		local roPassword = config.get("http.auth.readonly.password")
+		local expAuthStr = "Basic " .. mime.b64(roUsername .. ":" .. roPassword)
+		if (expAuthStr == authHeader) then
+			aRequest.isReadOnly = true
+			return true
+		end
+	end
+	log("router.auth", "Auth failed")
+	return false
+end
+
+
+
+
+
 --- Handles a single HTTP client connection
 function router.handleRequest(aRequest, aResponse)
 	assert(aRequest)
@@ -101,20 +158,8 @@ function router.handleRequest(aRequest, aResponse)
 	assert(aResponse.setHeader)  -- Is it an HttpResponse object?
 
 	-- Check auth, if configured:
-	local expUsername = config.get("http.auth.username")
-	if (expUsername ~= "") then
-		local expPassword = config.get("http.auth.password")
-		local authHeader = aRequest:header("authorization")
-		local authRealm = config.get("http.auth.realm")
-		if not(authHeader) then
-			log("router.auth", "Auth header not received")
-			return aResponse:sendUnauthorized(authRealm)
-		end
-		local expAuthStr = "Basic " .. mime.b64(expUsername .. ":" .. expPassword)
-		if (expAuthStr ~= authHeader) then
-			log("router.auth", "Auth header is wrong, exp %s, got %s", expAuthStr, authHeader)
-			return aResponse:sendUnauthorized(authRealm)
-		end
+	if not(evaluateAuth(aRequest)) then
+		return aResponse:sendUnauthorized(config.get("http.auth.realm"))
 	end
 
 	-- Process the request:

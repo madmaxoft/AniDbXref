@@ -3,9 +3,12 @@
 <head>
 	<meta charset="UTF-8">
 	<link rel="stylesheet" href="/Static/main.css" />
-	<title>AniDbXref</title>
+	<title>Import - AniDbXref</title>
 </head>
 <body>
+
+<% if not(request.isReadOnly) then %>
+
 <h1>AniDbXref - review import</h1>
 <p> There are <%= items.n %> items that need a review:</p>
 <form action="/import/review/<%= sessionId %>" method="POST" enctype="multipart/form-data">
@@ -84,4 +87,7 @@ document.querySelectorAll('.custom-input').forEach(
 	}
 );
 </script>
+
+<% end %>
+
 </body>

@@ -24,6 +24,10 @@ function CE.get(aRequest, aResponse)
 	assert(aResponse)
 	assert(aResponse.sendTemplate)
 
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	return aResponse:sendTemplate("configEditor", {config = config.editorModel() or {} })
 end
 
@@ -38,6 +42,10 @@ function CE.post(aRequest, aResponse)
 	assert(aResponse)
 	assert(aResponse.sendTemplate)
 	assert(aRequest:method() == "POST")
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
 
 	-- Read the form fields:
 	local body = aRequest:readAll()

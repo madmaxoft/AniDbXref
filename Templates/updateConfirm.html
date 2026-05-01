@@ -5,6 +5,9 @@
 	<title>AniDB Update Confirmation</title>
 </head>
 <body>
+
+<% if not(request.isReadOnly) then %>
+
 <h1>AniDB Dump Update</h1>
 <p>Last update: <%= lastUpdate %></p>
 <p>Next allowed update: <%= nextUpdate %></p>
@@ -15,6 +18,8 @@
 </form>
 <% else %>
 <p>Update not allowed yet.</p>
+<% end %>
+
 <% end %>
 
 </body>

@@ -146,11 +146,13 @@ end
 					<img src="/picture?id=<%= ani.pictureId %>&size=thumb" />
 					<% end %>
 					<a href="/anime/<%= ani.aId %>"><%= ani.title or utils.pickBestTitle(ani.titles, "en") %></a><br />
+					<% if not(request.isReadOnly) then %>
 					<form action="/watchlist/add" method="post" style="display:inline">
 						<input type="hidden" name="aId" value="<%= ani.aId %>" />
 						<input type="hidden" name="watchlistSeason" value="<%= season %>" />
 						<button type="submit">Add</button>
 					</form>
+					<% end %>
 			<% end %>
 			</td>
 		<% end %>

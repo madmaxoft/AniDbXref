@@ -2,14 +2,18 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<title>AniDbXref</title>
+	<title>Import - AniDbXref</title>
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
 
 <body>
+
+<% if not(request.isReadOnly) then %>
 <h1>AniDbXref - import</h1>
 
-<table bor
+<table border=1>
+<tr>
+<td>
 <h2>Seen anime from Firefox history</h2>
 
 <p>Upload the places.sqlite file from your Firefox browser to process it and add all seen anime form the browser history:</p>
@@ -18,12 +22,21 @@
 	<button type="submit">Import</button>
 </form>
 <a href="/import/test">TEST</a>
+</td>
+</tr>
 
-
+<tr>
+<td>
 <h2>Details from a file</h2>
 <p>Use this if you have the details XML file from AniDB API</p>
 <form action="/import" method="POST" enctype="multipart/form-data">
 	<input type="file" name="detailsFile" placeholder="Select your details.xml file" style="width:400px">
 	<button type="submit">Import</button>
 </form>
+</td>
+</tr>
+</table>
+
+<% end %>
+
 </body>

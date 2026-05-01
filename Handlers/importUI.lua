@@ -75,6 +75,13 @@ end
 
 --- Handles the GET request for "/import", displaying a file-upload form
 function I.get(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	return aResponse:sendTemplate("import", {})
 end
 
@@ -85,6 +92,13 @@ end
 --- Handles the GET request for "/import/test", a testing endpoint that builds a session
 -- from an existing "Import/places.sqlite" file. Used for testing.
 function I.getImportTest(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	local session = import.buildSession("Import/places.sqlite")
 	if (session.items.n == 0) then
 		return aResponse:sendRedirect("/import")
@@ -99,6 +113,13 @@ end
 --- Handles the GET request for "/import/review/<id>"
 -- Shows the form for the user to review the matches in the specified session
 function I.getReview(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	local id = tonumber(string.match(aRequest:pathAndQuery(), "^/import/review/(%d+)$"))
 	local session = import.getSession(id)
 	if not(session) then
@@ -114,6 +135,13 @@ end
 --- Handles the POST request for "/import", parsing the uploaded file and processing it
 -- Bases the processing on the name of the form element that the browser sends
 function I.post(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	-- Extract the uploaded file contents:
 	local body = aRequest:readAll()
 	local m = multipart(body, aRequest:header("content-type"))
@@ -140,6 +168,13 @@ end
 --   - if no radio is selected, doesn't do anything (keeps the item as-is)
 -- If there are no items to process anymore, finishes the session and redirects back to home.
 function I.postReview(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	-- Find the correct session:
 	local sessionId = tonumber(string.match(aRequest:pathAndQuery(), "^/import/review/(%d+)$"))
 	local session = import.getSession(sessionId)

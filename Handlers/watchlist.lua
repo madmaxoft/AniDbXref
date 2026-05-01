@@ -58,6 +58,13 @@ end
 
 
 function M.postAdd(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	-- Only POST should reach here
 	assert(aRequest:method() == "POST")
 

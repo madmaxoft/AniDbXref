@@ -9,6 +9,13 @@ Displays confirmation page for starting AniDB dump update
 
 
 return function(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	local lastUpdate = require("db").getLastAniDbUpdate() or 0
 	local now = os.time()
 	local nextAllowed = lastUpdate + 24 * 3600

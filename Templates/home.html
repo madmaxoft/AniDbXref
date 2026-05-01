@@ -24,9 +24,11 @@
 	</form>
 	</th>
 	<th><a href="/voiceActors">Voice actors</a></th>
+	<% if not(request.isReadOnly) then %>
 	<th><a href="/update-confirm">Update AniDB data</a></th>
 	<th><a href="/import">Import data</a></th>
 	<th><a href="/shutdown">Shutdown</a></th>
+	<% end %>
 	</tr>
 	</table>
 

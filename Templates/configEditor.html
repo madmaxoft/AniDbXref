@@ -18,6 +18,8 @@ table.sort(config,
 
 %>
 
+<% if not(request.isReadOnly) then %>
+
 <table class="config-table" width="100%">
 	<tr>
 		<th>Identifier</th>
@@ -31,25 +33,7 @@ table.sort(config,
 
 </table>
 
-<!--
-<%
-local currentCategory = nil
-for _, item in ipairs(config) do
-%>
-	<%
-	local category = item.category or "General"
-	if (category ~= currentCategory) then
-		currentCategory = category
-	%>
-		<hr />
-		<h2><%= category %></h2>
-	<%
-	end
-	%>
-
-	<%- utils.include("configEditorItem", { item = item }) %>
 <% end %>
--->
 
 </body>
 </html>

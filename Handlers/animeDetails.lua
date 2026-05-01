@@ -65,6 +65,10 @@ end
 
 
 function AD.postSetSeen(aRequest, aResponse)
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
 	local rawBody = aRequest:readAll()
 	local form = multipart(rawBody, aRequest:header("content-type"))
 

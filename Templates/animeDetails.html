@@ -75,6 +75,11 @@ end
 		<% end %>
 
 		<!-- isSeen editor: -->
+		<% if (request.isReadOnly) then %>
+			<% if (details.isSeen == 1) then %>
+			Seen on <%= utils.toIsoDate(details.seenDateYmd) %>
+			<% end %>
+		<% else %>
 		<form action="/anime/setSeen" method="POST" enctype="multipart/form-data">
 				<input type="hidden" name="aId" value="<%= aId %>" />
 				<input type="checkbox" name="isSeen" value="1" <% if (details.isSeen == 1) then %> checked="true" <% end %> >
@@ -87,6 +92,7 @@ end
 				<button type="submit">Apply</button>
 		</form>
 		<hr />
+		<% end %>
 
 
 		<!-- Titles table: -->
