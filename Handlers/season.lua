@@ -16,7 +16,7 @@ local db = require("db")
 
 
 return function(aRequest, aResponse)
-	local season = aRequest:path():match("/season/(.+)")
+	local season = aRequest:pathAndQuery():match("/season/(.+)")
 	if not(season) then
 		season = utils.currentSeason()
 	end

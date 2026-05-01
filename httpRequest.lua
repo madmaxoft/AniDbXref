@@ -13,7 +13,7 @@ Also implements various helper functions, such as urlDecode(), readRequestHeader
 Each instance has the following members:
 	mSocket: The LuaSocket that received the request; where to send the response
 	mMethod: "GET", "POST", ...
-	mPath: The requested path, including the query parameters
+	mPathAndQuery: The requested path, including the query parameters
 	mHttpVersion: "1.1", "1.0" etc.
 	mHeaders: Both dict- and array-table of headers; the dict-table is lowercase-keyed
 	mContentLength: Total bytes in the request body
@@ -41,7 +41,7 @@ end
 --- Parses the full path from the request into the path part and parameters
 -- Returns the path as a string and a table of { paramName, paramValue } as well as [paramName] = paramValue
 function M:parsePathAndQuery()
-	local path, query = self:path():match("([^?]*)%??(.*)")
+	local path, query = self:pathAndQuery():match("([^?]*)%??(.*)")
 	local params = { n = 0 }
 
 	if (query ~= "") then
@@ -137,7 +137,7 @@ function M.createFromSocket(aSocket)
 	{
 		mSocket = aSocket,
 		mMethod = nil,
-		mPath = nil,
+		mPathAndQuery = nil,
 		mHttpVersion = nil,
 		mHeaders = {n = 0},
 		mContentLength = 0,
@@ -151,12 +151,12 @@ function M.createFromSocket(aSocket)
 	if (not(requestLine) or (requestLine == "")) then
 		return nil, "Failed to read HTTP request line: " .. tostring(err)
 	end
-	local method, path, version = requestLine:match("^(%S+)%s+(%S+)%s+HTTP/(%d+%.%d+)$")
+	local method, pathAndQuery, version = requestLine:match("^(%S+)%s+(%S+)%s+HTTP/(%d+%.%d+)$")
 	if not(method) then
 		return nil, "Invalid HTTP request line"
 	end
 	self.mMethod = method
-	self.mPath = path
+	self.mPathAndQuery = pathAndQuery
 	self.mHttpVersion = version
 
 	-- Read the http headers:
@@ -205,8 +205,8 @@ end
 
 
 --- Returns the request path (including the query part)
-function M:path()
-	return self.mPath
+function M:pathAndQuery()
+	return self.mPathAndQuery
 end
 
 

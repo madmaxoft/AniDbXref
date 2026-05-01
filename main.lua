@@ -95,7 +95,7 @@ local function clientLoop(aSocket)
 		if not req then
 			break
 		end
-		local resp = httpResponse.new(aSocket)
+		local resp = httpResponse.new(req)
 		router.handleRequest(req, resp)
 		resp:finish()
 		req:discardUnreadBody()

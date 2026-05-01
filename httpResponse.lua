@@ -39,10 +39,14 @@ config.registerDefinitions({
 
 
 
-function M.new(aSocket)
+function M.new(aRequest)
+	assert(type(aRequest) == "table")
+	assert(aRequest.mSocket)
+
 	local self =
 	{
-		mSocket = aSocket,
+		mRequest = aRequest,
+		mSocket = aRequest.mSocket,
 		mStatusCode = 200,
 		mStatusText = "OK",
 		mHeaders = {},
@@ -302,6 +306,10 @@ function M:sendTemplate(aTemplateName, aTemplateParams)
 	else
 		aTemplateParams.utils = require("templateUtils")(aTemplateParams)
 	end
+
+	-- Include the response and request in the template params:
+	aTemplateParams.request = self.mRequest
+	aTemplateParams.response = self
 
 	-- Execute the template:
 	local isOK, html, msg = pcall(template, aTemplateParams)

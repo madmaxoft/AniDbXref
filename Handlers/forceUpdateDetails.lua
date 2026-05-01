@@ -10,7 +10,7 @@ local requestQueue = require("requestQueue")
 
 
 return function(aRequest, aResponse)
-	local aId = tonumber(aRequest:path():match("^/force%-update%-details/(%d+)$"))
+	local aId = tonumber(aRequest:pathAndQuery():match("^/force%-update%-details/(%d+)$"))
 	if not(aId) then
 		return aResponse:sendError(400, "Invalid aId")
 	end

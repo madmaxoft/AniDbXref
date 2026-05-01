@@ -10,7 +10,7 @@ Servers static files from the Static subfolder
 
 --- Serves static files from Static folder
 return function (aRequest, aResponse)
-	local relativePath = aRequest:path():match("^/[Ss]tatic/(.*)")
+	local relativePath = aRequest:pathAndQuery():match("^/[Ss]tatic/(.*)")
 	if (not relativePath) then
 		return aResponse:sendError(404, "Not Found")
 	end

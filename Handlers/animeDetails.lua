@@ -44,7 +44,7 @@ end
 
 
 function AD.get(aRequest, aResponse)
-	local aId = tonumber(aRequest:path():match("^/anime/(%d+)$"))
+	local aId = tonumber(aRequest:pathAndQuery():match("^/anime/(%d+)$"))
 	if not(aId) then
 		return aResponse:sendError(400, "Invalid aId")
 	end

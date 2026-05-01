@@ -99,7 +99,7 @@ end
 --- Handles the GET request for "/import/review/<id>"
 -- Shows the form for the user to review the matches in the specified session
 function I.getReview(aRequest, aResponse)
-	local id = tonumber(string.match(aRequest:path(), "^/import/review/(%d+)$"))
+	local id = tonumber(string.match(aRequest:pathAndQuery(), "^/import/review/(%d+)$"))
 	local session = import.getSession(id)
 	if not(session) then
 		return aResponse:sendError(400, "Bad session")
@@ -141,7 +141,7 @@ end
 -- If there are no items to process anymore, finishes the session and redirects back to home.
 function I.postReview(aRequest, aResponse)
 	-- Find the correct session:
-	local sessionId = tonumber(string.match(aRequest:path(), "^/import/review/(%d+)$"))
+	local sessionId = tonumber(string.match(aRequest:pathAndQuery(), "^/import/review/(%d+)$"))
 	local session = import.getSession(sessionId)
 	if not(session) then
 		return aResponse:sendError(400, "No such session")

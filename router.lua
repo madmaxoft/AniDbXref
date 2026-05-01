@@ -121,14 +121,14 @@ function router.handleRequest(aRequest, aResponse)
 	local handler = router.match(aRequest)
 	if (handler) then
 		local beginTime = socket.gettime()
-		log("router", "%s Request for path \"%s\".", aRequest:method(), aRequest:path())
+		log("router", "%s Request for path \"%s\".", aRequest:method(), aRequest:pathAndQuery())
 		router.dispatchHandler(handler, aRequest, aResponse)
 		local endTime = socket.gettime()
 		if (endTime - beginTime >= 0.5) then
 			log("router", "  ^^ Request took %f seconds.", (endTime - beginTime))
 		end
 	else
-		log("router", "UNHANDLED: %s Request for path \"%s\".", aRequest:method(), aRequest:path())
+		log("router", "UNHANDLED: %s Request for path \"%s\".", aRequest:method(), aRequest:pathAndQuery())
 		aResponse:sendError(404, "Not Found")
 	end
 end
@@ -144,11 +144,11 @@ function router.match(aRequest)
 	assert(aRequest.httpVersion)
 
 	local method = aRequest:method()
-	local path = aRequest:path()
+	local path = aRequest:pathAndQuery()
 	for _, route in ipairs(router.routes[method] or {}) do
 		if (route.path == string.sub(path, 1, #route.path)) then
 			if not(route.handler) then
-				log("router", "ERROR: Route entry found, but no handler present for request %s %s", aRequest:method(), aRequest:path())
+				log("router", "ERROR: Route entry found, but no handler present for request %s %s", aRequest:method(), aRequest:pathAndQuery())
 			end
 			return route.handler
 		end

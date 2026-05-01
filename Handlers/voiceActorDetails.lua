@@ -14,7 +14,7 @@ local db = require("db")
 
 
 return function(aRequest, aResponse)
-	local vaId = tonumber(aRequest:path():match("^/voiceActor/(%d+)$"))
+	local vaId = tonumber(aRequest:pathAndQuery():match("^/voiceActor/(%d+)$"))
 	if not(vaId) then
 		return aResponse:sendError(400, "Invalid vaId")
 	end

@@ -23,7 +23,7 @@ local M = {}
 
 function M.get(aRequest, aResponse)
 	-- Parse the season from the URL, if present:
-	local season = aRequest:path():match("/watchlist/(.+)")
+	local season = aRequest:pathAndQuery():match("/watchlist/(.+)")
 	if not(season) then
 		season = utils.currentSeason()
 	end

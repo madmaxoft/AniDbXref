@@ -11,27 +11,27 @@ Calls the router on the specified mocked HTTP request.
 
 local theRequest =
 {
-	method = function()
-		return "GET"
-	end,
-	path = function()
-		return "/picture?id=313313.jpg"
-	end,
-	httpVersion = function()
-		return "1.1"
-	end,
+	mMethod = "GET",
+	mPathAndQuery = "/picture?id=313314.jpg",
+	mHttpVersion = "1.1",
+	mHeaders = {},
+
+	-- Add a dummy socket implementation:
+	mSocket =
+	{
+		send = function() end,
+	}
 }
 theRequest.__index = require("httpRequest")  -- inherit httpRequest's functions
 setmetatable(theRequest, theRequest)
 
-local theResponse1 = require("httpResponse").new({send = function(...) end, })
-local theResponse2 = require("httpResponse").new({send = function(...) end, })
+local theResponse1 = require("httpResponse").new(theRequest)
 local router = require("router")
 
--- This should fail only in mSocket.send() not being defined:
 print("Requesting 1st request")
 router.handleRequest(theRequest, theResponse1)
-theRequest.path = function() return "/picture?id=313310.jpg" end
 
 print("Requesting 2nd request")
+theRequest.path = function() return "/picture?id=313310.jpg" end
+local theResponse2 = require("httpResponse").new(theRequest)
 router.handleRequest(theRequest, theResponse2)
