@@ -457,6 +457,27 @@ local upgrades = {
 		}
 	},
 
+	-- Version 13:
+	{
+		scripts =
+		{
+			-- Delete any duplicates in the Watchlist:
+			[[
+				DELETE FROM UserData.Watchlist
+				WHERE itemId NOT IN (
+					SELECT MIN(itemId)
+					FROM UserData.Watchlist
+					GROUP BY watchlistSeason, dayOfWeek, caption
+				);
+			]],
+			-- Add an index to avoid duplicates in the future:
+			[[
+				CREATE UNIQUE INDEX IF NOT EXISTS UserData.idx_watchlist_unique
+					ON Watchlist (watchlistSeason, dayOfWeek, caption);
+			]],
+		},
+	},
+
 	-- Future upgrades can be added here
 }
 

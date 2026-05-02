@@ -18,7 +18,10 @@ local multipart = require("multipart")
 local db = require("db")
 local lomParser = require("lxp.lom")
 local aniDbDetails = require("aniDbDetails")
-
+local http = require("socket.http")
+local ltn12 = require("ltn12")
+local mime = require("mime")
+local log = require("logger").log
 
 
 
@@ -67,6 +70,106 @@ local function handlePostDetailsFile(aRequest, aResponse, aFileContents)
 
 	db.storeAnimeDetails(parsedDetails)
 	return aResponse:sendRedirect("/")
+end
+
+
+
+
+
+--- Sends a HTTP GET request to the specified URL, returns the response parsed as a Lua data
+-- Returns nil and error message on failure
+local function callLuaApi(aUrl, aUsername, aPassword)
+	assert(type(aUrl) == "string")
+	assert(type(aUsername) == "string")
+	assert(type(aPassword) == "string")
+
+	-- Send the request:
+	local authHeaderValue = "Basic " .. mime.b64(aUsername .. ":" .. aPassword)
+	local responseBody = {}
+	local result, statusCode, headers = http.request({
+		url = aUrl,
+		headers =
+		{
+			["Authorization"] = authHeaderValue,
+		},
+		sink = ltn12.sink.table(responseBody)
+	})
+	if not(result) then
+		return nil, "Failed to send API request: " .. tostring(statusCode)
+	end
+	if (statusCode ~= 200) then
+		return nil, "Failed to receive API response, status code " .. tostring(statusCode)
+	end
+	local body = table.concat(responseBody)
+	log("import.api", "API call received successfully: " .. #body .. " bytes")
+	local fn, msg = loadstring("return " .. body, "api")
+	if not(fn) then
+		return nil, "Failed to load API response: " .. tostring(msg)
+	end
+	setfenv(fn, {})
+	local isOK, res, msg = pcall(fn)
+	if not(isOK) then
+		return nil, "Failed to parse API response: " .. tostring(res) .. "/" .. tostring(msg)
+	end
+	if not(res) then
+		return nil, "API response is invalid: " .. tostring(msg)
+	end
+	log("import.api", "API call parsed successfully, " .. type(res))
+	return res
+end
+
+
+
+
+
+--- Imports the Seen data from a remote API endpoint
+local function importSeen(aRequest, aResponse, aUrl, aUsername, aPassword)
+	assert(type(aRequest) == "table")
+	assert(aRequest.header)
+	assert(type(aResponse) == "table")
+	assert(aResponse.sendError)
+	assert(type(aUrl) == "string")
+	assert(type(aUsername) == "string")
+	assert(type(aPassword) == "string")
+
+	local resp, msg = callLuaApi(aUrl, aUsername, aPassword)
+	if (type(resp) ~= "table") then
+		return aResponse:sendError(400, "Failed to call API: " .. tostring(msg))
+	end
+
+	local isOK, msg = db.addRawSeenIds(resp)
+	if not(isOK) then
+		return aResponse:sendError(400, "Failed to store the Seen in the DB: " .. tostring(msg))
+	end
+	log("import", "Successfully imported %d seen IDs from %s", resp.n or 0, aUrl)
+	return aResponse:sendRedirect("/")
+end
+
+
+
+
+
+--- Imports the Watchlist data from a remote API endpoint
+local function importWatchlist(aRequest, aResponse, aUrl, aUsername, aPassword)
+	assert(type(aRequest) == "table")
+	assert(aRequest.header)
+	assert(type(aResponse) == "table")
+	assert(aResponse.sendError)
+	assert(type(aUrl) == "string")
+	assert(type(aUsername) == "string")
+	assert(type(aPassword) == "string")
+
+	local resp, msg = callLuaApi(aUrl, aUsername, aPassword)
+	if (type(resp) ~= "table") then
+		return aResponse:sendError(400, "Failed to call API: " .. tostring(msg))
+	end
+
+	local isOK, msg = db.addRawWatchlist(resp)
+	if not(isOK) then
+		return aResponse:sendError(400, "Failed to store the Watchlist in the DB: " .. tostring(msg))
+	end
+	log("import", "Successfully imported %d watchlist items from %s", resp.n or 0, aUrl)
+	return aResponse:sendRedirect("/watchlist")
 end
 
 
@@ -142,16 +245,36 @@ function I.post(aRequest, aResponse)
 		return aResponse:sendTemplate("readOnly", {})
 	end
 
-	-- Extract the uploaded file contents:
+	-- Extract the uploaded form contents:
 	local body = aRequest:readAll()
 	local m = multipart(body, aRequest:header("content-type"))
+
 	local placesFileContents = (m:get("placesFile") or {}).value
 	if (placesFileContents) then
 		return handlePostPlacesFile(aRequest, aResponse, placesFileContents)
 	end
+
 	local detailsFileContents = (m:get("detailsFile") or {}).value
 	if (detailsFileContents) then
 		return handlePostDetailsFile(aRequest, aResponse, detailsFileContents)
+	end
+
+	local seenUrl = (m:get("seenUrl") or {}).value
+	if (seenUrl) then
+		return importSeen(aRequest, aResponse,
+			seenUrl,
+			(m:get("username") or {}).value,
+			(m:get("password") or {}).value
+		)
+	end
+
+	local watchlistUrl = (m:get("watchlistUrl") or {}).value
+	if (watchlistUrl) then
+		return importWatchlist(aRequest, aResponse,
+			watchlistUrl,
+			(m:get("username") or {}).value,
+			(m:get("password") or {}).value
+		)
 	end
 
 	return aResponse:sendError(400, "Bad upload")

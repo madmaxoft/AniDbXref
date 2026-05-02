@@ -46,6 +46,7 @@ local lzlib     = requireWithHelp("zlib",      "lzlib")
 local multipart = requireWithHelp("multipart", "multipart")
 
 -- Load the templates and utils:
+package.path = "?/init.lua;" .. package.path  -- Load packages from a subfolder of the current folder
 local log = require("logger").log
 require("Templates")
 local httpResponse = require("httpResponse")

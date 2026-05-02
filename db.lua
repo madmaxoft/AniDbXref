@@ -9,6 +9,8 @@ local utils = require("utils")
 local db = {}
 local gDB = nil  -- The actual DB connection object
 
+local unpack = unpack or table.unpack  -- Compatibility between Lua 5.1 and LuaJIT
+
 
 
 
@@ -144,6 +146,89 @@ end
 
 
 
+--- Adds the specified IDs into the Seen table
+-- aRawSeen is an array-table of { aId = <id>, seen = <timestamp> }
+-- See also rawSeenIdsFrom() that produces such a table
+-- Used when importing via remote API
+-- Returns true on success, nil and message on failure
+function db.addRawSeenIds(aRawSeen)
+	assert(type(aRawSeen) == "table")
+	assert(gDB ~= nil)
+
+	local stmt = gDB:prepare([[
+		INSERT OR IGNORE INTO Seen
+			(aId, seenDate)
+		VALUES
+			(?, ?)
+		]]
+	)
+	if not(stmt) then
+		return nil, string.format("Failed to prepare statement for inserting Seen: %s", gDB:errmsg())
+	end
+
+	local numIgnored = 0
+	for _, s in ipairs(aRawSeen) do
+		if (s.aId and s.seenDate) then
+			checkSql(stmt:bind_values(s.aId, s.seenDate), "addRawSeenIds.bind")
+			checkSql(stmt:step(), "addRawSeenIds.step")
+			checkSql(stmt:reset(), "addRawSeenIds.reset")
+		else
+			numIgnored = numIgnored + 1
+		end
+	end
+	if (numIgnored > 0) then
+		log("db.addRawSeenIds", "Ignored %d records out of %s", numIgnored, tostring(aRawSeen.n or "<unknown>"))
+	end
+	checkSql(stmt:finalize(), "addRawSeenIds.finalize")
+	return true
+end
+
+
+
+
+
+--- Adds the specified watchlist items into the Watchlist table
+-- aRawWatchlist is an array-table of { aId = <id>, caption = ..., itemId = ..., ... }
+-- See also rawWatchlist() that produces such a table
+-- Used when importing via remote API
+-- Returns true on success, nil and message on failure
+function db.addRawWatchlist(aRawWatchlist)
+	assert(type(aRawWatchlist) == "table")
+	assert(gDB ~= nil)
+
+	local stmt = gDB:prepare([[
+		INSERT OR IGNORE INTO Watchlist
+			(dayOfWeek, time, caption, aId, watchlistSeason)
+		VALUES
+			(?, ?, ?, ?, ?)
+		ON CONFLICT(watchlistSeason, dayOfWeek, caption) DO NOTHING;
+		]]
+	)
+	if not(stmt) then
+		return nil, string.format("Failed to prepare statement for inserting Watchlist: %s", gDB:errmsg())
+	end
+
+	local numIgnored = 0
+	for _, w in ipairs(aRawWatchlist) do
+		if (w.watchlistSeason) then
+			checkSql(stmt:bind_values(w.dayOfWeek, w.time, w.caption, w.aId, w.watchlistSeason), "addRawWatchlist.bind")
+			checkSql(stmt:step(), "addRawWatchlist.step")
+			checkSql(stmt:reset(), "addRawWatchlist.reset")
+		else
+			numIgnored = numIgnored + 1
+		end
+	end
+	if (numIgnored > 0) then
+		log("db.addRawWatchlist", "Ignored %d records out of %s", numIgnored, tostring(aRawWatchlist.n or "<unknown>"))
+	end
+	checkSql(stmt:finalize(), "addRawWatchlist.finalize")
+	return true
+end
+
+
+
+
+
 --- Adds the specified anime to the user's watchlist
 -- Queries the details to add them into the watchlist along the anime
 function db.addToWatchlist(aId, aWatchlistSeason)
@@ -163,6 +248,7 @@ function db.addToWatchlist(aId, aWatchlistSeason)
 			(watchlistSeason, dayOfWeek, time, aId, url, caption)
 		VALUES
 			(?, ?, ?, ?, ?, ?)
+		ON CONFLICT(watchlistSeason, dayOfWeek, caption) DO NOTHING;
 		]],
 		{ aWatchlistSeason, dayOfWeek, time, aId, url, caption },
 		"addToWatchlist"
@@ -694,7 +780,7 @@ function db.getArrayFromQuery(aSql, aValuesToBind, aDescription)
 		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
 	end
 	if ((aValuesToBind) and (aValuesToBind[1])) then
-		checkSql(stmt:bind_values(table.unpack(aValuesToBind)), aDescription .. ".bind")
+		checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
 	end
 	local result = {}
 	local n = 0
@@ -1047,6 +1133,30 @@ function db.pictureData(aPictureId, aSize)
 		return nil, msg
 	end
 	return row[1].data
+end
+
+
+
+
+
+--- Returns an array-table of the seen IDs that are seen after the specified From string (string-compared by SQL)
+function db.rawSeenIdsFrom(aFrom)
+	return db.getArrayFromQuery([[
+		SELECT * FROM Seen
+		WHERE seenDate >= ?
+		ORDER BY seenDate ASC
+	]], {aFrom}, "rawSeenIdsFrom")
+end
+
+
+
+
+
+--- Returns an array-table of the watchlist data
+function db.rawWatchlist()
+	return db.getArrayFromQuery([[
+		SELECT * FROM Watchlist
+	]])
 end
 
 

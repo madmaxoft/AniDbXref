@@ -98,17 +98,26 @@ function utils.serializeSimpleTable(aTable, aIndent)
 	local res = {}
 	local n = 0
 	for k, v in pairs(aTable) do
+		local kstring
+		if (type(k) == "number") then
+			kstring = "[" .. tostring(k) .. "]"
+		else
+			kstring = string.format("[%q]", k)
+		end
+
 		if (type(v) == "table") then
-			res[n + 1] = aIndent .. tostring(k) .. " = {"
-			res[n + 2] = utils.serializeSimpleTable(v, aIndent .. "\t")
-			res[n + 3] = aIndent .. "}  -- " .. tostring(k)
-			n = n + 3
+			res[n + 1] = kstring .. " ="
+			res[n + 2] = utils.serializeSimpleTable(v, aIndent .. "\t") .. ",  -- " .. kstring
+			n = n + 2
+		elseif (type(v) == "string") then
+			n = n + 1
+			res[n] = string.format("%s = %q,", kstring, v)
 		else
 			n = n + 1
-			res[n] = aIndent .. tostring(k) .. " = " .. tostring(v)
+			res[n] = kstring .. " = " .. tostring(v) .. ","
 		end
 	end
-	return table.concat(res, "\n")
+	return "{\n" .. aIndent .. table.concat(res, "\n" .. aIndent) .. "\n" .. aIndent:sub(2, -1) .. "}"
 end
 
 

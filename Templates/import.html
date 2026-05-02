@@ -35,6 +35,35 @@
 </form>
 </td>
 </tr>
+
+<tr>
+<td>
+<h2>Seen from another AniDbXref instance</h2>
+<p>Copy the Seen data from another AniDbXref instance. </p>
+<form action="/import" method="POST" enctype="multipart/form-data">
+	<input type="text" name="seenUrl" value="https://host/api/v1/seen" style="width:500px" /><br />
+	Login:
+	<input type="text" name="username" placeholder="username" />
+	<input type="password" name="password" placeholder="password" />
+	<button type="submit">Import</button>
+</form>
+</td>
+</tr>
+
+<tr>
+<td>
+<h2>Watchlist from another AniDbXref instance</h2>
+<p>Copy the Watchlist data from another AniDbXref instance. </p>
+<form action="/import" method="POST" enctype="multipart/form-data">
+	<input type="text" name="watchlistUrl" value="https://host/api/v1/watchlist" style="width:500px" /><br />
+	Login:
+	<input type="text" name="username" placeholder="username" />
+	<input type="password" name="password" placeholder="password" />
+	<button type="submit">Import</button>
+</form>
+</td>
+</tr>
+
 </table>
 
 <% end %>

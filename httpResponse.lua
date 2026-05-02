@@ -334,6 +334,7 @@ end
 
 
 
+--- Sends the HTTP 401 Unauthorized response with the specified realm in the WWW-Authenticate header
 function M:sendUnauthorized(aRealm)
 	assert(type(self) == "table")
 	assert(self.sendUnauthorized)
@@ -342,6 +343,23 @@ function M:sendUnauthorized(aRealm)
 
 	self:setHeader("WWW-Authenticate", "Basic realm = " .. aRealm)
 	return self:sendError(401, "Unauthorized")
+end
+
+
+
+
+
+--- Sends the specified Lua table, serialized as text.
+-- Used mainly for API endpoints
+function M:sendLuaTable(aTable)
+	assert(type(self) == "table")
+	assert(self.setHeader)
+	assert(self.sendRawDataWithLength)
+	assert(type(aTable) == "table")
+
+	local tbl = require("utils").serializeSimpleTable(aTable, "\t")
+	self:setHeader("Content-Type", "text/lua")
+	return self:sendRawDataWithLength(tbl)
 end
 
 

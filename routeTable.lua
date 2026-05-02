@@ -15,6 +15,8 @@ return {
 	GET =
 	{
 		{ path = "/anime/",                handler = require("Handlers.animeDetails").get },
+		{ path = "/api/v1/seen",           handler = require("Handlers.api").getSeen },
+		{ path = "/api/v1/watchlist",      handler = require("Handlers.api").getWatchlist },
 		{ path = "/config",                handler = require("Handlers.configEditor").get },
 		{ path = "/favicon.ico",           handler = require("Handlers.favicon") },
 		{ path = "/import/review/",        handler = require("Handlers.importUI").getReview },
