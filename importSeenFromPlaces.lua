@@ -47,6 +47,8 @@ local knownAnimeServers =
 	{ sqlPattern = "%9animetv.to/watch/%",   titleTransform = replaceDashesWithSpaces, titlePattern = "9animetv%.to/watch/(.*)%-%d+%?" },
 	{ sqlPattern = "%hianime.to/watch/%",    titleTransform = replaceDashesWithSpaces, titlePattern = "hianime%.to/watch/(.*)%-%d+%?" },
 	{ sqlPattern = "%hianimez.to/watch/%",   titleTransform = replaceDashesWithSpaces, titlePattern = "hianimez%.to/watch/(.*)%-%d+%?" },
+	{ sqlPattern = "%hianime.ws/watch/%",    titleTransform = replaceDashesWithSpaces, titlePattern = "hianime%.ws/watch/(.*)%-...." },
+	{ sqlPattern = "%animekai.to/watch/%",   titleTransform = replaceDashesWithSpaces, titlePattern = "animekai%.to/watch/(.*)%-...." },
 }
 
 
@@ -90,10 +92,13 @@ end
 local function parsePlacesFile(aFileName)
 	-- Open the DB:
 	local sqlite = require("lsqlite3")
-	local dbPlaces = assert(sqlite.open(
+	local dbPlaces, errCode, errMsg = sqlite.open(
 		string.format("file:%s?immutable=1", aFileName),  -- Disable WAL, SHM, locking etc.
 		sqlite.OPEN_READONLY + sqlite.OPEN_URI
-	))
+	)
+	if not(dbPlaces) then
+		error(string.format("Failed to open file %s: %s / %s", aFileName, tostring(errCode), tostring(errMsg)))
+	end
 	dbPlaces:busy_timeout(1000)
 
 	-- Load all seen titles:
