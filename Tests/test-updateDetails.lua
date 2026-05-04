@@ -1,6 +1,7 @@
--- test-updateDetails.lua
+-- Test/test-updateDetails.lua
 
---[[ Tests updating AnimeDetails from an AniDb HTTP API
+--[[
+Tests updating AnimeDetails from an AniDb HTTP API
 Consists of two individual tests - fetching and parsing.
 The fetching can be disabled in order to test on locally cached data.
 --]]
@@ -11,11 +12,14 @@ The fetching can be disabled in order to test on locally cached data.
 -- local gAnimeIdToFetch = 11167  -- Steins;Gate 0
 -- local gAnimeIdToFetch = 17001  -- Fuufu Ijou
 -- local gAnimeIdToFetch = 19548  -- Ganglion
-local gAnimeIdToFetch = 12661  -- Boruto NNG
+local gAnimeIdToFetch = 12661  -- Boruto NNG, API return an incomplete XML
 
 
 
 
+
+-- Adjust the package load path so that the local modules can be loaded:
+package.path = "../?.lua;" .. package.path
 
 local db = require("db")
 local details = require("aniDbDetails")
@@ -45,7 +49,7 @@ end
 
 
 -- Read the XML data, either from remote or from local cache:
-local xml, msg = details.fetchXml(gAnimeIdToFetch)
+local xml, msg = details.fetchXml(gAnimeIdToFetch, false)
 if not(xml) then
 	error("Failed to fetch XML: " .. tostring(msg))
 end

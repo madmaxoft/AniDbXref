@@ -1,4 +1,4 @@
--- tool-debugHttpHandler.lua
+-- Tools/tool-debugHttpHandler.lua
 
 --[[
 A test harness to debug a selected HTTP handler in a synchronous environment, in order to avoid
@@ -8,6 +8,9 @@ Calls the router on the specified mocked HTTP request.
 
 
 
+
+-- Adjust the package load path so that the local modules can be loaded:
+package.path = "../?.lua;" .. package.path
 
 local theRequest =
 {

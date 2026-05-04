@@ -1,4 +1,4 @@
--- cmd-updateAllDetailsFromLocal.lua
+-- Tools/tool-updateAllDetailsFromLocal.lua
 
 --[[
 Updates details for all anime in the DB from the local files in AniDB subfolder.
@@ -8,6 +8,9 @@ Can be used after dumping all data from an AniDbMirror using its downloader scri
 
 
 
+
+-- Adjust the package load path so that the local modules can be loaded:
+package.path = "../?.lua;" .. package.path
 
 local db = require("db")
 local details = require("aniDbDetails")

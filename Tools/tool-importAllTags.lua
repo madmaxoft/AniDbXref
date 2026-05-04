@@ -1,4 +1,4 @@
--- tool-importAllTAgs.lua
+-- Tools/tool-importAllTAgs.lua
 
 --[[
 Imports the tags from all local AniDB/.../<id>.xml files into the global Tag table
@@ -7,6 +7,9 @@ Imports the tags from all local AniDB/.../<id>.xml files into the global Tag tab
 
 
 
+
+-- Adjust the package load path so that the local modules can be loaded:
+package.path = "../?.lua;" .. package.path
 
 local db = require("db")
 local lomParser = require("lxp.lom")

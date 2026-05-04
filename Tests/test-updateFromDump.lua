@@ -1,7 +1,8 @@
--- test-update.lua
+-- Tests/test-updateFromDump.lua
 
 --[[
-Implements a test that updates the list of anime from an AniDB dump in 'anime-titles.xml.gz' file
+Implements a test that updates the list of anime from an AniDB dump in 'anime-titles.xml.gz' file.
+If the file doesn't exist, downloads a fresh new one.
 
 The test runs in a single threaded environment for easier debugging.
 --]]
@@ -9,6 +10,9 @@ The test runs in a single threaded environment for easier debugging.
 
 
 
+
+-- Adjust the package load path so that the local modules can be loaded:
+package.path = "../?.lua;" .. package.path
 
 local db = require("db")
 local http = require("socket.http")
@@ -26,7 +30,7 @@ if not(f) then
 	print("Downloading AniDB dump...")
 	local f2 = assert(io.open(fnam, "wb"))
 	http.request{ url = "http://anidb.net/api/anime-titles.xml.gz", sink = ltn12.sink.file(f2) }
-	f2:close()
+	f2 = nil
 	f = assert(io.open(fnam, "rb"))
 end
 

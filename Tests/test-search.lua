@@ -1,6 +1,7 @@
--- test-search.lua
+-- Tests/test-search.lua
 
---[[ Tests the DB title search.
+--[[
+Tests the DB title search.
 Runs without coroutines for easier debugging.
 --]]
 
@@ -9,6 +10,13 @@ Runs without coroutines for easier debugging.
 
 
 local query = "hajimete no gal"
+
+
+
+
+
+-- Adjust the package load path so that the local modules can be loaded:
+package.path = "../?.lua;" .. package.path
 
 local db = require("db")
 

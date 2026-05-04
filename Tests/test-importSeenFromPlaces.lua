@@ -1,14 +1,26 @@
--- test-importSeenFromPlaces.lua
+-- Tests/test-importSeenFromPlaces.lua
 
---[[ Tests the importSeenFromPlaces interface against a disk file
+--[[
+Tests the importSeenFromPlaces interface against a disk file
 --]]
 
 
 
 
+--- The filename to load for import:
+local fileName = "Import/places.sqlite"
+
+
+
+
+
+-- Adjust the package load path so that the local modules can be loaded:
+package.path = "../?.lua;" .. package.path
+
 local import = require("importSeenFromPlaces")
+
 print("Building session...")
-local session = import.buildSession("places.sqlite")
+local session = import.buildSession(fileName)
 
 -- Dump to console:
 for _, item in ipairs(session.items) do

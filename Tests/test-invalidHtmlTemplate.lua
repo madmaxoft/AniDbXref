@@ -1,4 +1,4 @@
--- test-invalidHtmlTemplate.lua
+-- Tests/test-invalidHtmlTemplate.lua
 
 --[[
 This tests how etlua handles invalid templates.
