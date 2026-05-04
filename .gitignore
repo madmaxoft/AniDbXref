@@ -6,4 +6,5 @@
 *.sqlite-journal
 Static/favicon*
 Backups/
+AniDB/
 *.compiledLua

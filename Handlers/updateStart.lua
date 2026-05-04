@@ -13,7 +13,7 @@ local db = require("db")
 
 local function updateThread()
 	log("update", "Starting update from AniDB dump...")
-	local http = require("socket.http")
+	local httpClient = require("httpClient")
 	local ltn12 = require("ltn12")
 	local zlib = require("zlib")
 
@@ -22,9 +22,9 @@ local function updateThread()
 	if not(isLocal) then
 		log("update", "Downloading AniDB dump...")
 		local f = assert(io.open(tmpFile, "wb"))
-		local isOK, code = http.request{ url = "http://anidb.net/api/anime-titles.xml.gz", sink = ltn12.sink.file(f) }
-		if (not(isOK) or (code ~= 200)) then
-			log("update", "Failed to download AniDB dump: %s", tostring(code))
+		local code, headers, body = httpClient.get("http://anidb.net/api/anime-titles.xml.gz")
+		if (code ~= 200) then
+			log("update", "Failed to download AniDB dump: %s / %s", tostring(code), tostring(headers))
 			return
 		end
 	end

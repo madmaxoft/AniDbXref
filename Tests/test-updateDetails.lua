@@ -12,7 +12,7 @@ The fetching can be disabled in order to test on locally cached data.
 -- local gAnimeIdToFetch = 11167  -- Steins;Gate 0
 -- local gAnimeIdToFetch = 17001  -- Fuufu Ijou
 -- local gAnimeIdToFetch = 19548  -- Ganglion
-local gAnimeIdToFetch = 12661  -- Boruto NNG, API return an incomplete XML
+local gAnimeIdToFetch = 12661  -- Boruto NNG, API returns an incomplete XML
 
 
 
@@ -22,6 +22,7 @@ local gAnimeIdToFetch = 12661  -- Boruto NNG, API return an incomplete XML
 package.path = "../?.lua;" .. package.path
 
 local db = require("db")
+require("httpClient").noCopas()
 local details = require("aniDbDetails")
 
 

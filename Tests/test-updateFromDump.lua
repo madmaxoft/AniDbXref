@@ -15,7 +15,7 @@ The test runs in a single threaded environment for easier debugging.
 package.path = "../?.lua;" .. package.path
 
 local db = require("db")
-local http = require("socket.http")
+local httpClient = require("httpClient").noCopas()
 local ltn12 = require("ltn12")
 local zlib = require("zlib")
 
@@ -28,8 +28,13 @@ local fnam = "anime-titles.xml.gz"
 local f = io.open(fnam, "rb")
 if not(f) then
 	print("Downloading AniDB dump...")
+	local statusCode, headers, body = httpClient.get("http://anidb.net/api/anime-titles.xml.gz")
+	if (statusCode ~= 200) then
+		error(string.format("Failed to download the dump from AniDB, status %s, err %s", tostring(statusCode), tostring(headers)))
+	end
 	local f2 = assert(io.open(fnam, "wb"))
-	http.request{ url = "http://anidb.net/api/anime-titles.xml.gz", sink = ltn12.sink.file(f2) }
+	f2:write(body)
+	f2:close()
 	f2 = nil
 	f = assert(io.open(fnam, "rb"))
 end

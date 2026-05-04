@@ -12,6 +12,7 @@ The request takes the picture's id and size as parameters:
 local db = require("db")
 local httpResponse = require("httpResponse")
 local httpRequest = require("httpRequest")
+local httpClient = require("httpClient")
 local log = require("logger").log
 local socket = require("socket")
 local ssl = require("ssl")
@@ -107,127 +108,9 @@ config.registerDefinitions({
 
 
 
---- Cache of the persistent TCP connections, as connection objects
--- Dict-table of "scheme:host:port" -> {socket = ..., cacheKey = "scheme:host:port"}
-local gConnCache = {}
-
-
-
-
-
-local defaultPort =
-{
-	http = 80,
-	https = 443,
-}
-
---- Returns the port to use for the specified URL
--- If the port is not specified in the URL, uses the default port for the scheme
-local function getPort(aParsedUrl)
-	assert(type(aParsedUrl) == "table")
-	assert(type(aParsedUrl.scheme) == "string")
-
-	return aParsedUrl.port or defaultPort[aParsedUrl.scheme] or 80
-end
-
-
-
-
-
---- Returns the key into the gConnCache table for the specified parsed URL
-local function connectionKey(aParsedUrl)
-	assert(type(aParsedUrl) == "table")
-	assert(type(aParsedUrl.scheme) == "string")
-	assert(type(aParsedUrl.host) == "string")
-
-	return string.format("%s:%s:%d",
-		aParsedUrl.scheme,
-		aParsedUrl.host,
-		getPort(aParsedUrl)
-	)
-end
-
-
-
-
-
--- TLS parameters (default)
-local sslParams = {
-	mode = "client",
-	protocol = "tlsv1_2",
-	verify = "none",
-	options = "all",
-}
-
---- Returns the persistent connection object for the host specified in the parsed URL
--- If no such connection is present yet, creates one.
-local function getHttpConnection(aParsedUrl)
-	assert(type(aParsedUrl) == "table")
-	assert(type(aParsedUrl.host) == "string")
-
-	-- Return the connection from the cache, if exists:
-	local key = connectionKey(aParsedUrl)
-	local conn = gConnCache[key]
-	if (conn) then
-		return conn
-	end
-
-	-- Not in cache, create, connect and add into cache:
-	log("picture", "Opening HTTP connection to %s, path %s", aParsedUrl.host, aParsedUrl.path)
-	local tcp = assert(socket.tcp())
-	tcp:settimeout(5)
-	assert(tcp:connect(aParsedUrl.host, getPort(aParsedUrl)))
-	if (aParsedUrl.scheme == "https") then
-		local tlsConn, err = ssl.wrap(tcp, sslParams)
-		if not tlsConn then error("SSL wrap failed: "..tostring(err)) end
-		assert(tlsConn:dohandshake())
-		tcp = tlsConn
-	end
-
-	local connObj =
-	{
-		socket = tcp,
-		cacheKey = key
-	}
-	gConnCache[key] = connObj
-	return connObj
-end
-
-
-
-
-
---- Closes the specified connection and removes it from the cache
-local function releaseHttpConnection(aConnObj)
-	assert(type(aConnObj) == "table")
-	assert(type(aConnObj.cacheKey) == "string")
-
-	aConnObj.socket:close()
-	gConnCache[aConnObj.cacheKey] = nil
-end
-
-
-
-
-
---- Returns the string that is to be sent in the GET request for the specified parsed URL
--- This consists of the path, and if present, the query
-local function getRequest(aParsedUrl)
-	assert(type(aParsedUrl) == "table")
-
-	local res = aParsedUrl.path
-	if (aParsedUrl.query) then
-		res = res .. "?" .. aParsedUrl.query
-	end
-
-	return res
-end
-
-
-
-
-
 --- Requests a picture from AniDB
+-- Returns the picture data on success
+-- Returns nil and error message on failure
 local function requestFromAniDb(aPictureId, aSize)
 	assert(type(aPictureId) == "string")
 	assert(type(aSize) == "string")
@@ -235,64 +118,29 @@ local function requestFromAniDb(aPictureId, aSize)
 	-- Parse the picture URL:
 	local picUrl, msg
 	if (aSize == "thumb") then
-		picUrl, msg = url.parse(string.format(config.get("picture.thumb.url"), aPictureId))
+		picUrl = string.format(config.get("picture.thumb.url"), aPictureId)
 	else
-		picUrl, msg = url.parse(string.format(config.get("picture.regular.url"), aPictureId))
-	end
-	if not(picUrl) then
-		log("picture", "FAILED to parse picture URL %s : %s", picUrl, tostring(msg))
-		return
+		picUrl = string.format(config.get("picture.regular.url"), aPictureId)
 	end
 
-	-- Build the HTTP request:
-	local request = table.concat({
-		string.format("GET %s HTTP/1.1", getRequest(picUrl)),
-		string.format("Host: %s", picUrl.host),
-		"Connection: keep-alive",
-		"User-Agent: AniDbXref/1.0",
-		"", -- empty line to end headers
-		""
-	}, "\r\n")
-
-	-- Send the HTTP request:
-	local conn, msg = getHttpConnection(picUrl)
-	if not(conn) then
-		log("picture", "Failed to connect for picture %s: %s", aPictureId, tostring(msg))
-		return
-	end
-	local isOK, msg = conn.socket:send(request)
-	if not(isOK) then
-		log("picture", "Failed to send request for picture %s: %s. RETRYING", aPictureId, tostring(msg))
-		-- Connection might have gotten closed; release and retry once:
-		releaseHttpConnection( conn)
-		conn = getHttpConnection(picUrl)
-		isOK, msg = conn.socket:send(request)
-		if not(isOK) then
-			log("picture", "Failed to send second request for picture %s: %s", aPictureId, tostring(msg))
-			releaseHttpConnection(conn)
-			return nil
-		end
-	end
-
-	-- Read the HTTP response:
-	local httpVersion, httpStatus, headers, firstLine = httpRequest.readRequestHeaders(conn.socket)
-	if ((httpStatus ~= "200") and (httpStatus ~= 200)) then
-		log("picture", "Failed to read http headers from AniDB response for picture %s. %s | %s | %s; firstLine \"%s\"",
+	-- Request the picture from the URL:
+	local statusCode, headers, body = httpClient.get(picUrl)
+	if not(statusCode) then
+		-- DEBUG:
+		log("picture", "Failed to read picture %s from AniDB. statusCode = %s, err = %s",
 			aPictureId,
-			tostring(httpVersion),
-			tostring(httpStatus),
-			tostring(headers),
-			tostring(firstLine)
+			tostring(statusCode),
+			tostring(headers)
 		)
-		releaseHttpConnection(conn)
-		return nil, httpResponse
-
+		return nil, headers
 	end
-	local body, msg = httpRequest.readBody(conn.socket, headers)
-	if not(body) then
-		log("picture", "Failed to read http body for picture %s: %s", aPictureId, tostring(msg))
-		releaseHttpConnection(conn)
-		return nil, msg
+	if ((statusCode ~= "200") and (statusCode ~= 200)) then
+		-- DEBUG:
+		log("picture", "Failed to read picture %s from AniDB. statusCode = %s",
+			aPictureId,
+			tostring(statusCode)
+		)
+		return nil, "HTTP status " .. tostring(statusCode)
 	end
 
 	return body
@@ -319,11 +167,14 @@ return function(aRequest, aResponse)
 	end
 
 	-- Not in the cache, request from anidb:
-	picData = requestFromAniDb(pictureId, pictureSize)
+	picData, msg = requestFromAniDb(pictureId, pictureSize)
 	if not(picData) then
 		-- Retry once - if the connection just timed out, it will be reconnected
-		log("picture", "Failed to download picture %s / %s from AniDB, retrying...", pictureSize, pictureId)
-		picData = requestFromAniDb(pictureId, pictureSize)
+		log("picture", "Failed to download picture %s / %s from AniDB (%s), retrying...", pictureSize, pictureId, tostring(msg))
+		picData, msg = requestFromAniDb(pictureId, pictureSize)
+		if not(picData) then
+			log("picture", "Failed to retry-download picture %s / %s from AniDB (%s), failing.", pictureSize, pictureId, tostring(msg))
+		end
 	end
 	if (picData) then
 		db.storePictureData(pictureId, pictureSize, picData)

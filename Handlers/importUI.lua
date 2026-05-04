@@ -18,7 +18,7 @@ local multipart = require("multipart")
 local db = require("db")
 local lomParser = require("lxp.lom")
 local aniDbDetails = require("aniDbDetails")
-local http = require("socket.http")
+local httpClient = require("httpClient")
 local ltn12 = require("ltn12")
 local mime = require("mime")
 local log = require("logger").log
@@ -86,22 +86,19 @@ local function callLuaApi(aUrl, aUsername, aPassword)
 	-- Send the request:
 	local authHeaderValue = "Basic " .. mime.b64(aUsername .. ":" .. aPassword)
 	local responseBody = {}
-	local result, statusCode, headers = http.request({
+	local statusCode, headers, body = httpClient.request({
 		url = aUrl,
 		headers =
 		{
 			["Authorization"] = authHeaderValue,
 		},
-		sink = ltn12.sink.table(responseBody)
 	})
-	if not(result) then
-		return nil, "Failed to send API request: " .. tostring(statusCode)
-	end
 	if (statusCode ~= 200) then
-		return nil, "Failed to receive API response, status code " .. tostring(statusCode)
+		return nil, string.format("Failed to receive API response, status code %s, err %s", tostring(statusCode), tostring(headers))
 	end
-	local body = table.concat(responseBody)
 	log("import.api", "API call received successfully: " .. #body .. " bytes")
+
+	-- Parse the returned body:
 	local fn, msg = loadstring("return " .. body, "api")
 	if not(fn) then
 		return nil, "Failed to load API response: " .. tostring(msg)

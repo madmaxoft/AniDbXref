@@ -8,7 +8,7 @@ Handles fetching and parsing details for anime titles from AniDB.
 
 
 
-local socket = require("socket.http")
+local httpClient = require("httpClient")
 local ltn12 = require("ltn12")
 local lxp = require("lxp")
 local lomParser = require("lxp.lom")
@@ -37,19 +37,16 @@ local gAniDbRateLimiter = rateLimiter.new(3 * 60 * 60)
 -- Returns nil and error message on failure
 local function fetchUrl(aUrl)
 	-- Request:
-	local response = {}
-	local ok, code, headers = socket.request{
+	local code, headers, body = httpClient.request({
 		url = aUrl,
-		sink = ltn12.sink.table(response),
 		headers = {
 			["User-Agent"] = "AniDbXref/1",
 			["Accept-Encoding"] = "gzip",
 		},
-	}
-	if (not(ok) or (code ~= 200)) then
+	})
+	if (not(code) or (code ~= 200)) then
 		return nil, "HTTP request failed: " .. tostring(code)
 	end
-	local body = table.concat(response)
 
 	-- Unzip the body, if the server returns it zipped:
 	if (
