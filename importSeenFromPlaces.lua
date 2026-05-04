@@ -76,7 +76,7 @@ local function addTitlesForSingleServer(aDb, aServerDef, aOutDict)
 				title = aServerDef.titleTransform(title)
 			end
 			local lastVisitDate = math.floor(row.last_visit_date / 1000000)
-			if (not(aOutDict[title]) or (aOutDict[title].lastVisitDate > lastVisitDate)) then
+			if (not(aOutDict[title]) or (aOutDict[title].lastVisitDate < lastVisitDate)) then
 				aOutDict[title] = { lastVisitDate = lastVisitDate }
 			end
 		end
@@ -130,9 +130,32 @@ end
 function I.buildSession(aFileName)
 	-- Parse the items and search for candidates:
 	local parsed = parsePlacesFile(aFileName)
-	for _, seen in ipairs(parsed) do
+	local numParsed = parsed.n
+	for idx = 1, numParsed do
+		local seen = parsed[idx]
 		seen.candidates = I.searchCandidates(seen.title)
+		if (seen.candidates.n == 1) then
+			local candidate = seen.candidates[1]
+			if (candidate.details.isSeen == 1) then
+				if (tonumber(candidate.details.seenDateYmd) <= tonumber(seen.lastVisitDate)) then
+					parsed[idx] = nil
+				end
+			end
+		end
 	end
+
+	-- Remove items that have been removed:
+	local parsed2 = {}
+	local n = 0
+	for idx = 1, numParsed do
+		if (parsed[idx]) then
+			n = n + 1
+			parsed2[n] = parsed[idx]
+		end
+	end
+	parsed = parsed2
+	parsed.n = n
+	numParsed = n
 
 	-- Sort the items by their last visit date:
 	table.sort(parsed,
