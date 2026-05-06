@@ -135,6 +135,16 @@ end
 
 
 
+function utils.timestampToYmd(aTimestamp)
+	assert(type(aTimestamp) == "number")
+
+	return os.date("!%Y-%m-%d", aTimestamp)
+end
+
+
+
+
+
 --- Returns the day-of-week index of the specified YMD date (1 = Mon, 7 = Sun)
 -- Returns nil and error message on failure
 function utils.ymdDayOfWeek(aDateYmd)
@@ -201,6 +211,96 @@ function utils.ymdToSeason(aDateYmd)
 		return tostring(tonumber(y) + 1) .. "-1"
 	end
 	return nil, "Invalid month: " .. aDateYmd
+end
+
+
+
+
+
+--- Normalizes the title for comparison purposes
+-- Lowercases, replaces all punctuation with spaces, collapses whitespace, trims whitespace from ends
+function utils.normalizeTitle(aTitle)
+	-- lowercase
+	local s = aTitle:lower()
+	-- replace any non-alphanumeric character with space
+	s = s:gsub("[%W_]+", " ")
+	-- collapse multiple spaces to one
+	s = s:gsub("%s+", " ")
+	-- trim spaces at start and end
+	s = s:match("^%s*(.-)%s*$")
+	return s
+end
+
+
+
+
+
+--- Returns true if the two titles are equal up to punctuation, compressed whitespace and trimmed space from ends
+-- Returns nil if not (so that assigning it to a table member will not allocate the member for inequal titles)
+function utils.areTitlesEqual(aTitle1, aTitle2)
+	if (utils.normalizeTitle(aTitle1) == utils.normalizeTitle(aTitle2)) then
+		return true
+	else
+		return nil
+	end
+end
+
+
+
+
+
+--- Returns true if the title matches at least one of the multiple titles, up to normalization
+-- Returns nil if not (so that assigning it to a table member will not allocate the member for inequal titles)
+-- aMultiTitles is the assumed to be the structure returned by db.getAnimeDetails_titles
+function utils.areMultiTitlesEqual(aTitle, aMultiTitles)
+	assert(type(aTitle) == "string")
+	assert(type(aMultiTitles) == "table")
+
+	local normalizedTitle = utils.normalizeTitle(aTitle)
+	for _, title in ipairs(aMultiTitles) do
+		if (normalizedTitle == utils.normalizeTitle(title.title)) then
+			return true
+		end
+	end
+	return nil
+end
+
+
+
+
+
+--- Returns the "best" title from those specified, limited to the specified language
+-- Returns nil if none found.
+-- Prefers main title, then official title, then synonyms and last shorts
+function utils.pickBestTitle(aTitlesFromDb, aLanguage)
+	assert(type(aTitlesFromDb) == "table")
+	assert(type(aLanguage) == "string")
+
+	-- Pick the best title in the specified language:
+	local titles = {}
+	local enTitles = {}
+	local anyTitles = {}
+	for _, row in ipairs(aTitlesFromDb) do
+		if (row.language == aLanguage) then
+			titles[row.kind or ""] = row.title
+		elseif (row.language == "en") then
+			enTitles[row.kind or ""] = row.title
+		end
+		anyTitles[row.kind or ""] = row.title
+	end
+	local res = titles["main"] or titles["official"] or titles["syn"] or titles["short"] or titles[""]
+	if (res) then
+		return res
+	end
+
+	-- No title in this language found, use "en":
+	res = enTitles["main"] or enTitles["official"] or enTitles["syn"] or enTitles["short"] or enTitles[""]
+	if (res) then
+		return res
+	end
+
+	-- No title in this language or "en", use any:
+	return anyTitles["main"] or anyTitles["official"] or anyTitles["syn"] or anyTitles["short"] or anyTitles[""]
 end
 
 

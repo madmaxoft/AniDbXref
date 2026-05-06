@@ -9,6 +9,8 @@ Provides the Places.sqlite parser, matcher and session management
 
 
 local db = require("db")
+local perf = require("perf")
+local utils = require("utils")
 
 
 
@@ -18,6 +20,33 @@ local I =
 {
 	sessions = {},  -- Dict table of id -> session
 	nextSessionId = 0,  -- The id to be used for the next new session
+}
+
+
+
+
+
+--- Words that we don't want in the search query, since they most often break the search:
+local gUnwantedWords =
+{
+	["the"] = true,
+	["a"] = true,
+	["an"] = true,
+	["of"] = true,
+	["and"] = true,
+	["season"] = true,
+	["part"] = true,
+	["ova"] = true,
+	["dub"] = true,
+	["uncensored"] = true,
+	["2nd"] = true,
+	["3rd"] = true,
+	["4th"] = true,
+	["5th"] = true,
+	["6th"] = true,
+	["7th"] = true,
+	["8th"] = true,
+	["9th"] = true,
 }
 
 
@@ -56,7 +85,7 @@ local knownAnimeServers =
 
 
 --- Adds all titles matching the specified known server into aOutDict
--- aOutDict is a dict-table of title -> { lastVisitDate = ... }
+-- aOutDict is a dict-table of title -> { url = ..., lastVisitDate = ... }
 -- Existing items are replaced only if their lastVisitDate is lower than the existing one
 local function addTitlesForSingleServer(aDb, aServerDef, aOutDict)
 	assert(aDb)
@@ -77,7 +106,7 @@ local function addTitlesForSingleServer(aDb, aServerDef, aOutDict)
 			end
 			local lastVisitDate = math.floor(row.last_visit_date / 1000000)
 			if (not(aOutDict[title]) or (aOutDict[title].lastVisitDate < lastVisitDate)) then
-				aOutDict[title] = { lastVisitDate = lastVisitDate }
+				aOutDict[title] = { url = row.url, lastVisitDate = lastVisitDate }
 			end
 		end
 	end
@@ -88,7 +117,7 @@ end
 
 
 
---- Parses the Places.sqlite file into an array-table of {title = ..., lastVisitDate = ...}
+--- Parses the Places.sqlite file into an array-table of {title = ..., url = ..., lastVisitDate = ...}
 local function parsePlacesFile(aFileName)
 	-- Open the DB:
 	local sqlite = require("lsqlite3")
@@ -102,7 +131,7 @@ local function parsePlacesFile(aFileName)
 	dbPlaces:busy_timeout(1000)
 
 	-- Load all seen titles:
-	local titles = {}  -- dict-table of all found titles, title = { lastVisitDate = ... }
+	local titles = {}  -- dict-table of all found titles, title = { url = ..., lastVisitDate = ... }
 	for _, server in ipairs(knownAnimeServers) do
 		addTitlesForSingleServer(dbPlaces, server, titles)
 	end
@@ -117,8 +146,40 @@ local function parsePlacesFile(aFileName)
 		v.title = title
 	end
 	result.n = n
+	table.sort(result,
+		function(aItem1, aItem2)
+			return (aItem1.title < aItem2.title)
+		end
+	)
 
 	return result
+end
+
+
+
+
+
+--- Strips unwanted words from a title string.
+-- aFilterSet is a dict table of "word" -> true for the unwanted words
+local function stripFilteredWords(aTitle, aFilterSet)
+	assert(type(aTitle) == "string")
+	assert(type(aFilterSet) == "table")
+
+	-- Break into list of words:
+	local words = {}
+	for word in string.gmatch(aTitle, "%S+") do
+		table.insert(words, word)
+	end
+
+	-- Filter unwanted words:
+	local filteredWords = {}
+	for _, word in ipairs(words) do
+		if not(aFilterSet[word]) then
+			table.insert(filteredWords, word)
+		end
+	end
+
+	return table.concat(filteredWords, " ")
 end
 
 
@@ -133,18 +194,19 @@ function I.buildSession(aFileName)
 	local numParsed = parsed.n
 	for idx = 1, numParsed do
 		local seen = parsed[idx]
-		seen.candidates = I.searchCandidates(seen.title)
+		seen.query = stripFilteredWords(seen.title, gUnwantedWords):gsub("(%d+)(%a+)", "%1 %2")
+		seen.candidates = I.searchCandidates(seen.title, seen.query)
 		if (seen.candidates.n == 1) then
 			local candidate = seen.candidates[1]
 			if (candidate.details.isSeen == 1) then
 				if (tonumber(candidate.details.seenDateYmd) <= tonumber(seen.lastVisitDate)) then
-					parsed[idx] = nil
+					parsed[idx] = nil  -- Discard, remove later
 				end
 			end
 		end
 	end
 
-	-- Remove items that have been removed:
+	-- Remove items that have been discarded:
 	local parsed2 = {}
 	local n = 0
 	for idx = 1, numParsed do
@@ -157,12 +219,14 @@ function I.buildSession(aFileName)
 	parsed.n = n
 	numParsed = n
 
+	--[[
 	-- Sort the items by their last visit date:
 	table.sort(parsed,
 		function(aItem1, aItem2)
 			return (aItem1.lastVisitDate < aItem2.lastVisitDate)
 		end
 	)
+	--]]
 
 	-- Add it as a session
 	local session =
@@ -180,12 +244,30 @@ end
 
 
 
---- Returns the candidates found using the specified search query
+--- Returns the candidates found for the specified query
 -- The candidates are sorted by their enTitle
-function I.searchCandidates(aQuery)
-	local result = db.searchAnimeTitles(aQuery)
+function I.searchCandidates(aTitle, aQuery)
+	assert(type(aTitle) == "string")
+	assert(type(aQuery) == "string")
+
+	local timer = perf.newTimer("searchCandidates")
+	-- Use raw search for speed:
+	local result = db.searchAnimeTitlesRaw(aQuery)
+	timer("dbSearch")
+
+	-- Only add titles and base details:
+	for _, res in ipairs(result) do
+		res.details = db.getAnimeDetails_base(res.aId) or {}
+	end
+	timer("dbDetails")
+	for _, res in ipairs(result) do
+		res.details.titles = db.getAnimeDetails_titles(res.aId)
+		res.bestTitle = utils.pickBestTitle(res.details.titles or {}, "en")
+		res.areTitlesEqual = utils.areMultiTitlesEqual(aTitle, res.details.titles or {})
+	end
+	timer("dbTitles")
 	table.sort(result, function(aItem1, aItem2)
-		return ((aItem1.details.enTitle or "") < (aItem2.details.enTitle or ""))
+		return ((aItem1.bestTitle or "") < (aItem2.bestTitle or ""))
 	end)
 	return result
 end

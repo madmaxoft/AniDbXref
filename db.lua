@@ -37,58 +37,6 @@ end
 
 
 
---- Normalizes the title for comparison purposes
--- Lowercases, replaces all punctuation with spaces, collapses whitespace, trims whitespace from ends
-local function normalizeTitle(aTitle)
-	-- lowercase
-	local s = aTitle:lower()
-	-- replace any non-alphanumeric character with space
-	s = s:gsub("[%W_]+", " ")
-	-- collapse multiple spaces to one
-	s = s:gsub("%s+", " ")
-	-- trim spaces at start and end
-	s = s:match("^%s*(.-)%s*$")
-	return s
-end
-
-
-
-
-
---- Returns true if the two titles are equal up to punctuation, compressed whitespace and trimmed space from ends
--- Returns nil if not (so that assigning it to a table member will not allocate the member for inequal titles)
-local function areTitlesEqual(aTitle1, aTitle2)
-	if (normalizeTitle(aTitle1) == normalizeTitle(aTitle2)) then
-		return true
-	else
-		return nil
-	end
-end
-
-
-
-
-
---- Returns true if the title matches at least one of the multiple titles, up to normalization
--- Returns nil if not (so that assigning it to a table member will not allocate the member for inequal titles)
--- aMultiTitles is the assumed to be the structure returned by db.getAnimeDetails_titles
-local function areMultiTitlesEqual(aTitle, aMultiTitles)
-	assert(type(aTitle) == "string")
-	assert(type(aMultiTitles) == "table")
-
-	local normalizedTitle = normalizeTitle(aTitle)
-	for _, title in ipairs(aMultiTitles) do
-		if (normalizedTitle == normalizeTitle(title.title)) then
-			return true
-		end
-	end
-	return nil
-end
-
-
-
-
-
 --- Ensures DB schema exists and upgrades if needed
 local function initialize()
 	assert(gDB == nil)
@@ -428,6 +376,38 @@ function db.getAnimeDetails(aId)
 	assert(tonumber(aId))
 
 	-- Get the base details:
+	local result, msg = db.getAnimeDetails_base(aId)
+	if not(result) then
+		return nil, "Failed to query base details: " .. tostring(msg)
+	end
+
+	-- Get the domain-specific details:
+	result.characters = db.getAnimeDetails_characters(aId)
+	result.creators = db.getAnimeDetails_creators(aId)
+	result.episodes = db.getAnimeDetails_episodes(aId)
+	result.recommendations = db.getAnimeDetails_recommendations(aId)
+	result.relatedAnime = db.getAnimeDetails_relatedAnime(aId)
+	result.similarAnime = db.getAnimeDetails_similarAnime(aId)
+	result.tags = db.getAnimeDetails_tags(aId)
+	result.titles = db.getAnimeDetails_titles(aId)
+
+	-- Get the most useful titles:
+	result.enTitle = db.pickBestTitle(result.titles, "en")
+	result.jaTitle = db.pickBestTitle(result.titles, "ja")
+	result.xjatTitle = db.pickBestTitle(result.titles, "x-jat")
+
+	return result
+end
+
+
+
+
+
+--- Returns the base details about the anime (AnimeBaseDetails table) combined with the Seen table
+-- Returns nil and error message on failure
+function db.getAnimeDetails_base(aId)
+	assert(tonumber(aId))
+
 	local result, msg = db.getArrayFromQuery([[
 		SELECT
 			abd.aId AS aId,
@@ -447,26 +427,9 @@ function db.getAnimeDetails(aId)
 	]], {aId}, "getAnimeDetails.BaseDetails")
 	if (not(result) or not(result[1])) then
 		log("db", "Failed to query base details for aId %s: %s", tostring(aId), tostring(msg))
-		return nil, "Failed to query base details: " .. tostring(msg)
+		return nil, "Base details query failed: " .. tostring(msg)
 	end
-	result = result[1]
-
-	-- Get the domain-specific details:
-	result.characters = db.getAnimeDetails_characters(aId)
-	result.creators = db.getAnimeDetails_creators(aId)
-	result.episodes = db.getAnimeDetails_episodes(aId)
-	result.recommendations = db.getAnimeDetails_recommendations(aId)
-	result.relatedAnime = db.getAnimeDetails_relatedAnime(aId)
-	result.similarAnime = db.getAnimeDetails_similarAnime(aId)
-	result.tags = db.getAnimeDetails_tags(aId)
-	result.titles = db.getAnimeDetails_titles(aId)
-
-	-- Get the most useful titles:
-	result.enTitle = db.pickBestTitle(result.titles, "en")
-	result.jaTitle = db.pickBestTitle(result.titles, "ja")
-	result.xjatTitle = db.pickBestTitle(result.titles, "x-jat")
-
-	return result
+	return result[1]
 end
 
 
@@ -1186,6 +1149,32 @@ function db.searchAnimeTitles(aQuery)
 	assert(gDB ~= nil)
 	assert(type(aQuery) == "string")
 
+	-- Raw ID search:
+	local results, msg = db.searchAnimeTitlesRaw(aQuery)
+
+	-- Insert the details:
+	if not(results) then
+		return nil, msg
+	end
+	for _, res in ipairs(results) do
+		res.details = db.getAnimeDetails(res.aId) or {episodes = {n = 0}, titles = {n = 0}, characters = {n = 0}, tags = {n = 0}}
+		res.areTitlesEqual = utils.areMultiTitlesEqual(aQuery, res.details.titles or {})
+	end
+
+	return results
+end
+
+
+
+
+
+--- Searches Anime titles containing all given words of length >= 3
+-- Returns an array-table with {aId = ...} items
+-- Up to 50 items are returned
+function db.searchAnimeTitlesRaw(aQuery)
+	assert(gDB ~= nil)
+	assert(type(aQuery) == "string")
+
 	local results = { n = 0 }
 	local n = 0
 
@@ -1221,9 +1210,7 @@ function db.searchAnimeTitles(aQuery)
 		results[n] =
 		{
 			aId = row.aId,
-			details = db.getAnimeDetails(row.aId) or {episodes = {n = 0}, titles = {n = 0}, characters = {n = 0}, tags = {n = 0}},
 		}
-		results[n].areTitlesEqual = areMultiTitlesEqual(aQuery, results[n].details.titles or {})
 	end
 	results.n = n
 

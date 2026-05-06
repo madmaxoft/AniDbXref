@@ -9,6 +9,37 @@
 
 <% if not(request.isReadOnly) then %>
 
+<%
+--- Returns the item title enhanced with the start year, if not already present:
+local function enhanceTitle(aTitle, aDetails)
+	assert(type(aTitle) == "string")
+	assert(type(aDetails) == "table")
+
+	if (
+		not(aDetails.startDate) or
+		not(tonumber(aDetails.startDate:sub(1, 4))) or
+		(tonumber(aDetails.startDate:sub(1, 4)) < 1980)
+	) then
+		-- No start date in the DB, or invalid format
+		return aTitle
+	end
+	if (
+		aTitle:match("%(%d%d%d%d%)$") or
+		aTitle:match("%d%d%d%d$")
+	) then
+		-- Title already contains the year
+		return aTitle
+	end
+	return aTitle .. " (" .. aDetails.startDate:sub(1, 4) .. ")"
+end
+
+for _, item in ipairs(items) do
+	for _, candidate in ipairs(item.candidates) do
+		candidate.enhancedTitle = enhanceTitle(candidate.bestTitle or "[unknown]", candidate.details or {})
+	end
+end
+%>
+
 <h1>AniDbXref - review import</h1>
 <p> There are <%= items.n %> items that need a review:</p>
 <form action="/import/review/<%= sessionId %>" method="POST" enctype="multipart/form-data">
@@ -31,20 +62,82 @@
 		end
 	%>
 	<tr class="<%= rowClass %>">
-		<td><%= item.title %></td>
+		<td>
+			Title: <%= item.title %><br />
+			Seen: <%= utils.timestampToYmd(item.lastVisitDate) %> | <a href="<%= item.url %>"><%= item.hostname or "Link" %></a>
+		</td>
 		<td>
 			<%
 			for j, candidate in ipairs(item.candidates) do
-			if (candidate.areTitlesEqual) then
-				shouldBeChecked = "checked=\"checked\""
-			end
+				if ((item.candidates.n == 1) and candidate.areTitlesEqual) then
+					if (
+						not(candidate.details.seenDateYmd) or
+						(tonumber(candidate.details.seenDateYmd) <= tonumber(item.lastVisitDate))
+					) then
+						shouldBeChecked = "checked=\"checked\""
+					end
+				end
 			%>
-			<label>
-				<input type="radio" name="candidate_<%= i %>" value="<%= candidate.aId %>"<%= shouldBeChecked %>>
-				<%= candidate.details.enTitle or "-" %> | <%= candidate.details.jpTitle or "-" %> | <%= candidate.details.xjpTitle or "-" %>
-			</label><br />
+
+			<label class="candidateRow">
+				<input
+					type="radio"
+					name="candidate_<%= i %>"
+					value="<%= candidate.aId %>"
+					<%= shouldBeChecked %>
+				/>
+
+				<a class="candidateAniDB"
+					href="https://anidb.net/anime/<%= candidate.aId %>"
+					target="_blank">
+					(A)
+				</a>
+
+				<span class="candidateSeen
+					<%
+					if (
+						candidate.details.seenDateYmd and
+						(tonumber(candidate.details.seenDateYmd) < tonumber(item.lastVisitDate))
+					) then
+					%>
+						seenBeforeImport
+					<%
+					end
+					%>
+				">
+					<% if (candidate.details.seenDateYmd) then %>
+						<%= utils.timestampToYmd(tonumber(candidate.details.seenDateYmd)) %>
+					<% else %>
+						&nbsp;
+					<% end %>
+				</span>
+
+				<span class="candidateTitleWrap">
+					<a class="candidateTitle"
+						href="/anime/<%= candidate.aId %>">
+						<%= candidate.enhancedTitle %>
+					</a>
+
+					<span class="candidateMeta">
+						<% if (candidate.details.kind) then %>
+							<%= candidate.details.kind %>
+						<% end %>
+
+						<% if (candidate.details.numEpisodes) then %>
+							(<%= candidate.details.numEpisodes %>)
+						<% end %>
+					</span>
+				</span>
+
+				<% if (candidate.details.pictureId) then %>
+					<span class="candidatePreview">
+						<img src="/picture?id=<%= candidate.details.pictureId %>" />
+					</span>
+				<% end %>
+			</label>
+
 			<%
-			shouldBeChecked = ""
+				shouldBeChecked = ""
 			end
 			%>
 			<!-- Custom search option -->
@@ -52,7 +145,7 @@
 				<input type="radio" name="candidate_<%= i %>" value="search" class="custom-radio">
 				Search:
 			</label>
-			<input type="text" name="custom_<%= i %>" class="custom-input" value="<%= item.title %>"/><br />
+			<input type="text" name="custom_<%= i %>" class="custom-input" value="<%= item.query %>"/><br />
 
 			<!-- Ignore option -->
 			<label>

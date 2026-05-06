@@ -51,6 +51,79 @@ td {
 
 
 
+/* Styling for import review candidates */
+.candidateRow
+{
+	display: grid;
+	grid-template-columns: auto 2.5em  8em 1fr;
+	align-items: center;
+	column-gap: 0.75em;
+	white-space: nowrap;
+
+	position: relative;
+}
+
+.candidateSeen
+{
+	font-variant-numeric: tabular-nums;
+	color: #666;
+}
+
+.candidateSeen.seenBeforeImport
+{
+	color: #c00;
+}
+
+.candidateTitleWrap
+{
+	display: flex;
+	align-items: baseline;
+	gap: 0.5em;
+
+	min-width: 0;
+}
+
+.candidateTitle
+{
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.candidateMeta
+{
+	margin-left: 0.5em;
+	color: #888;
+	font-size: 0.9em;
+	white-space: nowrap;
+}
+
+.candidateTitle,
+.candidateMeta
+{
+	display: inline;
+}
+
+.candidatePreview
+{
+	display: none;
+	position: absolute;
+
+	top: 100%;
+	left: 2em; /* offset so it doesn't cover the radio */
+
+	z-index: 1000;
+}
+
+.candidateRow:hover .candidatePreview
+{
+	display: block;
+}
+
+
+
+
+
 /* Colors distinguishing seen from not-seen characters */
 .isSeen
 {
