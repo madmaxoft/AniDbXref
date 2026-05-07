@@ -50,10 +50,20 @@ function rowClassForSeen(aIsSeen)
 	end
 	return ""
 end
+
+-- Count the seen and total characters:
+local numTotal = details.characters.n
+local numSeen = 0
+for _, ch in ipairs(details.characters) do
+	if (ch.isSeen) then
+		numSeen = numSeen + 1
+	end
+end
 %>
 <tr>
 	<td colspan=2>
 		<h2>Characters</h2>
+		<p><%= numSeen %> seen out of <%= numTotal %> total.
 		<table>
 			<tr>
 				<th>Picture</th>
