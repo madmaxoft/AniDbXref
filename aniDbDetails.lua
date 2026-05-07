@@ -16,6 +16,7 @@ local db = require("db")
 local lfs = require("lfs")
 local log = require("logger").log
 local rateLimiter = require("rateLimiter")
+local config = require("config")
 
 
 
@@ -28,6 +29,19 @@ local M = {}
 
 
 local gAniDbRateLimiter = rateLimiter.new(3 * 60 * 60)
+
+
+
+
+
+config.registerDefinitions({
+	{
+		identifier = "anidbmirror.url",
+		description = "The URL base of the AniDbMirror server",
+		valueType = "string",
+		default = "https://xoft.cz/AniDbMirror/api",
+	},
+})
 
 
 
@@ -640,7 +654,7 @@ function M.fetchXml(aId, aShouldSkipCaches)
 		end
 		if not(response) then
 			isReadFromFile = false
-			response = fetchUrl("https://xoft.cz/AniDbMirror/api/get?id=" .. aId)
+			response = fetchUrl(config.get("anidbmirror.url") .. "/get?id=" .. aId)
 		end
 	end
 	if not(response) then
