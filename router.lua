@@ -125,7 +125,10 @@ local function evaluateAuth(aRequest)
 	-- Check full auth:
 	local expPassword = config.get("http.auth.full.password")
 	if not(authHeader) then
-		log("router.auth", "Auth header not received")
+		log("router.auth", "Auth header not received (request path \"%s\", UA \"%s\")",
+			aRequest:pathAndQuery(),
+			tostring(aRequest:header("user-agent"))
+		)
 		return false
 	end
 	local expAuthStr = "Basic " .. mime.b64(expUsername .. ":" .. expPassword)
