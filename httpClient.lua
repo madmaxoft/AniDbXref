@@ -536,8 +536,15 @@ end
 
 
 --- API: Send a generic request (with retry-once)
--- Returns HTTP status (number), headers (dict-table), and body
--- Returns nil and error message on failure
+--[[
+Returns HTTP status (number), headers (dict-table), and body
+Returns nil and error message on failure
+The aRequest is a table containing the following members:
+	- method: HTTP verb to use (default: "GET")
+	- url: The URL to request. Required.
+	- headers: dict-table of request headers
+	- body: The body of the request to send
+--]]
 function httpClient.request(aRequest)
 	assert(type(aRequest) == "table")
 	assert(type(aRequest.url) == "string")

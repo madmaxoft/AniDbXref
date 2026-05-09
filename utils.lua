@@ -135,6 +135,7 @@ end
 
 
 
+--- Converts a timestamp to its YMD representation
 function utils.timestampToYmd(aTimestamp)
 	assert(type(aTimestamp) == "number")
 
