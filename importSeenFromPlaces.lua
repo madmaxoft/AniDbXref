@@ -38,6 +38,8 @@ local gUnwantedWords =
 	["part"] = true,
 	["ova"] = true,
 	["dub"] = true,
+	["tv"] = true,
+	["special"] = true,
 	["uncensored"] = true,
 	["2nd"] = true,
 	["3rd"] = true,
@@ -186,6 +188,27 @@ end
 
 
 
+--- Returns true if all the candidates were seen and their seen date is earlier than the item's timestamp
+-- Such an item can be removed from the import - there's no value in it
+local function allCandidatesSeenInPast(aCandidates, aItemTimestamp)
+	assert(type(aCandidates) == "table")
+	assert(type(aItemTimestamp) == "number")
+
+	for _, candidate in ipairs(aCandidates) do
+		if (candidate.isSeen ~= 1) then
+			return false
+		end
+		if (tonumber(candidate.details.seenDateYmd) > aItemTimestamp) then
+			return false
+		end
+	end
+	return true
+end
+
+
+
+
+
 --- Builds a new session for the specified Places.sqlite file
 -- Parses the file, matches it up to the DB and adds it into I.currentSessions[]
 function I.buildSession(aFileName)
@@ -203,6 +226,12 @@ function I.buildSession(aFileName)
 					parsed[idx] = nil  -- Discard, remove later
 				end
 			end
+		end
+		if (
+			(seen.candidates.n > 0) and
+			allCandidatesSeenInPast(seen.candidates, tonumber(seen.lastVisitDate))
+		) then
+			parsed[idx] = nil
 		end
 	end
 

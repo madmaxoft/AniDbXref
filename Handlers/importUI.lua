@@ -309,6 +309,7 @@ function I.postReview(aRequest, aResponse)
 	end
 
 	-- Process all items:
+	local toMark = {}  -- Dict of aId -> lastVisitDate for all items to be marked
 	for i = 1, session.items.n do
 		local item = session.items[i]
 		local choice = formData["candidate_" .. i]
@@ -316,7 +317,7 @@ function I.postReview(aRequest, aResponse)
 			-- Re-search this item:
 			local query = formData["custom_" .. i]
 			if (query) then
-				item.candidates = import.searchCandidates(query)
+				item.candidates = import.searchCandidates(item.title, query)
 			end
 		elseif (choice == "ignore") then
 			-- Ignore and do not show again
@@ -325,12 +326,19 @@ function I.postReview(aRequest, aResponse)
 			-- chosen candidate id
 			local candidateId = tonumber(choice)
 			if (candidateId) then
-				db.markAnimeSeen(candidateId, item.lastVisitDate)
+				-- De-duplicate requests for marking the same show multiple times - use the earliest time:
+				local tm = toMark[candidateId]
+				if (not(tm) or (tm > item.lastVisitDate)) then
+					toMark[candidateId] = item.lastVisitDate
+				end
 				-- Remove the item from the session:
 				session.items[i] = nil
 			end
 		end
 	end  -- for i - session.items[]
+	for aId, timeStamp in pairs(toMark) do
+		db.markAnimeSeen(aId, timeStamp)
+	end
 
 	-- Compact the item array-table:
 	local newItems = {}
