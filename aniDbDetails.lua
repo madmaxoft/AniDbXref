@@ -17,6 +17,9 @@ local lfs = require("lfs")
 local log = require("logger").log
 local rateLimiter = require("rateLimiter")
 local config = require("config")
+local mime = require("mime")
+local utils = require("utils")
+local url = require("socket.url")
 
 
 
@@ -28,7 +31,11 @@ local M = {}
 
 
 
+--- The rate-limiter to be used for AniDB API calls
 local gAniDbRateLimiter = rateLimiter.new(3 * 60 * 60)
+
+-- The UserAgent to use for all HTTP requests
+local gUserAgent = "AniDbXref/1"
 
 
 
@@ -40,6 +47,18 @@ config.registerDefinitions({
 		description = "The URL base of the AniDbMirror server",
 		valueType = "string",
 		default = "https://xoft.cz/AniDbMirror/api",
+	},
+	{
+		identifier = "anidbmirror.write.clientname",
+		description = "The clientName to use for uploading details to AniDbMirror. Empty means no upload.",
+		valueType = "string",
+		default = "",
+	},
+	{
+		identifier = "anidbmirror.write.clientauth",
+		description = "The clientAuth to use for uploading details to AniDbMirror. Only used when clientName is not empty.",
+		valueType = "string",
+		default = "",
 	},
 })
 
@@ -54,7 +73,7 @@ local function fetchUrl(aUrl)
 	local code, headers, body = httpClient.request({
 		url = aUrl,
 		headers = {
-			["User-Agent"] = "AniDbXref/1",
+			["User-Agent"] = gUserAgent,
 			["Accept-Encoding"] = "gzip",
 		},
 	})
@@ -625,6 +644,51 @@ end
 
 
 
+--- Uploads the specified details data for the aId in the configured AniDbMirror server
+local function uploadToAniDbMirror(aId, aDetailsData)
+	local clientName = config.get("anidbmirror.write.clientname")
+	if (clientName ~= "") then
+		local clientAuth = config.get("anidbmirror.write.clientauth")
+		local lastMod = os.time()
+		local urlBase = config.get("anidbmirror.url")
+		log("aniDbDetails", "Uploading id %d to AniDbMirror at %s", aId, urlBase)
+		local statusCode, headers, body = httpClient.request({
+			method = "POST",
+			url = urlBase .. "/submit",
+			body =
+				"id=" .. tostring(aId) ..
+				"&lastMod=" .. tostring(lastMod) ..
+				"&detailsBlobB64=" .. url.escape(mime.b64(aDetailsData)),
+			headers =
+			{
+				["UserAgent"] = gUserAgent,
+				["Client-Name"] = clientName,
+				["Client-Auth"] = clientAuth,
+				["Content-Type"] = "application/x-www-form-urlencoded",
+			},
+		})
+		if (statusCode ~= 200) then
+			log("aniDbDetails", "Upload to AniDbMirror failed: %s / %s / %s", tostring(statusCode), tostring(headers), tostring(body))
+		end
+		local resp, msg = loadstring("return " .. body)
+		if not(resp) then
+			log("aniDbDetails", "Failed to parse response for uploading to AniDbMirror: %s", msg)
+		end
+		resp = resp()
+		if not(resp) then
+			log("aniDbDetails", "Failed to process response for uploading to AniDbMirror: %s", msg)
+		end
+		if not(resp.ok) then
+			log("aniDbDetails", "Uploading to AniDbMirror failed: %s", tostring(resp.error))
+		end
+		log("aniDbDetails", "Upload to AniDbMirror succeeded")
+	end
+end
+
+
+
+
+
 --- Fetches AniDB XML for the specified aId
 -- Tries the following sources in order (examples for aId = 1234):
 --   1. Local file "AniDB/12/1234.xml"  (canonical format)
@@ -644,6 +708,7 @@ function M.fetchXml(aId, aShouldSkipCaches)
 	local canonicalFolder = string.format("AniDB/%d", math.floor(aId / 100))
 	local canonicalFileName = string.format("%s/%d.xml", canonicalFolder, aId)
 	local response
+	local shouldUpload
 	if not(aShouldSkipCaches) then
 		response = readFileContents(canonicalFileName)
 		if not(response) then
@@ -658,10 +723,12 @@ function M.fetchXml(aId, aShouldSkipCaches)
 		end
 	end
 	if not(response) then
+		isReadFromFile = false
 		response = fetchUrlWithRateLimit(
 			"http://api.anidb.net:9001/httpapi?client=anidbxref&clientver=1&protover=1&request=anime&aid=" .. aId,
 			gAniDbRateLimiter
 		)
+		shouldUpload = true
 	end
 	if not(response) then
 		return nil, "Cannot fetch details from any source."
@@ -676,6 +743,11 @@ function M.fetchXml(aId, aShouldSkipCaches)
 			f:write(response)
 			f:close()
 		end
+	end
+
+	-- Upload to AniDbMirror, if requested directly from AniDB:
+	if (shouldUpload) then
+		uploadToAniDbMirror(aId, response)
 	end
 
 	return response
