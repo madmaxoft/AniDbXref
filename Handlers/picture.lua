@@ -151,7 +151,7 @@ end
 
 
 return function(aRequest, aResponse)
-	local path, params = aRequest:parsePathAndQuery()
+	local path, params = aRequest:parsedPathAndQuery()
 	if not(params and params["id"]) then
 		aResponse:sendError(404, "id parameter not found")
 		return

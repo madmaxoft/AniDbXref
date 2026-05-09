@@ -33,7 +33,7 @@ config.registerDefinitions({
 
 function api.getSeen(aRequest, aResponse)
 	assert(type(aRequest) == "table")
-	assert(aRequest.parsePathAndQuery)
+	assert(aRequest.parsedPathAndQuery)
 	assert(type(aResponse) == "table")
 	assert(aResponse.sendLuaTable)
 
@@ -41,7 +41,7 @@ function api.getSeen(aRequest, aResponse)
 		return aResponse:sendError(400, "API disabled")
 	end
 
-	local path, params = aRequest:parsePathAndQuery()
+	local path, params = aRequest:parsedPathAndQuery()
 	local from = (params or {}).from or "0"
 	local seenIds = db.rawSeenIdsFrom(from)
 	aResponse:sendLuaTable(seenIds)
@@ -53,7 +53,7 @@ end
 
 function api.getWatchlist(aRequest, aResponse)
 	assert(type(aRequest) == "table")
-	assert(aRequest.parsePathAndQuery)
+	assert(aRequest.parsedPathAndQuery)
 	assert(type(aResponse) == "table")
 	assert(aResponse.sendLuaTable)
 

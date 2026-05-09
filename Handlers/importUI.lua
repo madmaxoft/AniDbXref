@@ -14,7 +14,6 @@ The handlers are returned in a table as named functions
 
 
 local import = require("importSeenFromPlaces")
-local multipart = require("multipart")
 local db = require("db")
 local lomParser = require("lxp.lom")
 local aniDbDetails = require("aniDbDetails")
@@ -243,34 +242,36 @@ function I.post(aRequest, aResponse)
 	end
 
 	-- Extract the uploaded form contents:
-	local body = aRequest:readAll()
-	local m = multipart(body, aRequest:header("content-type"))
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse form data: " .. tostring(msg))
+	end
 
-	local placesFileContents = (m:get("placesFile") or {}).value
+	local placesFileContents = formData["placesFile"]
 	if (placesFileContents) then
 		return handlePostPlacesFile(aRequest, aResponse, placesFileContents)
 	end
 
-	local detailsFileContents = (m:get("detailsFile") or {}).value
+	local detailsFileContents = formData["detailsFile"]
 	if (detailsFileContents) then
 		return handlePostDetailsFile(aRequest, aResponse, detailsFileContents)
 	end
 
-	local seenUrl = (m:get("seenUrl") or {}).value
+	local seenUrl = formData["seenUrl"]
 	if (seenUrl) then
 		return importSeen(aRequest, aResponse,
 			seenUrl,
-			(m:get("username") or {}).value,
-			(m:get("password") or {}).value
+			formData["username"],
+			formData["password"]
 		)
 	end
 
-	local watchlistUrl = (m:get("watchlistUrl") or {}).value
+	local watchlistUrl = formData["watchlistUrl"]
 	if (watchlistUrl) then
 		return importWatchlist(aRequest, aResponse,
 			watchlistUrl,
-			(m:get("username") or {}).value,
-			(m:get("password") or {}).value
+			formData["username"],
+			formData["password"]
 		)
 	end
 
@@ -302,16 +303,18 @@ function I.postReview(aRequest, aResponse)
 		return aResponse:sendError(400, "No such session")
 	end
 
-	local rawBody = aRequest:readAll()
-	local form = multipart(rawBody, aRequest:header("content-type"))
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse form data: %s", tostring(msg))
+	end
 
 	-- Process all items:
 	for i = 1, session.items.n do
 		local item = session.items[i]
-		local choice = (form:get("candidate_" .. i) or {}).value
+		local choice = formData["candidate_" .. i]
 		if (choice == "search") then
 			-- Re-search this item:
-			local query = (form:get("custom_" .. i) or {}).value
+			local query = formData["custom_" .. i]
 			if (query) then
 				item.candidates = import.searchCandidates(query)
 			end

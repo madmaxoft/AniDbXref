@@ -3,8 +3,14 @@
 --[[
 Implements the HttpRequest class representing a single HTTP request incoming from the client.
 The object is created by reading all the headers from a connection: httpRequest.createFromSocket()
-Also implements various helper functions, such as urlDecode(), readRequestHeaders() etc.
 --]]
+
+
+
+
+local httpUtils = require("httpUtils")
+local multipart = require("multipart")
+
 
 
 
@@ -19,120 +25,18 @@ Each instance has the following members:
 	mContentLength: Total bytes in the request body
 	mRemainingBodyBytes: Number of remaining bytes in the request body
 	mHasBody: bool
+	mHasStartedReadingBody: true if any part of the body has already been read.
+	mFormData: dict- and array-table of submitted form data. nil if not present, false if failed to parse.
+		See httpRequest:formData() for details.
 --]]
-local M = {}
-M.__index = M
+local httpRequest = {}
+httpRequest.__index = httpRequest
 
 
 
 
 
---- URL-decodes the input string
-function M.urlDecode(aStr)
-	aStr = aStr:gsub("+", " ")
-	aStr = aStr:gsub("%%(%x%x)", function(h) return string.char(tonumber(h, 16)) end)
-	return aStr
-end
-
-
-
-
-
---- Parses the full path from the request into the path part and parameters
--- Returns the path as a string and a table of { paramName, paramValue } as well as [paramName] = paramValue
-function M:parsePathAndQuery()
-	local path, query = self:pathAndQuery():match("([^?]*)%??(.*)")
-	local params = { n = 0 }
-
-	if (query ~= "") then
-		for key, val in query:gmatch("([^&=?]+)=?([^&]*)") do
-			local decodedKey = M.urlDecode(key)
-			local decodedVal = M.urlDecode(val)
-
-			params[decodedKey] = decodedVal
-			params.n = params.n + 1
-			params[params.n] = { decodedKey, decodedVal }
-		end
-	end
-
-	return path, params
-end
-
-
-
-
-
---- Reads and parses an incoming HTTP request line and headers
--- Returns method (string), path (string) and headers (combined lowercase-dict- and array- table)
--- Also returns the whole first line, as a debugging help
-function M.readRequestHeaders(aClient)
-	local request, msg = aClient:receive("*l")
-	if not(request) then
-		return nil, msg
-	end
-
-	local method, path = request:match("^(%S+)%s+(%S+)")
-	local headers = { n = 0 }
-
-	while (true) do
-		local line, msg = aClient:receive("*l")
-		if (not(line) or (line == "")) then
-			break
-		end
-
-		local key, value = line:match("^(.-):%s*(.*)")
-		if (key and value) then
-			headers[key:lower()] = value
-			headers.n = headers.n + 1
-			headers[headers.n] = { key = key, value = value }
-		end
-	end
-
-	return method, path, headers, request
-end
-
-
-
-
-
---- Returns the full request body up to Content-Length as a string
--- Returns nil and error message on failure
-function M.readBody(aClient, aHeaders)
-	local length = tonumber(aHeaders["content-length"] or 0)
-	if (length <= 0) then
-		return ""
-	end
-
-	local body, err = aClient:receive(length)
-	if not(body) then
-		return nil, string.format("Failed to read request body: %s", tostring(err))
-	end
-
-	return body
-end
-
-
-
-
-
---- Parses x-www-form-urlencoded data into dict + array table
-function M.parseFormUrlEncoded(aData)
-	local t = { n = 0 }
-	for key, val in aData:gmatch("([^&=]+)=([^&=]*)") do
-		local k = M.urlDecode(key)
-		local v = M.urlDecode(val)
-		t.n = t.n + 1
-		t[t.n] = { k, v }
-		t[k] = v
-	end
-	return t
-end
-
-
-
-
-
-function M.createFromSocket(aSocket)
+function httpRequest.createFromSocket(aSocket)
 	local self =
 	{
 		mSocket = aSocket,
@@ -144,7 +48,7 @@ function M.createFromSocket(aSocket)
 		mRemainingBodyBytes = 0,
 		mHasBody = false,
 	}
-	setmetatable(self, M)
+	setmetatable(self, httpRequest)
 
 	-- Read the request line:
 	local requestLine, err = aSocket:receive("*l")
@@ -160,21 +64,10 @@ function M.createFromSocket(aSocket)
 	self.mHttpVersion = version
 
 	-- Read the http headers:
-	while (true) do
-		local line, lineErr = aSocket:receive("*l")
-		if not(line) then
-			return nil, "Failed to receive header: " .. tostring(lineErr)
-		end
-		if (line == "") then
-			break
-		end
-		local key, value = line:match("^([^:]+):%s*(.*)$")
-		if (key) then
-			self.mHeaders.n = self.mHeaders.n + 1
-			self.mHeaders[self.mHeaders.n] = value
-			key = key:lower()
-			self.mHeaders[key] = value
-		end
+	local msg
+	self.mHeaders, msg = httpUtils.readHeaders(aSocket)
+	if not(self.mHeaders) then
+		return nil, "Failed to read headers: " .. tostring(msg)
 	end
 
 	-- Determine the body length:
@@ -195,43 +88,76 @@ end
 
 
 
---- Returns the HTTP method used in the request
-function M:method()
-	return self.mMethod
-end
-
-
-
-
-
---- Returns the request path (including the query part)
-function M:pathAndQuery()
-	return self.mPathAndQuery
-end
-
-
-
-
-
---- Returns the http version used in the request, such as "1.1"
-function M:httpVersion()
-	return self.mHttpVersion
-end
-
-
-
-
-
---- Returns the value of the specified http header, nil if not provided
--- aName can either be the header name, such as "Content-Type", or the (1-based) index
-function M:header(aName)
-	if not(aName) then
-		return nil
+--- If the request's body hasn't been fully read yet, reads the remainder and discards the data.
+function httpRequest:discardUnreadBody()
+	if not(self.mHasBody) then
+		return
 	end
-	if (type(aName) == "string") then
-		aName = aName:lower()
+
+	while (self.mRemainingBodyBytes > 0) do
+		local chunk, err = self:read(8192)
+		if (not chunk) then
+			break
+		end
 	end
-	return self.mHeaders[aName]
+end
+
+
+
+
+
+--- Returns the parsed form data from this request
+-- Parses forms in both "application/x-www-form-urlencoded" and "multipart/form-data" formats
+-- NOTE: Doesn't parse the form data in GET request parameters, use parsedPathAndQuery() for that
+-- NOTE: Stores both the body and the form data in memory, not suitable for large file uploads
+-- Returns a dict- and array-table of the form data elements.
+-- Returns nil and error message on failure
+function httpRequest:formData()
+	assert(type(self) == "table")
+	assert(self.method)
+
+	-- If the data has already been parsed, return that:
+	if (self.mFormData) then
+		return self.mFormData
+	end
+
+	-- If the form data parsing has been attempted previously with a failure, fail now as well:
+	if (self.mFormData == false) then
+		return nil, "Parsing the form data has failed previously"
+	end
+
+	-- Fail if the request isn't supposed to have a body (use parsedPathAndQuery() to process GET-targeted forms)
+	if not(self.mHasBody) then
+		return nil, "The request has no body, no form data could be sent"
+	end
+
+	-- Fail if any part of the body has already been read:
+	if (self.mHasStartedReadingBody) then
+		return nil, "Reading the body has already started before"
+	end
+
+	local body = self:readAll()
+	self.mFormData = false  -- Mark attempted parsing
+	local contentType = self:header("content-type")
+	if not(type(contentType) == "string") then
+		return nil, "Content-Type not present or specified multiple times"
+	end
+	if (contentType:find("multipart/form%-data")) then
+		local m, msg = multipart(body, contentType)
+		if not(m) then
+			return nil, "Failed to parse form multipart data: " .. tostring(msg)
+		end
+		self.mFormData = m:get_all()
+	elseif (contentType:find("application/x%-www%-form%-urlencoded")) then
+		local fd, msg = httpUtils.parseFormUrlEncoded(body)
+		if not(fd) then
+			return nil, "Failed to parse form data: " .. tostring(msg)
+		end
+		self.mFormData = fd
+	else
+		return nil, "Unhandled content type: " .. contentType
+	end
+	return self.mFormData
 end
 
 
@@ -239,7 +165,7 @@ end
 
 
 --- Returns whether the request has a body or not
-function M:hasBody()
+function httpRequest:hasBody()
 	return self.mHasBody
 end
 
@@ -247,17 +173,72 @@ end
 
 
 
---- Returns the number of remaining bytes of the body to still be read
-function M:remainingBodyBytes()
-	return self.mRemainingBodyBytes
+--- Returns the value of the specified http header, nil if not provided
+-- The header name in parameter is case-insensitive
+-- If there are multiple headers of the same name, returns an array-table of the values
+function httpRequest:header(aName)
+	assert(type(aName) == "string")
+
+	return self.mHeaders[aName:lower()]
 end
 
 
 
 
 
-function M:read(aNumBytes)
-	if (not self.mHasBody) then
+--- Returns the http version used in the request, such as "1.1"
+function httpRequest:httpVersion()
+	return self.mHttpVersion
+end
+
+
+
+
+
+--- Returns the HTTP method used in the request
+function httpRequest:method()
+	return self.mMethod
+end
+
+
+
+
+
+--- Parses the full path from the request into the path part and parameters
+-- Returns the path as a string and a table of { paramName, paramValue } as well as [paramName] = paramValue
+function httpRequest:parsedPathAndQuery()
+	local path, query = self:pathAndQuery():match("([^?]*)%??(.*)")
+	local params = { n = 0 }
+
+	if (query ~= "") then
+		for key, val in query:gmatch("([^&=?]+)=?([^&]*)") do
+			local decodedKey = httpUtils.urlDecode(key)
+			local decodedVal = httpUtils.urlDecode(val)
+
+			params[decodedKey] = decodedVal
+			params.n = params.n + 1
+			params[params.n] = { decodedKey, decodedVal }
+		end
+	end
+
+	return path, params
+end
+
+
+
+
+
+--- Returns the request path (including the query part)
+function httpRequest:pathAndQuery()
+	return self.mPathAndQuery
+end
+
+
+
+
+
+function httpRequest:read(aNumBytes)
+	if not(self.mHasBody) then
 		return nil
 	end
 
@@ -265,6 +246,7 @@ function M:read(aNumBytes)
 		return nil
 	end
 
+	self.mHasStartedReadingBody = true
 	local toRead = aNumBytes
 	if ((not toRead) or (toRead > self.mRemainingBodyBytes)) then
 		toRead = self.mRemainingBodyBytes
@@ -288,7 +270,7 @@ end
 
 
 --- Reads and returns the remainder of the request body
-function M:readAll()
+function httpRequest:readAll()
 	if not(self.mHasBody) then
 		return nil
 	end
@@ -314,17 +296,9 @@ end
 
 
 
-function M:discardUnreadBody()
-	if not(self.mHasBody) then
-		return
-	end
-
-	while (self.mRemainingBodyBytes > 0) do
-		local chunk, err = self:read(8192)
-		if (not chunk) then
-			break
-		end
-	end
+--- Returns the number of remaining bytes of the body to still be read
+function httpRequest:remainingBodyBytes()
+	return self.mRemainingBodyBytes
 end
 
 
@@ -335,7 +309,7 @@ end
 -- Implements the default rules for the two http versions, with the possibility to override
 -- keepalive using response's "Connection: Close" header
 -- If aResponse is nil, the response override is not taken into account
-function M:shouldKeepAlive(aResponse)
+function httpRequest:shouldKeepAlive(aResponse)
 	-- Check if the "Connection: Close" request header is present:
 	local connectionHeader = self:header("connection")
 	if (connectionHeader) then
@@ -373,4 +347,4 @@ end
 
 
 
-return M
+return httpRequest

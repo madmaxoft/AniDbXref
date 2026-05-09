@@ -6,7 +6,7 @@ local db = require("db")
 
 
 return function(aRequest, aResponse)
-	local path, params = aRequest:parsePathAndQuery()
+	local path, params = aRequest:parsedPathAndQuery()
 	if (not(params) or not(params["q"])) then
 		return aResponse:sendError(404, "Query parameter not found")
 	end

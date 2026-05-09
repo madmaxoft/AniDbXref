@@ -6,7 +6,6 @@ Implements handlers for displaying the anime details page and handling the forms
 
 local db = require("db")
 local requestQueue = require("requestQueue")
-local multipart = require("multipart")
 local log = require("logger").log
 local perf = require("perf")
 
@@ -69,16 +68,18 @@ function AD.postSetSeen(aRequest, aResponse)
 		return aResponse:sendTemplate("readOnly", {})
 	end
 
-	local rawBody = aRequest:readAll()
-	local form = multipart(rawBody, aRequest:header("content-type"))
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse form data: " .. tostring(msg))
+	end
 
-	local aId = tonumber((form:get("aId") or {}).value)
+	local aId = tonumber(formData["aId"])
 	if not(aId) then
 		return aResponse:sendError(400, "Bad or missing aId")
 	end
 
 	if ((form:get("isSeen") or {}).value) then
-		local seenDateYmd = (form:get("seenDateYmd") or {}).value
+		local seenDateYmd = formData["seenDateYmd"]
 		local seenDate = parseYmd(seenDateYmd)
 		if not(seenDate) then
 			return aResponse:sendError(400, "Bad or missing seenDateYmd")
