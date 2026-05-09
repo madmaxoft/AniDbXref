@@ -3,22 +3,43 @@
 <head>
 	<meta charset="UTF-8">
 	<title>AniDB Update Confirmation</title>
+	<link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body>
 
 <% if not(request.isReadOnly) then %>
 
 <h1>AniDB Dump Update</h1>
-<p>Last update: <%= lastUpdate %></p>
-<p>Next allowed update: <%= nextUpdate %></p>
+<table>
+<tr>
+<td>
+	<h2>Update online</h2>
+	<p>Last update: <%= lastUpdate %></p>
+	<p>Next allowed update: <%= nextUpdate %></p>
 
-<% if (canUpdate) then %>
-<form action="/update-start" method="post">
-	<button type="submit">Start Update</button>
-</form>
-<% else %>
-<p>Update not allowed yet.</p>
-<% end %>
+	<% if (canUpdate) then %>
+		<form action="/update-start" method="post">
+			<button type="submit">Start Update</button>
+		</form>
+	<% else %>
+		<p>Update not allowed yet.</p>
+	<% end %>
+
+</td>
+</tr>
+<tr>
+<td>
+	<h2>Manual offline update</h2>
+	<p>If the online update fails, you can download the <a href="http://anidb.net/api/anime-titles.xml.gz">dump
+	file</a> manually and process it here:</p>
+	<form action="/update-start" method="post" enctype="multipart/form-data">
+		<input type="file" name="dumpFile" placeholder="Upload the anime-titles.xml.gz file" style="width:600px">
+		<button type="submit">Update</button>
+	</form>
+</td>
+</tr>
+</table>
+
 
 <% end %>
 
