@@ -78,7 +78,7 @@ function AD.postSetSeen(aRequest, aResponse)
 		return aResponse:sendError(400, "Bad or missing aId")
 	end
 
-	if ((form:get("isSeen") or {}).value) then
+	if (formData["isSeen"]) then
 		local seenDateYmd = formData["seenDateYmd"]
 		local seenDate = parseYmd(seenDateYmd)
 		if not(seenDate) then
