@@ -1,9 +1,16 @@
 -- router.lua
 
 --[[
-Implements the HTTP server's routing table.
-The routes are listed statically in the table below
-Route handlers live in the Handlers subfolder.
+Implements the HTTP server's routing table processor. The route table, provided externally, specifies
+the handlers to use for the HTTP methods and paths.
+By default loads the route table from require("routeTable")
+Usage:
+	local router = require("router")
+	local req = httpRequest.createFromSocket(socket)
+	local resp = httpResponse.new(req)
+	router.handleRequest(req, resp)
+	resp:finish()
+	req:discardUnreadBody()
 --]]
 
 
