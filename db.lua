@@ -5,9 +5,13 @@ local sqlite3 = require("lsqlite3")
 local perf = require("perf")
 local log = require("logger").log
 local utils = require("utils")
+local titleSearch = require("titleSearch")
 
 local db = {}
 local gDB = nil  -- The actual DB connection object
+
+--- The in-memory search engine for titles
+local gTitleSearch
 
 local unpack = unpack or table.unpack  -- Compatibility between Lua 5.1 and LuaJIT
 
@@ -54,6 +58,16 @@ local function initialize()
 
 	-- Now safely run the upgrade
 	dbUpgrade.upgradeIfNeeded(gDB, "anime.sqlite")
+
+	log("db", "Initializing titleSearch...")
+	gTitleSearch = titleSearch.new()
+	local allTitles = db.getArrayFromQuery("SELECT aId, language, title FROM AnimeTitle", {}, "allTitles")
+	for _, title in ipairs(allTitles) do
+		if ((title.language == "en") or (title.language == "x-jat")) then
+			gTitleSearch:insert(title.title, title.aId)
+		end
+	end
+	log("db", "DB init done.")
 end
 
 
@@ -1175,47 +1189,7 @@ function db.searchAnimeTitlesRaw(aQuery)
 	assert(gDB ~= nil)
 	assert(type(aQuery) == "string")
 
-	local results = { n = 0 }
-	local n = 0
-
-	-- Get the list of searchable words:
-	local words = {}
-	for word in aQuery:gmatch("%S+") do
-		if (#word >= 3) then
-			words[#words + 1] = "%" .. word:lower() .. "%"
-		end
-	end
-	if (#words == 0) then
-		return results
-	end
-
-	-- Search the DB:
-	local sql = [[
-		SELECT DISTINCT aId
-		FROM AnimeTitle
-		WHERE 1 = 1
-	]]
-	for _ = 1, #words do
-		sql = sql .. " AND titleLower LIKE ?"
-	end
-	sql = sql .. " LIMIT 50;"
-
-	local stmt = gDB:prepare(sql)
-	if not(stmt) then
-		error("Failed to prepare search query: " .. (gDB:errmsg() or "unknown error"))
-	end
-	stmt:bind_values(table.unpack(words))
-	for row in stmt:nrows() do
-		n = n + 1
-		results[n] =
-		{
-			aId = row.aId,
-		}
-	end
-	results.n = n
-
-	stmt:finalize()
-	return results
+	return gTitleSearch:query(aQuery)
 end
 
 
