@@ -1745,6 +1745,15 @@ end
 
 
 
+--- Returns the titleSearch instance
+function db.titleSearch()
+	return gTitleSearch
+end
+
+
+
+
+
 --- Updates the Anime and AnimeTitle tables from an AniDB dump
 function db.updateAniDbDataFromDump(aXmlString)
 	assert(gDB ~= nil)

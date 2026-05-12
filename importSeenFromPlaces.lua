@@ -11,6 +11,7 @@ Provides the Places.sqlite parser, matcher and session management
 local db = require("db")
 local perf = require("perf")
 local utils = require("utils")
+local log = require("logger").log
 
 
 
@@ -213,7 +214,9 @@ end
 -- Parses the file, matches it up to the DB and adds it into I.currentSessions[]
 function I.buildSession(aFileName)
 	-- Parse the items and search for candidates:
+	log("importSeenFromPlaces", "Parsing DB file %s...", aFileName)
 	local parsed = parsePlacesFile(aFileName)
+	log("importSeenFromPlaces", "Searching for candidates...")
 	local numParsed = parsed.n
 	for idx = 1, numParsed do
 		local seen = parsed[idx]
@@ -298,6 +301,7 @@ function I.searchCandidates(aTitle, aQuery)
 	table.sort(result, function(aItem1, aItem2)
 		return ((aItem1.bestTitle or "") < (aItem2.bestTitle or ""))
 	end)
+	log("importSeenFromPlaces", "Memory usage after searchCandidates: %d KiB", collectgarbage("count"))
 	return result
 end
 

@@ -4,8 +4,8 @@
 Implements an object responsible for searching many text items for a best match. Produces possibly multiple
 results, which are ranked by similarity. Used to search anime by its title, word by word.
 
-Works by incrementally building an index of word -> array of ids containing the word, then queries are
-split by words, each word produces a set of ids, those are then intersected to give the results.
+Works by incrementally building an index of word -> ids containing the word, then queries are
+split by words, each word adds score to each id, and the ids with the highest score are returned.
 
 Supports initial batch load and incremental additions. Doesn't support removals.
 
@@ -22,44 +22,15 @@ Usage:
 
 
 
+local fuzzyWordIndex = require("fuzzyWordIndex")
+
+
+
+
+
 --- The API of this module
 local titleSearch = {}
 titleSearch.__index = titleSearch
-
-
-
-
-
---- Splits text into normalized searchable words
-local function tokenize(aText)
-	assert(type(aText) == "string")
-
-	local words = {}
-	for word in aText:lower():gmatch("[%w']+") do
-		table.insert(words, word)
-	end
-	return words
-end
-
-
-
-
-
---- Removes items from aSetToChange that are not in aArrayToKeep
-local function removeFromSet(aSetToChange, aArrayToKeep)
-	assert(type(aSetToChange) == "table")
-	assert(aSetToChange.currentMarker)
-	assert(type(aArrayToKeep) == "table")
-
-	local currentMarker = aSetToChange.currentMarker
-	local newMarker = currentMarker + 1
-	for _, value in ipairs(aArrayToKeep) do
-		if (aSetToChange[value] == currentMarker) then
-			aSetToChange[value] = newMarker
-		end
-	end
-	aSetToChange.currentMarker = newMarker
-end
 
 
 
@@ -69,11 +40,21 @@ end
 function titleSearch.new()
 	local self =
 	{
-		--- Dict-table of word -> { id1, id2, ... }
+		--- Dict-table of word -> { id1 = true, id2 = true, ... }
 		mIndex = {},
 
 		--- Dict-table of id -> original title
 		mTitles = {},
+
+		--- word matcher fuzzy-search
+		mFuzzyWordIndex = fuzzyWordIndex.new(),
+
+		--- Statistics for debugging and tuning
+		mStats =
+		{
+			numWords = 0,
+			numTitles = 0,
+		}
 	}
 	setmetatable(self, titleSearch)
 	return self
@@ -92,21 +73,20 @@ function titleSearch:insert(aTitle, aId)
 	self.mTitles[aId] = aTitle
 
 	-- Insert each word into the index:
-	local alreadyInserted = {}  -- Dict of word -> true for already-inserted words, to avoid duplicate insertions
-	for _, word in ipairs(tokenize(aTitle)) do
-		if not(alreadyInserted[word]) then
-			alreadyInserted[word] = true
-			local bucket = self.mIndex[word]
-			if not(bucket) then
-				bucket = {n = 0}
-				self.mIndex[word] = bucket
-			end
-			if not(bucket[aId]) then
-				bucket.n = bucket.n + 1
-				bucket[aId] = true
-			end
+	for word in aTitle:lower():gmatch("[%w']+") do
+		local bucket = self.mIndex[word]
+		if not(bucket) then
+			bucket = {n = 0}
+			self.mIndex[word] = bucket
+			self.mFuzzyWordIndex:insert(word)
+			self.mStats.numWords = self.mStats.numWords + 1
+		end
+		if not(bucket[aId]) then
+			bucket.n = bucket.n + 1
+			bucket[aId] = true
 		end
 	end
+	self.mStats.numTitles = self.mStats.numTitles + 1
 end
 
 
@@ -119,25 +99,42 @@ function titleSearch:query(aQuery)
 	assert(type(self) == "table")
 	assert(type(aQuery) == "string")
 
-	local queryWords = tokenize(aQuery)
-	if (#queryWords == 0) then
-		return {n = 0}
-	end
-
 	-- Collect the score for each relevant id:
 	local scores = {}
 	local maxScore = 0
-	for _, word in ipairs(queryWords) do
-		local bucket = self.mIndex[word]
-		if not(bucket) then
-			return {n = 0}
+	for queryWord in aQuery:lower():gmatch("[%w']+") do
+		-- Search the fuzzyWordIndex, if word not found:
+		local matchedWords
+		if (self.mIndex[queryWord]) then
+			matchedWords = {{word = queryWord, distance = 0}}
+		else
+			local maxDistance
+			if (#queryWord <= 3) then
+				-- For up-to-3-letter words we want an exact match, but there isn't one
+				matchedWords = {}
+			else
+				if (#queryWord <= 6) then
+					maxDistance = 1
+				else
+					maxDistance = 2
+				end
+				matchedWords = self.mFuzzyWordIndex:search(queryWord, maxDistance)
+			end
 		end
-		local addition = 100 / bucket.n
-		for id, _ in pairs(bucket) do
-			local newScore = (scores[id] or 0) + addition
-			scores[id] = newScore
-			if (newScore > maxScore) then
-				maxScore = newScore
+
+		-- Add the score for all fuzzy-matched words:
+		for _, matchedWord in ipairs(matchedWords) do
+			local bucket = self.mIndex[matchedWord.word]
+			if (bucket) then
+				local addition = 100 / bucket.n  -- Make less-common words more important
+				addition = addition / (matchedWord.distance + 1)
+				for id, _ in pairs(bucket) do
+					local newScore = (scores[id] or 0) + addition
+					scores[id] = newScore
+					if (newScore > maxScore) then
+						maxScore = newScore
+					end
+				end
 			end
 		end
 	end
@@ -162,6 +159,8 @@ function titleSearch:query(aQuery)
 			return (self.mTitles[aItem1.aId] < self.mTitles[aItem2.aId])
 		end
 	)
+
+	-- Return at most 50 results:
 	for i = 50, n do
 		results[i] = nil
 	end

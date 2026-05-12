@@ -14,6 +14,8 @@ local queries = {
 	"steinsgate",
 	"86",
 	"girlfriend girlfriend",
+	"atack on titan",
+	"stein gate",
 }
 
 
@@ -24,16 +26,21 @@ local queries = {
 package.path = "../?.lua;" .. package.path
 
 local perf = require("perf")
+local utils = require("utils")
 
 local timer = perf.newTimer("test-search")
 local db = require("db")
 timer("dbInit")
 
+-- Print out the stats:
+print("Stats:")
+print(utils.serializeSimpleTable(db.titleSearch().mStats))
+
 -- Measure the time for various queries:
 local results = {}
 for idx, query in ipairs(queries) do
 	results[idx] = db.searchAnimeTitles(query)
-	timer("search." .. idx)
+	timer("search: " .. query)
 end
 
 -- Dump the results of the queries:
