@@ -146,12 +146,16 @@ local function createConnection(aParsedUrl)
 			protocol = "tlsv1_2",
 			verify = "none",
 			options = "all",
+			server = aParsedUrl.host,
 		}
 		local tlsSock, err3 = ssl.wrap(sock, params)
 		if not(tlsSock) then
 			return nil, "Failed to initialize TLS: " .. tostring(err3)
 		end
 		sock = tlsSock
+		if (sock.sni) then
+			sock:sni(aParsedUrl.host)
+		end
 
 		local ok2, err4 = sock:dohandshake()
 		if not(ok2) then
