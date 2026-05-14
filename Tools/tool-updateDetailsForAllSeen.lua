@@ -20,6 +20,9 @@ local gIgnoreBelowAid = 15695
 
 
 
+-- Do not initialize DB's titleSearch
+gDbSkipInitTitleSearch = true
+
 local db = require("db")
 local aniDbDetails = require("aniDbDetails")
 local socket = require("socket")

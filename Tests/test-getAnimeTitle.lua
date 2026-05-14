@@ -12,6 +12,9 @@ Works in a synchronous IDE-debugger-friendly environment
 -- Adjust the package load path so that the local modules can be loaded:
 package.path = "../?.lua;" .. package.path
 
+-- Do not initialize DB's titleSearch
+gDbSkipInitTitleSearch = true
+
 
 
 

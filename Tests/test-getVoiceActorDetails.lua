@@ -12,6 +12,9 @@ Runs in a singlethreaded environment for easier debugging
 -- Adjust the package load path so that the local modules can be loaded:
 package.path = "../?.lua;" .. package.path
 
+-- Do not initialize DB's titleSearch
+gDbSkipInitTitleSearch = true
+
 
 
 

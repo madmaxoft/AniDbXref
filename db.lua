@@ -13,6 +13,9 @@ local gDB = nil  -- The actual DB connection object
 --- The in-memory search engine for titles
 local gTitleSearch
 
+--- Gloal flag that TitleSearch initialization should be skipped (used for faster test startup):
+local gDbSkipInitTitleSearch = gDbSkipInitTitleSearch or false
+
 local unpack = unpack or table.unpack  -- Compatibility between Lua 5.1 and LuaJIT
 
 
@@ -59,12 +62,14 @@ local function initialize()
 	-- Now safely run the upgrade
 	dbUpgrade.upgradeIfNeeded(gDB, "anime.sqlite")
 
-	log("db", "Initializing titleSearch...")
 	gTitleSearch = titleSearch.new()
-	local allTitles = db.getArrayFromQuery("SELECT aId, language, title FROM AnimeTitle", {}, "allTitles")
-	for _, title in ipairs(allTitles) do
-		if ((title.language == "en") or (title.language == "x-jat")) then
-			gTitleSearch:insert(title.title, title.aId)
+	if not(gDbSkipInitTitleSearch) then
+		log("db", "Initializing titleSearch...")
+		local allTitles = db.getArrayFromQuery("SELECT aId, language, title FROM AnimeTitle", {}, "allTitles")
+		for _, title in ipairs(allTitles) do
+			if ((title.language == "en") or (title.language == "x-jat")) then
+				gTitleSearch:insert(title.title, title.aId)
+			end
 		end
 	end
 	log("db", "DB init done.")
@@ -376,7 +381,7 @@ function db.execBoundStatement(aSql, aValuesToBind, aDescription)
 	if not(stmt) then
 		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
 	end
-	checkSql(stmt:bind_values(table.unpack(aValuesToBind)), aDescription .. ".bind")
+	checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
 	checkSql(stmt:step(), aDescription .. ".step")
 	checkSql(stmt:finalize(), aDescription .. ".finalize")
 end

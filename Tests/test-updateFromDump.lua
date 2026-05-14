@@ -14,6 +14,9 @@ The test runs in a single threaded environment for easier debugging.
 -- Adjust the package load path so that the local modules can be loaded:
 package.path = "../?.lua;" .. package.path
 
+-- Do not initialize DB's titleSearch
+gDbSkipInitTitleSearch = true
+
 local db = require("db")
 local httpClient = require("httpClient").noCopas()
 local ltn12 = require("ltn12")

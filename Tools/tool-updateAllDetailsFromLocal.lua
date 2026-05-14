@@ -12,6 +12,9 @@ Can be used after dumping all data from an AniDbMirror using its downloader scri
 -- Adjust the package load path so that the local modules can be loaded:
 package.path = "../?.lua;" .. package.path
 
+-- Do not initialize DB's titleSearch
+gDbSkipInitTitleSearch = true
+
 local db = require("db")
 local details = require("aniDbDetails")
 local perf = require("perf")

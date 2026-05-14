@@ -12,6 +12,9 @@ Includes testcases for weird values that may break the underlying storage (false
 -- Adjust the package load path so that the local modules can be loaded:
 package.path = "../?.lua;" .. package.path
 
+-- Do not initialize DB's titleSearch
+gDbSkipInitTitleSearch = true
+
 
 
 

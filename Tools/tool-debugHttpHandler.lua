@@ -12,6 +12,13 @@ Calls the router on the specified mocked HTTP request.
 -- Adjust the package load path so that the local modules can be loaded:
 package.path = "../?.lua;" .. package.path
 
+-- Do not initialize DB's titleSearch
+gDbSkipInitTitleSearch = true
+
+
+
+
+
 local theRequest =
 {
 	mMethod = "GET",
