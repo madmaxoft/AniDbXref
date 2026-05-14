@@ -30,6 +30,7 @@ local function assertEquals(aExpected, aActual, aMessage)
 		print("[FAIL] " .. (aMessage or ""))
 		print("	expected:", aExpected)
 		print("	actual  :", aActual)
+		print(debug.traceback())
 	else
 		print("[OK] " .. (aMessage or ""))
 	end
@@ -176,7 +177,7 @@ assertTrue(ok1, "validation success")
 -- Validation failure
 local ok2, err2 = config.set("test.validated", -1)
 assertEquals(nil, ok2, "validation failure returns nil")
-assertEquals("must be >= 0", err2, "validation error message")
+assertEquals("Validation failed: must be >= 0", err2, "validation error message")
 
 -- Load/save roundtrip test via mock DB
 config.set("test.number", 123)
