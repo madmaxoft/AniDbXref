@@ -73,13 +73,13 @@ function AD.postSetSeen(aRequest, aResponse)
 		return aResponse:sendError(400, "Failed to parse form data: " .. tostring(msg))
 	end
 
-	local aId = tonumber(formData["aId"])
+	local aId = tonumber(formData["aid"])
 	if not(aId) then
 		return aResponse:sendError(400, "Bad or missing aId")
 	end
 
-	if (formData["isSeen"]) then
-		local seenDateYmd = formData["seenDateYmd"]
+	if (formData["isseen"]) then
+		local seenDateYmd = formData["seendateymd"]
 		local seenDate = parseYmd(seenDateYmd)
 		if not(seenDate) then
 			return aResponse:sendError(400, "Bad or missing seenDateYmd")

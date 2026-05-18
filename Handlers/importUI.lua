@@ -247,17 +247,17 @@ function I.post(aRequest, aResponse)
 		return aResponse:sendError(400, "Failed to parse form data: " .. tostring(msg))
 	end
 
-	local placesFileContents = formData["placesFile"]
+	local placesFileContents = formData["placesfile"]
 	if (placesFileContents) then
 		return handlePostPlacesFile(aRequest, aResponse, placesFileContents)
 	end
 
-	local detailsFileContents = formData["detailsFile"]
+	local detailsFileContents = formData["detailsfile"]
 	if (detailsFileContents) then
 		return handlePostDetailsFile(aRequest, aResponse, detailsFileContents)
 	end
 
-	local seenUrl = formData["seenUrl"]
+	local seenUrl = formData["seenurl"]
 	if (seenUrl) then
 		return importSeen(aRequest, aResponse,
 			seenUrl,
@@ -266,7 +266,7 @@ function I.post(aRequest, aResponse)
 		)
 	end
 
-	local watchlistUrl = formData["watchlistUrl"]
+	local watchlistUrl = formData["watchlisturl"]
 	if (watchlistUrl) then
 		return importWatchlist(aRequest, aResponse,
 			watchlistUrl,

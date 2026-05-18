@@ -10,6 +10,7 @@ Implements the HTTP endpoints for displaying and editing the watchlist, present 
 
 local utils = require("utils")
 local db = require("db")
+local log = require("logger").log
 
 
 
@@ -68,22 +69,22 @@ function M.postAdd(aRequest, aResponse)
 	-- Only POST should reach here
 	assert(aRequest:method() == "POST")
 
-	local body = aRequest:readAll()
-	local form = aRequest.parseFormUrlEncoded(body)
-	if not(form) then
-		return aResponse:sendError(400, "Failed to parse request body")
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
 	end
 
-	local aId = tonumber(form.aId)
+	local aId = tonumber(formData.aid)
 	if not(aId) then
 		return aResponse:sendError(400, "Missing or invalid aId parameter")
 	end
-	local watchlistSeason = form.watchlistSeason
+	local watchlistSeason = formData.watchlistseason
 	if not(watchlistSeason) then
 		return aResponse:sendError(400, "Missing or invalid watchlistSeason parameter")
 	end
 
 	-- Add to the DB:
+	log("watchlist", "Adding aId %d into watchlist season %s", aId, watchlistSeason)
 	local isOK, err = pcall(function()
 		db.addToWatchlist(aId, watchlistSeason)
 	end)

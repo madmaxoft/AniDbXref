@@ -31,7 +31,7 @@
 		<a href="/anime/<%= r.aId %>">Details</a> |
 		<% if not(request.isReadOnly) then %>
 		<form action="/seen/add" method="post" style="display:inline">
-			<input type="hidden" name="aId" value="<%= r.aId %>">
+			<input type="hidden" name="aid" value="<%= r.aId %>">
 			<button type="submit">Add as Seen</button>
 		</form>
 		<% end %>

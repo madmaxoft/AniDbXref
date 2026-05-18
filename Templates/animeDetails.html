@@ -81,13 +81,13 @@ end
 			<% end %>
 		<% else %>
 		<form action="/anime/setSeen" method="POST" enctype="multipart/form-data">
-				<input type="hidden" name="aId" value="<%= aId %>" />
-				<input type="checkbox" name="isSeen" value="1" <% if (details.isSeen == 1) then %> checked="true" <% end %> >
+				<input type="hidden" name="aid" value="<%= aId %>" />
+				<input type="checkbox" name="isseen" value="1" <% if (details.isSeen == 1) then %> checked="true" <% end %> >
 				Seen
 				</label>
 				<label>
 				on:
-				<input type="date" name="seenDateYmd" value="<%= utils.toIsoDate(details.seenDateYmd) %>">
+				<input type="date" name="seendateymd" value="<%= utils.toIsoDate(details.seenDateYmd) %>">
 				</label>
 				<button type="submit">Apply</button>
 		</form>

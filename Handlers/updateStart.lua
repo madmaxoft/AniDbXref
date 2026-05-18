@@ -107,8 +107,8 @@ return function(aRequest, aResponse)
 	if not(formData) then
 		return aResponse:sendError(400, "Failed to parse form data: " .. tostring(msg))
 	end
-	if (formData["dumpFile"]) then
-		return updateFromString(aRequest, aResponse, formData["dumpFile"])
+	if (formData["dumpfile"]) then
+		return updateFromString(aRequest, aResponse, formData["dumpfile"])
 	else
 		return updateFromWeb(aRequest, aResponse)
 	end

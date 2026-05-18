@@ -10,6 +10,7 @@ The object is created by reading all the headers from a connection: httpRequest.
 
 local httpUtils = require("httpUtils")
 local multipart = require("multipart")
+local caseInsensitiveDict = require("caseInsensitiveDict")
 
 
 
@@ -110,7 +111,7 @@ end
 -- Parses forms in both "application/x-www-form-urlencoded" and "multipart/form-data" formats
 -- NOTE: Doesn't parse the form data in GET request parameters, use parsedPathAndQuery() for that
 -- NOTE: Stores both the body and the form data in memory, not suitable for large file uploads
--- Returns a dict- and array-table of the form data elements.
+-- Returns a case-insensitive dict-table of the form data elements
 -- Returns nil and error message on failure
 function httpRequest:formData()
 	assert(type(self) == "table")
@@ -157,6 +158,14 @@ function httpRequest:formData()
 	else
 		return nil, "Unhandled content type: " .. contentType
 	end
+
+	-- Normalize form field names to lowercase:
+	local fd = caseInsensitiveDict.new()
+	for k, v in pairs(self.mFormData) do
+		fd[k:lower()] = v
+	end
+	self.mFormData = fd
+
 	return self.mFormData
 end
 
