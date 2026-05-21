@@ -128,7 +128,7 @@ end
 function utils.timestampToSeason(aTimestamp)
 	assert(type(aTimestamp) == "number")
 
-	return utils.ymdToSeason(os.date("!%Y-%m-%d", aTimestamp))
+	return utils.ymdToSeason(utils.timestampToYmd(aTimestamp))
 end
 
 
@@ -146,26 +146,61 @@ end
 
 
 
+--- Returns the timezone offset from UTC for the specified timestamp, taking DST into account
+function utils.timezoneOffset(aTimestamp)
+	local localDate = os.date("*t", aTimestamp)
+	local utcDate = os.date("!*t", aTimestamp)
+
+	-- Manually calculate the offset, os.timediff() would do timezone conversion, which we don't want.
+	local offset = (localDate.hour - utcDate.hour) * 3600 + (localDate.min  - utcDate.min) * 60 + localDate.sec  - utcDate.sec
+
+	-- Correct day wraparound:
+	local dayDiff = localDate.yday - utcDate.yday
+	if (dayDiff > 1) then  -- Wrap-around the new year
+		dayDiff = -1
+	elseif (dayDiff < -1) then
+		dayDiff = 1
+	end
+
+	return offset + dayDiff * 86400
+end
+
+
+
+
+
+--- Returns the YMD representation of a day that is the specified offset of days from the specified date
+-- Eg. "2026-01-02" + (-3) = "2025-12-30"
+-- Returns nil and error message on failure
+function utils.ymdAddOffset(aDateYmd, aOffsetDays)
+	assert(type(aDateYmd) == "string")
+	assert(type(aOffsetDays) == "number")
+
+	local timestamp, msg = utils.ymdToTimestamp(aDateYmd)
+	if not(timestamp) then
+		return nil, "Failed to parse date: " .. tostring(msg)
+	end
+	return utils.timestampToYmd(timestamp + aOffsetDays * 24 * 60 * 60)
+end
+
+
+
+
+
 --- Returns the day-of-week index of the specified YMD date (1 = Mon, 7 = Sun)
 -- Returns nil and error message on failure
 function utils.ymdDayOfWeek(aDateYmd)
 	assert(type(aDateYmd) == "string")
 
-	local y, m, d = aDateYmd:match("(%d+)%-(%d+)%-(%d+)")
-	if not(y and m and d) then
-		return nil, "Failed to parse YMD"
+	local timestamp, msg = utils.ymdToTimestamp(aDateYmd)
+	if not(timestamp) then
+		return nil, "Failed to convert date: " .. tostring(msg)
 	end
-	y = tonumber(y)
-	m = tonumber(m)
-	d = tonumber(d)
-	if not(y and m and d) then
-		return nil, "Non-numeric year, month or day"
-	end
-	local dt = os.date("*t", os.time({year = y, month = m, day = d}))
-	if (dt.wday == 0) then
+	local dt = os.date("!*t", timestamp)
+	if (dt.wday == 1) then
 		return 7
 	end
-	return dt.wday
+	return dt.wday - 1
 end
 
 
@@ -218,6 +253,32 @@ end
 
 
 
+--- Converts the string YMD date representation into the timestamp of the day's start
+-- Returns the timestamp (UTC)
+-- Returns nil and error message on error
+function utils.ymdToTimestamp(aDateYmd)
+	assert(type(aDateYmd) == "string")
+
+	-- Parse the date, use noon to work around DST edge cases:
+	local y, m, d = aDateYmd:match("(%d+)%-(%d+)%-(%d+)")
+	if not(y and m and d) then
+		return nil, "Failed to parse YMD"
+	end
+	y = tonumber(y)
+	m = tonumber(m)
+	d = tonumber(d)
+	if not(y and m and d) then
+		return nil, "Non-numeric year, month or day"
+	end
+	local localTimeStamp = os.time({year = y, month = m, day = d, hour = 0})
+	local offset = utils.timezoneOffset(localTimeStamp)
+	return localTimeStamp + offset
+end
+
+
+
+
+
 --- Normalizes the title for comparison purposes
 -- Lowercases, replaces all punctuation with spaces, collapses whitespace, trims whitespace from ends
 function utils.normalizeTitle(aTitle)
@@ -264,6 +325,32 @@ function utils.areMultiTitlesEqual(aTitle, aMultiTitles)
 		end
 	end
 	return nil
+end
+
+
+
+
+
+--- Parses an ISO DateTime string ("2025-05-09T00:00:00.000000000Z") into timestamp
+-- The fractional seconds are ignored and needn't be present
+-- Returns nil and error message on failure
+function utils.parseIsoDateTime(aStr)
+	assert(type(aStr) == "string")
+
+	local y, m, d, hh, mm, ss = string.match(aStr, "(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d):(%d%d)")
+	if not(y and m and d and hh and mm and ss) then
+		return nil, "Bad ISO DateTime string"
+	end
+	y = tonumber(y)
+	m = tonumber(m)
+	d = tonumber(d)
+	hh = tonumber(hh)
+	mm = tonumber(mm)
+	ss = tonumber(ss)
+	assert(y and m and d and hh and mm and ss)
+	local localTimeStamp = os.time({year = y, month = m, day = d, hour = hh, min = mm, sec = ss})
+	local offset = utils.timezoneOffset(localTimeStamp)
+	return localTimeStamp + offset
 end
 
 
