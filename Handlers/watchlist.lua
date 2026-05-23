@@ -77,7 +77,7 @@ local function downloadScheduleInformationInBackground(aSeason)
 		gDownloadedSchedules[aSeason] = os.time()
 		copas.addthread(function()
 			local seasonBounds = utils.seasonToYmdBounds(aSeason)
-			local dayTimeStamp = utils.ymdToTimestamp(seasonBounds.startDateYmd) * 30 * 24 * 60 * 60  -- 30 days into the season
+			local dayTimeStamp = utils.ymdToTimestamp(seasonBounds.startDateYmd) + 30 * 24 * 60 * 60  -- 30 days into the season
 			local schedule, msg = liveChartSchedule.queryDate(utils.timestampToYmd(dayTimeStamp))
 			if not(schedule) then
 				gDownloadedSchedules[aSeason] = nil  -- Re-download on next request

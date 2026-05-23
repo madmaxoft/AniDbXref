@@ -13,6 +13,7 @@ local url = require("socket.url")
 local utils = require("utils")
 local db = require("db")
 local json = require("dkjson")
+local log = require("logger").log
 
 local strmatch = string.match
 
@@ -177,6 +178,7 @@ function liveChartSchedule.queryDate(aDateYmd)
 		end
 	end
 	res.n = n
+	log("liveChartSchedule", "Downloaded schedule for %s, got %d items", aDateYmd, n)
 
 	-- Store in the DB:
 	local season = assert(utils.ymdToSeason(aDateYmd))
