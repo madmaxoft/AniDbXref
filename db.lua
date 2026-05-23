@@ -333,7 +333,6 @@ function db.animeInSeason(aSeason)
 		end
 	)
 	res.n = n
-	print("Number of added schedules: " .. tostring(numSchedules))
 
 	return res
 end
