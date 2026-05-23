@@ -361,8 +361,12 @@ end
 -- Returns nil if none found.
 -- Prefers main title, then official title, then synonyms and last shorts
 function utils.pickBestTitle(aTitlesFromDb, aLanguage)
-	assert(type(aTitlesFromDb) == "table")
+	assert(type(aTitlesFromDb or {}) == "table")
 	assert(type(aLanguage) == "string")
+
+	if not(aTitlesFromDb) then
+		return nil
+	end
 
 	-- Pick the best title in the specified language:
 	local titles = {}

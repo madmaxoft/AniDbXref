@@ -478,6 +478,37 @@ local upgrades = {
 		},
 	},
 
+	-- Version 14
+	{
+		scripts =
+		{
+			[[
+				CREATE TABLE WeeklySchedule (
+					itemId INTEGER PRIMARY KEY,
+					aId INTEGER NOT NULL,
+					watchlistSeason TEXT,
+					utcSecondsSinceWeekStart INTEGER,
+
+					UNIQUE (
+						aId,
+						watchlistSeason,
+						utcSecondsSinceWeekStart
+					),
+
+					FOREIGN KEY (aId) REFERENCES Anime(aId)
+				);
+			]],
+			[[
+				CREATE INDEX idx_WeeklySchedule_aId
+					ON WeeklySchedule (aId);
+			]],
+			[[
+				CREATE INDEX idx_WeeklySchedule_watchlistSeason
+					ON WeeklySchedule (watchlistSeason);
+			]],
+		},
+	},
+
 	-- Future upgrades can be added here
 }
 

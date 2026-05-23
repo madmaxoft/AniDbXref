@@ -300,6 +300,7 @@ local function sendRequest(aConn, aRequest, aParsedUrl)
 	)
 	headers["Host"] = headers["Host"] or aParsedUrl.host
 	headers["Connection"] = headers["Connection"] or "keep-alive"
+	headers["User-Agent"] = headers["User-Agent"] or "AniDbXref/1"
 	if (body) then
 		headers["Content-Length"] = tostring(#body)
 	end

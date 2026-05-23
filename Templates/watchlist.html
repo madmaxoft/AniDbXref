@@ -33,7 +33,7 @@ end
 for day = 1, 8 do
 	table.sort(byDayOfWeek[day],
 		function (aWatchlist1, aWatchlist2)
-			return ((aWatchlist1.time or "") < (aWatchlist2.time or ""))
+			return (((aWatchlist1.schedule or {}).timeStr or "") < ((aWatchlist2.schedule or {}).timeStr or ""))
 		end
 	)
 end
@@ -85,7 +85,7 @@ end
 
 
 
-<h2>Current watchlist</h2>
+<h2>Watchlist</h2>
 <table>
 	<tr>
 		<th>Monday</th>
@@ -107,8 +107,8 @@ end
 			if (watchlistItem) then
 			%>
 				<a href="/anime/<%= watchlistItem.aId %>"><%= watchlistItem.caption %></a><br />
-				<% if (watchlistItem.time) then %>
-				<%= watchlistItem.time %>
+				<% if (watchlistItem.schedule and watchlistItem.schedule.timeStr) then %>
+				<%= watchlistItem.schedule.timeStr %>
 				<% end %>
 			<% end %>
 		</td>

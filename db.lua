@@ -307,6 +307,34 @@ function db.animeInSeason(aSeason)
 		byId[title.aId].titles = titles
 	end
 
+	-- Enrich with schedule information, if available:
+	local numSchedules = 0
+	local n = res.n
+	db.forEachRowInStatement("SELECT * FROM WeeklySchedule WHERE watchlistSeason = ?",
+		{aSeason}, "animeInSeason.schedule",
+		function(sch)
+			local ani = byId[sch.aId]
+			if not(ani) then
+				ani, msg = db.getAnimeDetails_base(sch.aId)
+				if not(ani) then
+					log("db", "animeInSeason: Failed to query base details for watchlist item %s: %s",
+						tostring(sch.aId), tostring(msg)
+					)
+					return
+				end
+				ani.titles = db.getAnimeDetails_titles(sch.aId)
+				n = n + 1
+				res[n] = ani
+				byId[sch.aId] = ani
+			end
+			assert(type(ani) == "table")
+			ani.schedule = sch
+			numSchedules = numSchedules + 1
+		end
+	)
+	res.n = n
+	print("Number of added schedules: " .. tostring(numSchedules))
+
 	return res
 end
 
@@ -383,6 +411,34 @@ function db.execBoundStatement(aSql, aValuesToBind, aDescription)
 	end
 	checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
 	checkSql(stmt:step(), aDescription .. ".step")
+	checkSql(stmt:finalize(), aDescription .. ".finalize")
+end
+
+
+
+
+--- Calls the specified callback for each row of the executed DB statement
+-- Binds the values before executing the statement
+-- If the callback returns true, the execution is aborted
+function db.forEachRowInStatement(aSql, aValuesToBind, aDescription, aCallback)
+	assert(type(aSql) == "string")
+	assert(type(aValuesToBind) == "table")
+	assert(type(aDescription) == "string")
+	assert(aCallback)
+	assert(gDB ~= nil)
+
+	local stmt = gDB:prepare(aSql)
+	if not(stmt) then
+		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
+	end
+	if ((aValuesToBind) and (aValuesToBind[1])) then
+		checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
+	end
+	for row in stmt:nrows() do
+		if (aCallback(row)) then
+			break
+		end
+	end
 	checkSql(stmt:finalize(), aDescription .. ".finalize")
 end
 
@@ -1750,6 +1806,33 @@ end
 
 
 
+--- Stores the specified schedule into the DB, overwriting any existing items for the
+-- unique (aId, watchlistSeason) combination
+-- aSchedule is an array-table of at least {aId = ..., utcSecondsSinceWeekStart = ...}
+function db.storeWeeklySchedule(aWatchlistSeason, aSchedule)
+	assert(gDB ~= nil)
+	assert(type(aWatchlistSeason) == "string")
+	assert(type(aSchedule) == "table")
+
+	local stmt = gDB:prepare([[
+		INSERT OR REPLACE INTO WeeklySchedule(aId, utcSecondsSinceWeekStart, watchlistSeason)
+		VALUES (?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeWeeklySchedule: " .. gDB:errmsg())
+	end
+	for _, sch in ipairs(aSchedule) do
+		checkSql(stmt:bind_values(sch.aId, sch.utcSecondsSinceWeekStart, aWatchlistSeason), "storeWeeklySchedule.bind")
+		checkSql(stmt:step(), "storeWeeklySchedule.step")
+		checkSql(stmt:reset(), "storeWeeklySchedule.reset")
+	end
+	checkSql(stmt:finalize(), "storeWeeklySchedule.finalize")
+end
+
+
+
+
+
 --- Returns the titleSearch instance
 function db.titleSearch()
 	return gTitleSearch
@@ -1854,50 +1937,15 @@ end
 
 
 --- Returns the watchlist for the specified season
+-- Only the base data for the watchlist is returned. Callers are expected to enrich the watchlist with
+-- anime data based on the aId items; use animeInSeason() to query the relevant anime
 function db.watchlistInSeason(aSeason)
 	-- Query the base watchlist:
-	local watchlist = db.getArrayFromQuery(
+	return db.getArrayFromQuery(
 	[[
 		SELECT * FROM Watchlist
 		WHERE watchlistSeason = ?
 	]], {aSeason}, "watchlistInSeason")
-	local byId = {}
-	for _, w in ipairs(watchlist) do
-		byId[w.aId] = w
-	end
-
-	-- Enrich with anime base details:
-	local details = db.getArrayFromQuery(
-	[[
-		SELECT AnimeBaseDetails.*
-		FROM AnimeBaseDetails
-		LEFT JOIN Watchlist ON (AnimeBaseDetails.aId = Watchlist.aId)
-		WHERE Watchlist.watchlistSeason = ?
-	]], {aSeason}, "watchlistInSeason.details")
-	for _, d in ipairs(details) do
-		assert(type(byId[d.aId]) == "table")
-		byId[d.aId].details = d
-	end
-
-	-- Enrich with all the titles:
-	local titles = db.getArrayFromQuery(
-	[[
-		SELECT AnimeTitle.*
-		FROM AnimeTitle
-		LEFT JOIN Watchlist ON (AnimeTitle.aId = Watchlist.aId)
-		WHERE Watchlist.watchlistSeason = ?
-	]], {aSeason}, "watchlistInSeason.titles")
-	for _, title in ipairs(titles) do
-		local ani = byId[title.aId]
-		assert(type(ani) == "table")
-		assert(type(ani.details) == "table")
-		local aniTitles = ani.details.titles or {n = 0}
-		aniTitles.n = aniTitles.n + 1
-		aniTitles[aniTitles.n] = title
-		ani.details.titles = aniTitles
-	end
-
-	return watchlist
 end
 
 

@@ -22,7 +22,7 @@ gDbSkipInitTitleSearch = true
 local theRequest =
 {
 	mMethod = "GET",
-	mPathAndQuery = "/picture?id=313314.jpg",
+	mPathAndQuery = "/watchlist",
 	mHttpVersion = "1.1",
 	mHeaders = {},
 

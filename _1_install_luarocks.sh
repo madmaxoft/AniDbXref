@@ -16,3 +16,4 @@ sudo luarocks install lsqlite3
 sudo luarocks install etlua
 sudo luarocks install luaexpat
 sudo luarocks install lua-zlib
+sudo luarocks install dkjson
