@@ -18,7 +18,7 @@
 	<p>Next allowed update: <%= nextUpdate %></p>
 
 	<% if (canUpdate) then %>
-		<form action="/update-start" method="post">
+		<form action="/update-start" method="POST">
 			<button type="submit">Start Update</button>
 		</form>
 	<% else %>
@@ -32,7 +32,7 @@
 	<h2>Manual offline update</h2>
 	<p>If the online update fails, you can download the <a href="http://anidb.net/api/anime-titles.xml.gz">dump
 	file</a> manually and process it here:</p>
-	<form action="/update-start" method="post" enctype="multipart/form-data">
+	<form action="/update-start" method="POST" enctype="multipart/form-data">
 		<input type="file" name="dumpfile" placeholder="Upload the anime-titles.xml.gz file" style="width:600px">
 		<button type="submit">Update</button>
 	</form>

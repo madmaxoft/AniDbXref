@@ -127,9 +127,9 @@ function httpRequest:formData()
 		return nil, "Parsing the form data has failed previously"
 	end
 
-	-- Fail if the request isn't supposed to have a body (use parsedPathAndQuery() to process GET-targeted forms)
+	-- If the request doesn't have a body, report no form data (happens for empty forms as well as GET / HEAD requests)
 	if not(self.mHasBody) then
-		return nil, "The request has no body, no form data could be sent"
+		return {}
 	end
 
 	-- Fail if any part of the body has already been read:
