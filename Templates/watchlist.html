@@ -6,7 +6,14 @@
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body> |
-<a href="/">Back to home</a> |
+
+<%
+local seasonBounds = utils.seasonToYmdBounds(season)
+local dayTimeStamp = utils.ymdToTimestamp(seasonBounds.startDateYmd) * 30 * 24 * 60 * 60  -- 30 days into the season
+local liveChartYmd = utils.timestampToYmd(dayTimeStamp)
+%>
+
+<a href="/">Back to home</a> | <a href="https://livechart.me/schedule?date=<%= liveChartYmd %>">LiveChart.me</a> |
 <h1><%= seasonDescription %> watchlist</h1>
 
 <%
