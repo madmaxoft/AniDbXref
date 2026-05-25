@@ -308,7 +308,6 @@ function db.animeInSeason(aSeason)
 	end
 
 	-- Enrich with schedule information, if available:
-	local numSchedules = 0
 	local n = res.n
 	db.forEachRowInStatement("SELECT * FROM WeeklySchedule WHERE watchlistSeason = ?",
 		{aSeason}, "animeInSeason.schedule",
@@ -329,7 +328,6 @@ function db.animeInSeason(aSeason)
 			end
 			assert(type(ani) == "table")
 			ani.schedule = sch
-			numSchedules = numSchedules + 1
 		end
 	)
 	res.n = n

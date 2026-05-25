@@ -124,9 +124,6 @@ function M.seasonData(aSeason)
 		if (a.watchlist) then
 			a.watchlist.anime = a
 			a.watchlist.schedule = a.schedule
-			if (a.schedule) then
-				print("Schedule found")
-			end
 		end
 		localizeSchedule(a.schedule, weekStartTimeStampUtc)
 		if (a.watchlist and a.schedule) then
