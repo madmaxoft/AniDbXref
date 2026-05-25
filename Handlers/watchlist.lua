@@ -61,7 +61,7 @@ local function localizeSchedule(aSchedule, aWeekStartTimestampUtc)
 	local itemUtcTimestamp = aWeekStartTimestampUtc + aSchedule.utcSecondsSinceWeekStart
 	local localDate = os.date("*t", itemUtcTimestamp)
 	aSchedule.dayOfWeek = ((localDate.wday + 5) % 7) + 1
-	aSchedule.timeStr = string.format("%02d:%02d:%02d", localDate.hour, localDate.min, localDate.sec)
+	aSchedule.timeStr = string.format("%02d:%02d", localDate.hour, localDate.min)
 end
 
 
