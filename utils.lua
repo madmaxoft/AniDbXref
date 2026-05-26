@@ -23,6 +23,17 @@ end
 
 
 
+--- Converts the local timestamp to UTC
+function utils.localToUtcTimestamp(aLocalTimestamp)
+	assert(type(aLocalTimestamp) == "number")
+
+	return aLocalTimestamp + utils.timezoneOffset(aLocalTimestamp)
+end
+
+
+
+
+
 --- Converts the season-string ("2026-1") into user-visible description ("2026 winter")
 -- Returns nil and error message on failure
 function utils.seasonToDescription(aSeason)
@@ -169,6 +180,17 @@ end
 
 
 
+--- Converts the UTC timestamp to a local timestamp
+function utils.utcToLocalTimestamp(aUtcTimestamp)
+	assert(type(aUtcTimestamp) == "number")
+
+	return aUtcTimestamp - utils.timezoneOffset(aUtcTimestamp)
+end
+
+
+
+
+
 --- Returns the YMD representation of a day that is the specified offset of days from the specified date
 -- Eg. "2026-01-02" + (-3) = "2025-12-30"
 -- Returns nil and error message on failure
@@ -253,7 +275,7 @@ end
 
 
 
---- Converts the string YMD date representation into the timestamp of the day's start
+--- Converts the string YMD date representation into the UTC timestamp of the day's start
 -- Returns the timestamp (UTC)
 -- Returns nil and error message on error
 function utils.ymdToTimestamp(aDateYmd)
@@ -393,6 +415,26 @@ function utils.pickBestTitle(aTitlesFromDb, aLanguage)
 
 	-- No title in this language or "en", use any:
 	return anyTitles["main"] or anyTitles["official"] or anyTitles["syn"] or anyTitles["short"] or anyTitles[""]
+end
+
+
+
+
+
+--- Returns the UTC timestamp of the start of the week containing the specified (local) timestamp
+function utils.weekStartUtcFromLocalTimestamp(aLocalTimestamp)
+	assert(type(aLocalTimestamp) == "number")
+
+	local utcDate = os.date("*t", aLocalTimestamp)
+	local dayOfWeek = ((utcDate.wday + 5) % 7) + 1
+	local weekStartLocal =
+		aLocalTimestamp
+		- ((dayOfWeek - 1) * 86400)
+		- (utcDate.hour * 3600)
+		- (utcDate.min * 60)
+		- utcDate.sec
+
+	return utils.localToUtcTimestamp(weekStartLocal)
 end
 
 

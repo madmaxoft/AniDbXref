@@ -29,6 +29,19 @@ end
 
 
 
+local function test_localToUtcTimestamp()
+	assertEqual(os.date("!%c", utils.localToUtcTimestamp(0)),          os.date("%c", 0))
+	assertEqual(os.date("!%c", utils.localToUtcTimestamp(1778284800)), os.date("%c", 1778284800))  -- 2026-05-09
+
+	-- Test the roundtrip UTC -> local -> UTC
+	assertEqual(utils.localToUtcTimestamp(utils.utcToLocalTimestamp(0)), 0)
+	assertEqual(utils.localToUtcTimestamp(utils.utcToLocalTimestamp(1778284800)), 1778284800)
+end
+
+
+
+
+
 local function test_parseIsoDateTime()
 	assertEqual(utils.parseIsoDateTime("1970-01-01T00:00:00"), 0)
 	assertEqual(utils.parseIsoDateTime("1970-01-02T00:00:00"), 24 * 60 * 60)
@@ -36,6 +49,15 @@ local function test_parseIsoDateTime()
 	assertEqual(utils.parseIsoDateTime("1970-05-09T14:00:00"), 11109600)
 	assertEqual(utils.parseIsoDateTime("2026-05-09T00:00:00"), 1778284800)
 	assertEqual(utils.parseIsoDateTime("2026-05-09T12:34:56"), 1778330096)
+end
+
+
+
+
+
+local function test_utcToLocalTimestamp()
+	assertEqual(os.date("%c", utils.utcToLocalTimestamp(0)), os.date("!%c", 0))
+	assertEqual(os.date("%c", utils.utcToLocalTimestamp(1778284800)), os.date("!%c", 1778284800))  -- 2026-05-09
 end
 
 
@@ -87,7 +109,21 @@ end
 
 
 
+local function test_weekStartFromLocalTimestamp()
+	assertEqual(utils.weekStartUtcFromLocalTimestamp(utils.utcToLocalTimestamp(utils.ymdToTimestamp("2026-05-04"))), 1777852800)
+	assertEqual(utils.weekStartUtcFromLocalTimestamp(utils.utcToLocalTimestamp(utils.ymdToTimestamp("2026-05-09"))), 1777852800)
+	assertEqual(utils.weekStartUtcFromLocalTimestamp(utils.utcToLocalTimestamp(utils.ymdToTimestamp("2026-05-10") + 24 * 60 * 60 - 1)), 1777852800)
+	assertEqual(utils.weekStartUtcFromLocalTimestamp(utils.utcToLocalTimestamp(utils.ymdToTimestamp("2026-05-11"))), 1778457600)
+end
+
+
+
+
+
+test_localToUtcTimestamp()
 test_parseIsoDateTime()
+test_utcToLocalTimestamp()
 test_ymdAddOffset()
 test_ymdDayOfWeek()
 test_ymdToTimestamp()
+test_weekStartFromLocalTimestamp()
