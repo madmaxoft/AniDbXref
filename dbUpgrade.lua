@@ -509,6 +509,34 @@ local upgrades = {
 		},
 	},
 
+	-- Version 15:
+	{
+		scripts =
+		{
+			-- Drop the Watchlist, since the old code would never insert proper timestamp anyway
+			[[
+				DROP TABLE UserData.Watchlist;
+			]],
+			[[
+				CREATE TABLE UserData.Watchlist (
+					itemId INTEGER PRIMARY KEY,
+					watchlistSeason TEXT,
+					utcSecondsSinceWeekStart INTEGER,
+					aId INTEGER,
+					caption TEXT,
+					url TEXT
+				);
+			]],
+			[[
+				CREATE INDEX UserData.idx_Watchlist_watchlistSeason ON Watchlist(watchlistSeason);
+			]],
+			[[
+				CREATE UNIQUE INDEX IF NOT EXISTS UserData.idx_watchlist_unique
+					ON Watchlist (watchlistSeason, utcSecondsSinceWeekStart, caption);
+			]],
+		}
+	},
+
 	-- Future upgrades can be added here
 }
 

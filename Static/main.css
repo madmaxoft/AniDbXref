@@ -26,6 +26,24 @@ td {
 	vertical-align: top;
 }
 
+.noborder {
+	border-collapse: separate;
+	border-spacing: 0;
+	border-top: 0;
+	border-left: 0;
+	border-bottom: 0;
+	border-right: 0;
+}
+
+table.noborder th,
+table.noborder td {
+	padding: 2px;
+	border-top: 0;
+	border-left: 0;
+	border-bottom: 0;
+	border-right: 0;
+}
+
 
 
 

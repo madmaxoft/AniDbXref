@@ -29,6 +29,19 @@ end
 
 
 
+local function test_dayOfWeekAndTimeStrToSecondsSinceWeekStart()
+	assertEqual(utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(1, "0:00"), 0)
+	assertEqual(utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(1, "1:23"), 1 * 60 * 60 + 23 * 60)
+	assertEqual(utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(1, "16:54"), 16 * 60 * 60 + 54 * 60)
+	assertEqual(utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(2, "00:00"), 24 * 60 * 60)
+	assertEqual(utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(3, "16:54"), 2 * 24 * 60 * 60 + 16 * 60 * 60 + 54 * 60)
+	assertEqual(utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(7, "00:00"), 6 * 24 * 60 * 60)
+end
+
+
+
+
+
 local function test_localToUtcTimestamp()
 	assertEqual(os.date("!%c", utils.localToUtcTimestamp(0)),          os.date("%c", 0))
 	assertEqual(os.date("!%c", utils.localToUtcTimestamp(1778284800)), os.date("%c", 1778284800))  -- 2026-05-09
@@ -120,6 +133,7 @@ end
 
 
 
+test_dayOfWeekAndTimeStrToSecondsSinceWeekStart()
 test_localToUtcTimestamp()
 test_parseIsoDateTime()
 test_utcToLocalTimestamp()

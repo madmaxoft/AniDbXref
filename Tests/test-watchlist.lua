@@ -22,10 +22,13 @@ local utils = require("utils")
 
 
 
-local watchlist, seasonAnime = watchlistHandler.seasonData("2025-4")
+local watchlist, seasonAnime = watchlistHandler.seasonData("2026-2")
 -- The returned tables are not simple, they contain loops, so we need to manually massage them before printing:
 print("Watchlist:")
 for idx, w in ipairs(watchlist) do
+	if (type(w.dayOfWeek) ~= "number") then
+		print("DayOfWeek not a number")
+	end
 	local anime = w.anime
 	w.anime = tostring(anime)
 	print("-- " .. tostring(idx))

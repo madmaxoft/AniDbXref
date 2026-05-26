@@ -9,8 +9,7 @@
 
 <%
 local seasonBounds = utils.seasonToYmdBounds(season)
-local dayTimeStamp = utils.ymdToTimestamp(seasonBounds.startDateYmd) * 30 * 24 * 60 * 60  -- 30 days into the season
-local liveChartYmd = utils.timestampToYmd(dayTimeStamp)
+local liveChartYmd = utils.ymdAddOffset(seasonBounds.startDateYmd, 45)
 %>
 
 <a href="/">Back to home</a> | <a href="https://livechart.me/schedule?date=<%= liveChartYmd %>">LiveChart.me</a> |
@@ -113,10 +112,10 @@ end
 			local watchlistItem = byDayOfWeek[dow][i]
 			if (watchlistItem) then
 			%>
-				<a href="/anime/<%= watchlistItem.aId %>"><%= watchlistItem.caption %></a><br />
 				<% if (watchlistItem.schedule and watchlistItem.schedule.timeStr) then %>
-				<%= watchlistItem.schedule.timeStr %>
+				<%= watchlistItem.schedule.timeStr %> <br />
 				<% end %>
+				<a href="/anime/<%= watchlistItem.aId %>"><%= watchlistItem.caption %></a><br />
 			<% end %>
 		</td>
 		<% end %>
@@ -138,28 +137,40 @@ end
 		<th>Friday</th>
 		<th>Saturday</th>
 		<th>Sunday</th>
-		<th>Unknown</th>
 	</tr>
 	<% for i = 1, animeMaxN do %>
 	<tr>
-		<% for dow = 1, 8 do %>
+		<% for dow = 1, 7 do %>
 			<td>
 				<%
 				local ani = animeByDayOfWeek[dow][i]
 				if (ani) then
 				%>
-				<a href="/anime/<%= ani.aId %>">
+					<table class="noborder">
+					<tr>
+					<td>
 					<% if (ani.pictureId) then %>
-					<img src="/picture?id=<%= ani.pictureId %>&size=thumb" />
+						<img src="/picture?id=<%= ani.pictureId %>&size=thumb" /> <br />
 					<% end %>
-					<a href="/anime/<%= ani.aId %>"><%= ani.title or utils.pickBestTitle(ani.titles, "en") %></a><br />
+
 					<% if not(request.isReadOnly) then %>
 					<form action="/watchlist/add" method="POST" style="display:inline">
 						<input type="hidden" name="aid" value="<%= ani.aId %>" />
 						<input type="hidden" name="watchlistseason" value="<%= season %>" />
+						<input type="hidden" name="dayofweek" value="<%= dow %>" />
+						<input type="hidden" name="timestr" value="<%= (ani.schedule or {}).timeStr %>" />
 						<button type="submit">Add</button>
 					</form>
 					<% end %>
+
+					</td>
+					<td>
+					<% if ((ani.schedule or {}).timeStr) then %>
+						<%= ani.schedule.timeStr %> <br />
+					<% end %>
+					<a href="/anime/<%= ani.aId %>"><%= ani.title or utils.pickBestTitle(ani.titles, "en") %></a>
+					</td></tr>
+					</table>
 			<% end %>
 			</td>
 		<% end %>

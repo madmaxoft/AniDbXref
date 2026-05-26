@@ -28,26 +28,6 @@ local gDownloadedSchedules = {}
 
 
 
---- Returns the UTC timestamp of the start of the week containing the specified (local) timestamp
-local function weekStartUtcFromTimeStamp(aTimeStamp)
-	assert(type(aTimeStamp) == "number")
-
-	local utcDate = os.date("!*t", aTimeStamp)
-	local dayOfWeek = ((utcDate.wday + 5) % 7) + 1
-	local weekStartUtc =
-		aTimeStamp
-		- ((dayOfWeek - 1) * 86400)
-		- (utcDate.hour * 3600)
-		- (utcDate.min * 60)
-		- utcDate.sec
-
-	return weekStartUtc
-end
-
-
-
-
-
 --- Adds the local-time information to the specified schedule, based on the specified week start
 -- The schedule may be unassigned, in which case the call is ignored
 local function localizeSchedule(aSchedule, aWeekStartTimestampUtc)
@@ -77,8 +57,7 @@ local function downloadScheduleInformationInBackground(aSeason)
 		gDownloadedSchedules[aSeason] = os.time()
 		copas.addthread(function()
 			local seasonBounds = utils.seasonToYmdBounds(aSeason)
-			local dayTimeStamp = utils.ymdToTimestamp(seasonBounds.startDateYmd) + 30 * 24 * 60 * 60  -- 30 days into the season
-			local schedule, msg = liveChartSchedule.queryDate(utils.timestampToYmd(dayTimeStamp))
+			local schedule, msg = liveChartSchedule.queryDate(utils.ymdAddOffset(seasonBounds.startDateYmd, 45))
 			if not(schedule) then
 				gDownloadedSchedules[aSeason] = nil  -- Re-download on next request
 				log("watchlist", "Failed to download schedule for season %s: %s", aSeason, tostring(msg))
@@ -101,11 +80,11 @@ function M.seasonData(aSeason)
 	-- Process the season into useful information:
 	local weekStartTimeStampUtc
 	if (aSeason == utils.currentSeason()) then
-		weekStartTimeStampUtc = weekStartUtcFromTimeStamp(os.time())
+		weekStartTimeStampUtc = utils.weekStartUtcFromLocalTimestamp(os.time())
 	else
 		local seasonBounds = utils.seasonToYmdBounds(aSeason)
-		local dayTimeStamp = utils.ymdToTimestamp(seasonBounds.startDateYmd) * 30 * 24 * 60 * 60  -- 30 days into the season
-		weekStartTimeStampUtc = weekStartUtcFromTimeStamp(dayTimeStamp)
+		local dayTimeStamp = utils.ymdToTimestamp(utils.ymdAddOffset(seasonBounds.startDateYmd, 45))
+		weekStartTimeStampUtc = utils.weekStartUtcFromLocalTimestamp(dayTimeStamp)
 	end
 	local seasonDescription = utils.seasonToDescription(aSeason)
 	if not(seasonDescription) then
@@ -130,7 +109,7 @@ function M.seasonData(aSeason)
 			a.watchlist.dayOfWeek = a.schedule.dayOfWeek  -- Overwrite any storen dayOfWeek with the schedule
 		end
 		-- Synthesize dayOfWeek from the start date if not present in the schedule:
-		a.dayOfWeek = (a.schedule or {}).dayOfWeek  -- or utils.ymdDayOfWeek(a.startDate)
+		a.dayOfWeek = (a.schedule or {}).dayOfWeek or utils.ymdDayOfWeek(a.startDate)
 	end
 
 	return watchlist, seasonAnime
@@ -192,11 +171,25 @@ function M.postAdd(aRequest, aResponse)
 	if not(watchlistSeason) then
 		return aResponse:sendError(400, "Missing or invalid watchlistSeason parameter")
 	end
+	local dayOfWeek = tonumber(formData.dayofweek)
+	if not(dayOfWeek) then
+		return aResponse:sendError(400, "Missing or invalid dayofweek parameter")
+	end
+	local timeStr = formData.timestr
+	if not(timeStr) then
+		timeStr = "0:00"
+	end
 
 	-- Add to the DB:
-	log("watchlist", "Adding aId %d into watchlist season %s", aId, watchlistSeason)
+	local numSeconds, msg = utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(dayOfWeek, timeStr)
+	if not(numSeconds) then
+		return aResponse:sendError(400, "Failed to convert schedule to numSeconds: %s", tostring(msg))
+	end
+	local refTimestamp = utils.ymdToTimestamp(assert(utils.seasonToYmdBounds(watchlistSeason)).startDateYmd)
+	local tzOffset = utils.timezoneOffset(refTimestamp)
+	log("watchlist", "Adding aId %d into watchlist season %s, dow %d, timeStr %s", aId, watchlistSeason, dayOfWeek, timeStr)
 	local isOK, err = pcall(function()
-		db.addToWatchlist(aId, watchlistSeason)
+		db.addToWatchlist(aId, watchlistSeason, numSeconds - tzOffset)
 	end)
 	if not(isOK) then
 		return aResponse:sendError(500, "Database error: " .. tostring(err))

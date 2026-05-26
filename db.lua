@@ -198,9 +198,10 @@ end
 
 --- Adds the specified anime to the user's watchlist
 -- Queries the details to add them into the watchlist along the anime
-function db.addToWatchlist(aId, aWatchlistSeason)
+function db.addToWatchlist(aId, aWatchlistSeason, aUtcSecondsSinceWeekStart)
 	assert(type(aId) == "number")
 	assert(type(aWatchlistSeason) == "string")
+	assert(type(aUtcSecondsSinceWeekStart) == "number")
 
 	-- Query the details:
 	local details, msg = db.getAnimeDetails(aId)
@@ -208,16 +209,15 @@ function db.addToWatchlist(aId, aWatchlistSeason)
 		return nil, "Failed to query anime details: " .. tostring(msg)
 	end
 
-	local dayOfWeek = utils.ymdDayOfWeek(details.startDate)
 	local caption = utils.pickBestTitle(details.titles, "en") or tostring(aId)
 	db.execBoundStatement([[
 		INSERT INTO UserData.Watchlist
-			(watchlistSeason, dayOfWeek, time, aId, url, caption)
+			(watchlistSeason, utcSecondsSinceWeekStart, aId, url, caption)
 		VALUES
-			(?, ?, ?, ?, ?, ?)
-		ON CONFLICT(watchlistSeason, dayOfWeek, caption) DO NOTHING;
+			(?, ?, ?, ?, ?)
+		ON CONFLICT(watchlistSeason, utcSecondsSinceWeekStart, caption) DO NOTHING;
 		]],
-		{ aWatchlistSeason, dayOfWeek, time, aId, url, caption },
+		{ aWatchlistSeason, aUtcSecondsSinceWeekStart, aId, url, caption },
 		"addToWatchlist"
 	)
 	return true

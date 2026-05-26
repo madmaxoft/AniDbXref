@@ -23,6 +23,27 @@ end
 
 
 
+--- Converts the (local) day of week and time string ("HH:MM") into the number of seconds since the start of week
+-- Returns nil and error message on failure
+function utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(aDayOfWeek, aTimeStr)
+	assert(type(aDayOfWeek) == "number")
+	assert(type(aTimeStr) == "string")
+
+	local hh, mm = aTimeStr:match("(%d?%d):(%d%d)")
+	hh = tonumber(hh)
+	mm = tonumber(mm)
+	if not(hh and mm) then
+		return nil, "Failed to parse hours and minutes from timestamp"
+	end
+
+	local numSeconds = (aDayOfWeek - 1) * 24 * 60 * 60 + hh * 60 * 60 + mm * 60
+	return numSeconds
+end
+
+
+
+
+
 --- Converts the local timestamp to UTC
 function utils.localToUtcTimestamp(aLocalTimestamp)
 	assert(type(aLocalTimestamp) == "number")
