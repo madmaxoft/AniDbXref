@@ -176,14 +176,15 @@ function M.postAdd(aRequest, aResponse)
 		return aResponse:sendError(400, "Missing or invalid dayofweek parameter")
 	end
 	local timeStr = formData.timestr
-	if not(timeStr) then
+	if (not(timeStr) or (timeStr == "")) then
 		timeStr = "0:00"
 	end
 
 	-- Add to the DB:
 	local numSeconds, msg = utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(dayOfWeek, timeStr)
 	if not(numSeconds) then
-		return aResponse:sendError(400, "Failed to convert schedule to numSeconds: %s", tostring(msg))
+		log("watchlist", "Failed to convert schedule [%d, %s] to numSeconds: %s", dayOfWeek, timeStr, tostring(msg))
+		return aResponse:sendError(400, "Failed to convert schedule to numSeconds")
 	end
 	local refTimestamp = utils.ymdToTimestamp(assert(utils.seasonToYmdBounds(watchlistSeason)).startDateYmd)
 	local tzOffset = utils.timezoneOffset(refTimestamp)

@@ -158,7 +158,7 @@ end
 						<input type="hidden" name="aid" value="<%= ani.aId %>" />
 						<input type="hidden" name="watchlistseason" value="<%= season %>" />
 						<input type="hidden" name="dayofweek" value="<%= dow %>" />
-						<input type="hidden" name="timestr" value="<%= (ani.schedule or {}).timeStr %>" />
+						<input type="hidden" name="timestr" value="<%= (ani.schedule or {}).timeStr or "" %>" />
 						<button type="submit">Add</button>
 					</form>
 					<% end %>
