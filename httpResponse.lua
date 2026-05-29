@@ -313,9 +313,9 @@ function M:sendTemplate(aTemplateName, aTemplateParams)
 
 	-- Execute the template:
 	local isOK, html, msg = pcall(template, aTemplateParams)
-	if not(isOK) then
+	if (not(isOK) or (type(html) ~= "string")) then
 		log("httpResponse", "Template %s execution failed: %s %s", aTemplateName, tostring(html), tostring(msg))
-		return self:sendError(500, string.format("Template %s execution failed: %s", aTemplateName, tostring(html)))
+		return self:sendError(500, string.format("Template %s execution failed.", aTemplateName))
 	end
 	return self:sendHtml(html)
 end
