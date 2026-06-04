@@ -1803,6 +1803,33 @@ end
 
 
 
+--- Stores the WatchUrls for the specified anime
+-- aUrls is an array-table of {providerName = ..., url = ...}
+function db.storeWatchUrls(aId, aUrls)
+	assert(gDB ~= nil)
+	assert(type(aId) == "number")
+	assert(type(aUrls) == "table")
+
+	local stmt = gDB:prepare([[
+		INSERT OR REPLACE INTO WatchUrl(aId, providerName, url, createdOnYmd)
+		VALUES (?, ?, ?, ?)
+	]])
+	if not(stmt) then
+		error("Failed to prepare statement for storeWatchUrls: " .. gDB:errmsg())
+	end
+	local currentYmd = utils.timestampToYmd(os.time())
+	for _, u in ipairs(aUrls) do
+		checkSql(stmt:bind_values(aId, u.providerName, u.url, currentYmd), "storeWatchUrls.bind")
+		checkSql(stmt:step(), "storeWatchUrls.step")
+		checkSql(stmt:reset(), "storeWatchUrls.reset")
+	end
+	checkSql(stmt:finalize(), "storeWatchUrls.finalize")
+end
+
+
+
+
+
 --- Stores the specified schedule into the DB, overwriting any existing items for the
 -- unique (aId, watchlistSeason) combination
 -- aSchedule is an array-table of at least {aId = ..., utcSecondsSinceWeekStart = ...}
@@ -1943,6 +1970,22 @@ function db.watchlistInSeason(aSeason)
 		SELECT * FROM Watchlist
 		WHERE watchlistSeason = ?
 	]], {aSeason}, "watchlistInSeason")
+end
+
+
+
+
+
+--- Returns an array of WatchUrl entries for the specified anime
+function db.watchUrlForAnime(aId)
+	assert(gDB ~= nil)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery(
+	[[
+		SELECT * FROM WatchUrl
+		WHERE aId = ?
+	]], {aId}, "watchUrlForAnime")
 end
 
 

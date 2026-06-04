@@ -537,6 +537,30 @@ local upgrades = {
 		}
 	},
 
+	-- Version 16:
+	{
+		scripts =
+		{
+			[[
+				CREATE TABLE WatchUrl (
+					aId INTEGER,
+					providerName TEXT,
+					createdOnYmd TEXT,
+					url TEXT NOT NULL
+				);
+			]],
+			[[
+				CREATE INDEX idx_WatchUrl_aId ON WatchUrl(aId);
+			]],
+			[[
+				CREATE INDEX idx_WatchUrl_providerName ON WatchUrl(providerName);
+			]],
+			[[
+				CREATE UNIQUE INDEX idx_WatchUrl_aId_providerName ON WatchUrl(aId, providerName);
+			]],
+		},
+	},
+
 	-- Future upgrades can be added here
 }
 
