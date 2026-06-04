@@ -97,6 +97,7 @@ function M.seasonData(aSeason)
 	local watchlistById = {}
 	for _, w in ipairs(watchlist) do
 		watchlistById[w.aId] = w
+		localizeSchedule(w, weekStartTimeStampUtc)
 	end
 	for _, a in ipairs(seasonAnime) do
 		a.watchlist = watchlistById[a.aId]
