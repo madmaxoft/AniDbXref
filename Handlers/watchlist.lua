@@ -13,6 +13,7 @@ local db = require("db")
 local liveChartSchedule = require("liveChartSchedule")
 local log = require("logger").log
 local copas = require("copas")
+local wup = require("watchUrlProviders")
 
 
 
@@ -56,6 +57,7 @@ local function downloadScheduleInformationInBackground(aSeason)
 		log("watchlist", "Downloading schedule for season %s", aSeason)
 		gDownloadedSchedules[aSeason] = os.time()
 		copas.addthread(function()
+			copas.pause(0)  -- Yield to other threads first, so that the current request can finish processing
 			local seasonBounds = utils.seasonToYmdBounds(aSeason)
 			local schedule, msg = liveChartSchedule.queryDate(utils.ymdAddOffset(seasonBounds.startDateYmd, 45))
 			if not(schedule) then
@@ -95,8 +97,14 @@ function M.seasonData(aSeason)
 	local seasonAnime = db.animeInSeason(aSeason)
 	local watchlist = db.watchlistInSeason(aSeason)
 	local watchlistById = {}
+	local limitWatchUrlQueryTimestamp = os.time() - 7 * 24 * 60 * 60  -- Update links every 7 days
 	for _, w in ipairs(watchlist) do
-		watchlistById[w.aId] = w
+		if (w.aId) then
+			watchlistById[w.aId] = w
+			if ((w.lastWatchUrlQueryTimestamp or 0) < limitWatchUrlQueryTimestamp) then
+				wup.enqueueQuery(w.aId)
+			end
+		end
 		localizeSchedule(w, weekStartTimeStampUtc)
 	end
 	for _, a in ipairs(seasonAnime) do
@@ -107,7 +115,7 @@ function M.seasonData(aSeason)
 		end
 		localizeSchedule(a.schedule, weekStartTimeStampUtc)
 		if (a.watchlist and a.schedule) then
-			a.watchlist.dayOfWeek = a.schedule.dayOfWeek  -- Overwrite any storen dayOfWeek with the schedule
+			a.watchlist.dayOfWeek = a.schedule.dayOfWeek  -- Overwrite any stored dayOfWeek with the schedule
 		end
 		-- Synthesize dayOfWeek from the start date if not present in the schedule:
 		a.dayOfWeek = (a.schedule or {}).dayOfWeek or utils.ymdDayOfWeek(a.startDate)

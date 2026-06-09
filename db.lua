@@ -1824,6 +1824,11 @@ function db.storeWatchUrls(aId, aUrls)
 		checkSql(stmt:reset(), "storeWatchUrls.reset")
 	end
 	checkSql(stmt:finalize(), "storeWatchUrls.finalize")
+
+	db.execBoundStatement([[
+		INSERT OR REPLACE INTO WatchUrlLastQuery(aId, lastQueryTimestamp)
+		VALUES(?, ?)
+	]], {aId, os.time()}, "storeWatchUrls.lastQuery")
 end
 
 
@@ -1965,11 +1970,54 @@ end
 -- anime data based on the aId items; use animeInSeason() to query the relevant anime
 function db.watchlistInSeason(aSeason)
 	-- Query the base watchlist:
-	return db.getArrayFromQuery(
+	local res, msg = db.getArrayFromQuery(
 	[[
 		SELECT * FROM Watchlist
 		WHERE watchlistSeason = ?
 	]], {aSeason}, "watchlistInSeason")
+	if not(res) then
+		return nil, "Failed to query base watchlist: " .. tostring(msg)
+	end
+	local watchlistById = {}
+	for _, w in ipairs(res) do
+		if (w.aId) then
+			watchlistById[w.aId] = w
+		end
+	end
+
+	-- Enrich with WatchUrlLastQuery:
+	db.forEachRowInStatement(
+		[[
+			SELECT * FROM WatchUrlLastQuery
+			LEFT JOIN Watchlist ON Watchlist.aId = WatchUrlLastQuery.aId
+			WHERE Watchlist.watchlistSeason = ?
+		]], {aSeason}, "watchlistInSeason.WatchUrlLastQuery",
+		function(aRow)
+			local w = watchlistById[aRow.aId]
+			if (w) then
+				w.lastWatchUrlQueryTimestamp = aRow.lastQueryTimestamp
+			end
+		end
+	)
+
+	-- Enrich with WatchUrls:
+	db.forEachRowInStatement(
+		[[
+			SELECT *, WatchUrl.url AS watchUrl FROM WatchUrl
+			LEFT JOIN Watchlist ON Watchlist.aId = WatchUrl.aId
+			WHERE Watchlist.watchlistSeason = ?
+		]], {aSeason}, "watchlistInSeason.WatchUrl",
+		function(aRow)
+			local w = watchlistById[aRow.aId]
+			if (w) then
+				w.watchUrls = w.watchUrls or {n = 0}
+				w.watchUrls.n = w.watchUrls.n + 1
+				w.watchUrls[w.watchUrls.n] = aRow
+			end
+		end
+	)
+
+	return res
 end
 
 
@@ -1977,6 +2025,7 @@ end
 
 
 --- Returns an array of WatchUrl entries for the specified anime
+-- Each item is { aId = ..., url = ..., providerName = ..., createdOnYmd = ... }
 function db.watchUrlForAnime(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))

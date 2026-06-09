@@ -10,6 +10,18 @@
 <%
 local seasonBounds = utils.seasonToYmdBounds(season)
 local liveChartYmd = utils.ymdAddOffset(seasonBounds.startDateYmd, 45)
+
+--- Returns the URL to a favicon based on the (generic) url
+-- Simply extracts the server name and appends "/favicon.ico"
+local function faviconUrl(aUrl)
+	assert(type(aUrl) == "string")
+
+	local proto, serverName = aUrl:match("(https?:)//([^/]+)/.*")
+	if not(proto and serverName) then
+		return ""
+	end
+	return proto .. "//" .. serverName .. "/favicon.ico"
+end
 %>
 
 <a href="/">Back to home</a> | <a href="https://livechart.me/schedule?date=<%= liveChartYmd %>">LiveChart.me</a> |
@@ -116,6 +128,18 @@ end
 				<%= watchlistItem.schedule.timeStr %> <br />
 				<% end %>
 				<a href="/anime/<%= watchlistItem.aId %>"><%= watchlistItem.caption %></a><br />
+				<%
+				if (watchlistItem.watchUrls) then
+					table.sort(watchlistItem.watchUrls, function(aWu1, aWu2)
+						return ((aWu1.providerName or "") < (aWu2.providerName or ""))
+					end)
+					for _, wu in ipairs(watchlistItem.watchUrls) do
+					%>
+						<a href="<%= wu.watchUrl %>">
+						<img src="<%= faviconUrl(wu.watchUrl) %>" alt="<%= (wu.providerName or "[unknown]") %>" border=1 />
+						</a>
+					<% end
+				end %>
 			<% end %>
 		</td>
 		<% end %>

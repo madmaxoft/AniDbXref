@@ -87,7 +87,16 @@ end
 --- (Asynchronously) queries the specified anime using all providers
 -- The resulting URLs are stored into the DB
 function M.enqueueQuery(aId)
-	copas.newthread(M.queryAndStore)
+	assert(type(aId) == "number")
+
+	log("watchUrlProviders", "Enqueueing query for %d", aId)
+	copas.addnamedthread(
+		string.format("watchUrlProviders.enqueueQuery(%d)", aId),
+		function()
+			copas.pause(0.1)  -- Let the parent thread run first
+			return M.queryAndStore(aId)
+		end
+	)
 end
 
 

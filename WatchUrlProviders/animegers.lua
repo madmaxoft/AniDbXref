@@ -11,6 +11,7 @@ Implements the WatchUrl provider for animegers.com
 local httpClient = require("httpClient")
 local url = require("socket.url")
 local utils = require("utils")
+local log = require("logger").log
 
 
 
@@ -61,8 +62,9 @@ end
 local function querySingleTitle(aTitle)
 	assert(type(aTitle) == "string")
 	local url = "https://animegers.com/search?keyword=" .. url.escape(aTitle)
+	log("watchUrlProviders/animegers", "HTTP request for title %s", aTitle)
 	local status, headers, body = httpClient.request({method = "GET", url = url})
-	if not(status) then
+	if not(status and body) then
 		return nil, "Failed to query animegers.com: " .. tostring(headers)
 	end
 	if (status ~= 200) then

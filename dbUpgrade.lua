@@ -561,6 +561,18 @@ local upgrades = {
 		},
 	},
 
+	-- Version 17:
+	{
+		scripts =
+		{
+			[[
+				CREATE TABLE WatchUrlLastQuery (
+					aId INTEGER PRIMARY KEY,
+					lastQueryTimestamp INTEGER NOT NULL
+				);
+			]],
+		},
+	},
 	-- Future upgrades can be added here
 }
 
