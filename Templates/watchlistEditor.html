@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Edit watchlist - AniDbXref</title>
+	<link rel="stylesheet" href="/Static/main.css" />
+</head>
+<body> |
+
+<%
+local seasonBounds = utils.seasonToYmdBounds(season)
+
+--- Returns 'checked="checked"' if the day of week for this item equals aOptionValue, "" otherwise
+-- Used to initialize the DayOfWeek options
+local function checkedByDayOfWeek(aOptionValue)
+	if (watchlistItem.dayOfWeek == aOptionValue) then
+		return 'checked="checked"'
+	end
+	return ""
+end
+%>
+
+<a href="/">Back to home</a> | <a href="/watchlist/<%= season %>">Back to Watchlist</a> |
+<h1>Edit <%= seasonDescription %> watchlist item</h1>
+
+<form action="/watchlist/edit" method="POST">
+<input type="hidden" name="itemid" value="<%= watchlistItem.itemId %>" />
+<input type="hidden" name="watchlistSeason" value="<%= season %>" />
+<table>
+	<tr>
+		<th>Day of week</th>
+		<td>
+			<input type="radio" id="dow_monday" name="dayofweek" value="1" <%- checkedByDayOfWeek(1) %> />
+			<label for="dow_monday">Monday</label>
+			<input type="radio" id="dow_tuesday" name="dayofweek" value="2" <%= checkedByDayOfWeek(2) %> />
+			<label for="dow_monday">Tuesday</label>
+			<input type="radio" id="dow_wednesday" name="dayofweek" value="3" <%= checkedByDayOfWeek(3) %> />
+			<label for="dow_monday">Wednesday</label>
+			<input type="radio" id="dow_thursday" name="dayofweek" value="4" <%= checkedByDayOfWeek(4) %> />
+			<label for="dow_monday">Thursday</label>
+			<input type="radio" id="dow_friday" name="dayofweek" value="5" <%= checkedByDayOfWeek(5) %> />
+			<label for="dow_monday">Friday</label>
+			<input type="radio" id="dow_saturday" name="dayofweek" value="6" <%= checkedByDayOfWeek(6) %> />
+			<label for="dow_monday">Saturday</label>
+			<input type="radio" id="dow_sunday" name="dayofweek" value="7" <%= checkedByDayOfWeek(7) %> />
+			<label for="dow_monday">Sunday</label>
+		</td>
+	</tr>
+
+	<tr>
+		<th>Time</th>
+		<td>
+			<input type="text" name="timeStr" value="<%= watchlistItem.timeStr %>" />
+		</td>
+	</tr>
+
+	<tr>
+		<th>Title</th>
+		<td>
+			<input type="text" name="caption" style="width:800px" value="<%= watchlistItem.caption %>" />
+			<% if (watchlistItem.anime) then %>
+				<br />
+				<%= watchlistItem.anime.enTitle or "" %>
+				<br />
+				<%= watchlistItem.anime.xjatTitle or "" %>
+				<br />
+				<a href="/anime/<%= watchlistItem.aId %>">Details</a> |
+				<a href="https://anidb.net/a<%= watchlistItem.aId %>">AniDB</a>
+			<% end %>
+		</td>
+	</tr>
+
+	<tr>
+		<th>URL</th>
+		<td>
+			<input type="text" name="url" style="width:800px" value="<%= watchlistItem.url or "" %>" />
+		</td>
+	</tr>
+</table>
+<input type="submit" value="Save" />
+</form>
+
+</body>
+</html>

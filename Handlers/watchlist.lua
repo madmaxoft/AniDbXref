@@ -156,6 +156,56 @@ end
 
 
 
+function M.getEdit(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	local _, query = aRequest:parsedPathAndQuery()
+	local itemId = tonumber(query.itemid)
+	if not(itemId) then
+		return aResponse:sendError(400, "Missing itemid parameter")
+	end
+
+	-- Query the DB:
+	local watchlistItem, msg = db.watchlistItem(itemId)
+	if not(watchlistItem) then
+		log("watchlistEdit", "Failed to load wachlist item %d from DB: %s", itemId, tostring(msg))
+		return aResponse:sendError(400, "Failed to load item from DB")
+	end
+	if (watchlistItem.aId) then
+		watchlistItem.anime = db.getAnimeDetails(watchlistItem.aId)
+	end
+
+	-- Convert utcSecondsSinceWeekStart into dayOfWeek and timeStr:
+	local weekStartTimeStampUtc
+	if (watchlistItem.watchlistSeason == utils.currentSeason()) then
+		weekStartTimeStampUtc = utils.weekStartUtcFromLocalTimestamp(os.time())
+	else
+		local seasonBounds = utils.seasonToYmdBounds(watchlistItem.watchlistSeason)
+		local dayTimeStamp = utils.ymdToTimestamp(utils.ymdAddOffset(seasonBounds.startDateYmd, 45))
+		weekStartTimeStampUtc = utils.weekStartUtcFromLocalTimestamp(dayTimeStamp)
+	end
+	localizeSchedule(watchlistItem, weekStartTimeStampUtc)
+
+	local season = watchlistItem.watchlistSeason
+	return aResponse:sendTemplate("watchlistEditor",
+		{
+			watchlistItem = watchlistItem,
+			season = season,
+			seasonYear = tonumber(season:match("(%d+)%-")),
+			seasonDescription = utils.seasonToDescription(season),
+		}
+	)
+end
+
+
+
+
+
 function M.postAdd(aRequest, aResponse)
 	assert(type(aRequest) == "table")
 	assert(aResponse.sendTemplate)
@@ -206,6 +256,86 @@ function M.postAdd(aRequest, aResponse)
 	end
 
 	return aResponse:sendRedirect("/watchlist/" .. watchlistSeason)
+end
+
+
+
+
+
+function M.postEdit(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	-- Extract and check form parameters:
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
+	end
+	local watchlistSeason = formData.watchlistseason or ""
+	local itemId = tonumber(formData.itemid)
+	if not(itemId) then
+		return aResponse:sendError(400, "Missing itemid parameter")
+	end
+	local dayOfWeek = tonumber(formData.dayofweek)
+	if not(dayOfWeek) then
+		return aResponse:sendError(400, "Missing dayofweek parameter")
+	end
+	local timeStr = formData.timeStr
+	if not(timeStr) then
+		return aResponse:sendError(400, "Missing timestr parameter")
+	end
+	local numSeconds, msg = utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(dayOfWeek, timeStr)
+	if not(numSeconds) then
+		log("watchlist", "Failed to convert schedule [%d, %s] to numSeconds: %s", dayOfWeek, timeStr, tostring(msg))
+		return aResponse:sendError(400, "Failed to convert schedule to numSeconds")
+	end
+	local refTimestamp = utils.ymdToTimestamp(assert(utils.seasonToYmdBounds(watchlistSeason)).startDateYmd)
+	local tzOffset = utils.timezoneOffset(refTimestamp)
+	local caption = formData.caption
+	if (not(caption) or (caption == "")) then
+		return aResponse:sendError(400, "Missing or empty caption")
+	end
+	local url = formData.url or ""
+
+	-- Save to DB:
+	log("watchlist", "Updating watchlist item %d (%s) in season %s, dow %d, timeStr %s", itemId, caption, watchlistSeason, dayOfWeek, timeStr)
+	db.updateWatchlistItem(itemId, numSeconds - tzOffset, caption, url)
+
+	aResponse:sendRedirect("/watchlist/" .. watchlistSeason)
+end
+
+
+
+
+
+function M.postRemove(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
+	end
+	local itemId = tonumber(formData.itemid)
+	if not(itemId) then
+		return aResponse:sendError(400, "Missing itemid parameter")
+	end
+	local watchlistSeason = formData.watchlistseason
+
+	local isOK, msg = db.removeWatchlistItem(itemId)
+	if not(isOK) then
+		return aResponse:sendError(400, "Failed to remove watchlist item: " .. tostring(msg))
+	end
+
+	return aResponse:sendRedirect("/watchlist/" .. (watchlistSeason or ""))
 end
 
 

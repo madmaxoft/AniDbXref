@@ -214,7 +214,8 @@ end
 
 
 --- Parses the full path from the request into the path part and parameters
--- Returns the path as a string and a table of { paramName, paramValue } as well as [paramName] = paramValue
+-- Returns the path as a string and a mixed table of both { paramName, paramValue } array elements
+-- and [paramName] = paramValue dict items
 function httpRequest:parsedPathAndQuery()
 	local path, query = self:pathAndQuery():match("([^?]*)%??(.*)")
 	local params = { n = 0 }

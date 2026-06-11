@@ -396,6 +396,7 @@ end
 
 --- Executes the specified statement, binding the specified values to it.
 -- aDescription is used for error logging.
+-- An error is raised on failure
 function db.execBoundStatement(aSql, aValuesToBind, aDescription)
 	assert(type(aSql) == "string")
 	assert(type(aValuesToBind) == "table")
@@ -1213,6 +1214,23 @@ end
 
 
 
+--- Removes the specified watchlist item from the DB
+-- Returns true on success, nil and error message on failure
+function db.removeWatchlistItem(aItemId)
+	assert(gDB ~= nil)
+	assert(type(aItemId) == "number")
+
+	local isOK, msg = pcall(db.execBoundStatement, "DELETE FROM Watchlist WHERE itemId = ?", {aItemId}, "removeWatchlistItem")
+	if not(isOK) then
+		return nil, tostring(msg)
+	end
+	return true
+end
+
+
+
+
+
 --- Searches Anime titles containing all given words of length >= 3
 -- Returns an array-table with {aId, details} items
 -- If the query matches the title perfectly (sans punctuation), areTitlesEqual = true is added into the item
@@ -1965,10 +1983,61 @@ end
 
 
 
---- Returns the watchlist for the specified season
--- Only the base data for the watchlist is returned. Callers are expected to enrich the watchlist with
--- anime data based on the aId items; use animeInSeason() to query the relevant anime
+--- Updates the details of the specified watchlist item
+-- Returns true on success, nil and error message on failure
+function db.updateWatchlistItem(aItemId, aUtcSecondsSinceWeekStart, aCaption, aUrl)
+	assert(gDB ~= nil)
+	assert(type(aItemId) == "number")
+	assert(type(aUtcSecondsSinceWeekStart) == "number")
+	assert(aUtcSecondsSinceWeekStart >= 0)
+	assert(aUtcSecondsSinceWeekStart < 7 * 24 * 60 * 60)
+	assert(type(aCaption) == "string")
+	assert(type(aUrl or "") == "string")
+
+	local isOK, msg = pcall(db.execBoundStatement, [[
+		UPDATE Watchlist SET
+			utcSecondsSinceWeekStart = ?,
+			url = ?,
+			caption = ?
+		WHERE itemId = ?
+		]],
+		{aUtcSecondsSinceWeekStart, aUrl, aCaption, aItemId}, "updateWatchlistItem"
+	)
+	if not(isOK) then
+		return nil, "Failed to update DB: " .. tostring(msg)
+	end
+	return true
+end
+
+
+
+
+
+--- Returns an array of WatchUrl entries for the specified anime
+-- Each item is { aId = ..., url = ..., providerName = ..., createdOnYmd = ... }
+function db.watchUrlForAnime(aId)
+	assert(gDB ~= nil)
+	assert(tonumber(aId))
+
+	return db.getArrayFromQuery(
+	[[
+		SELECT * FROM WatchUrl
+		WHERE aId = ?
+	]], {aId}, "watchUrlForAnime")
+end
+
+
+
+
+
+--- Returns the watchlist for the specified season (eg. "2026-2")
+-- Only the base data for the watchlist, plus watchUrls, is returned.
+-- Callers are expected to enrich the watchlist with anime data based on the aId items.
+-- Use animeInSeason() to query the relevant anime
 function db.watchlistInSeason(aSeason)
+	assert(gDB ~= nil)
+	assert(type(aSeason) == "string")
+
 	-- Query the base watchlist:
 	local res, msg = db.getArrayFromQuery(
 	[[
@@ -2024,17 +2093,22 @@ end
 
 
 
---- Returns an array of WatchUrl entries for the specified anime
--- Each item is { aId = ..., url = ..., providerName = ..., createdOnYmd = ... }
-function db.watchUrlForAnime(aId)
+--- Returns the watchlist item specified by its itemId
+-- Only the base data for the watchlist is returned. Callers are expected to enrich the watchlist with
+-- anime data based on the aId, if present
+function db.watchlistItem(aItemId)
 	assert(gDB ~= nil)
-	assert(tonumber(aId))
+	assert(type(aItemId) == "number")
 
-	return db.getArrayFromQuery(
+	local arr, msg = db.getArrayFromQuery(
 	[[
-		SELECT * FROM WatchUrl
-		WHERE aId = ?
-	]], {aId}, "watchUrlForAnime")
+		SELECT * FROM Watchlist
+		WHERE itemId = ?
+	]], {aItemId}, "watchlistInSeason")
+	if not((type(arr) == "table") and arr[1]) then
+		return nil, "Failed to query watchlist item: " .. tostring(msg)
+	end
+	return arr[1]
 end
 
 

@@ -17,9 +17,15 @@ gDbSkipInitTitleSearch = true
 require("httpClient").noCopas()  -- Disable Copas in the underlying httpClient
 local watchlistHandler = require("Handlers.watchlist")
 local utils = require("utils")
+local db = require("db")
 
 
 
+
+
+local watchlistItem = db.watchlistItem(52)
+print("Watchlist item 52:")
+print(utils.serializeSimpleTable(watchlistItem))
 
 
 local watchlist, seasonAnime = watchlistHandler.seasonData("2026-2")

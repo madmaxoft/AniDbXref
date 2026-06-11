@@ -124,9 +124,20 @@ end
 			local watchlistItem = byDayOfWeek[dow][i]
 			if (watchlistItem) then
 			%>
+				<nobr>
 				<% if (watchlistItem.schedule and watchlistItem.schedule.timeStr) then %>
-				<%= watchlistItem.schedule.timeStr %> <br />
+				<%= watchlistItem.schedule.timeStr %> |
 				<% end %>
+				<form action="/watchlist/edit" method="GET" style="display:inline">
+					<input type="hidden" name="itemid" value="<%= watchlistItem.itemId %>" />
+					<button type="submit">Edit</button>
+				</form>
+				<form action="/watchlist/remove" method="POST" style="display:inline">
+					<input type="hidden" name="itemid" value="<%= watchlistItem.itemId %>" />
+					<input type="hidden" name="watchlistseason" value="<%= season %>" />
+					<button type="submit">Remove</button>
+				</form>
+				</nobr><br />
 				<a href="/anime/<%= watchlistItem.aId %>"><%= watchlistItem.caption %></a><br />
 				<%
 				if (watchlistItem.watchUrls) then
