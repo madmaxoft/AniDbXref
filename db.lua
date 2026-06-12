@@ -79,6 +79,31 @@ end
 
 
 
+--- Adds the specified extra (non-anime) item to the user's watchlist
+-- Returns true in success, nil and error message on failure
+function db.addExtraToWatchlist(aCaption, aWatchlistSeason, aUtcSecondsSinceWeekStart, aUrl)
+	assert(type(aCaption) == "string")
+	assert(type(aWatchlistSeason) == "string")
+	assert(type(aUtcSecondsSinceWeekStart or 0) == "number")
+	assert(type(aUrl or "") == "string")
+
+	local isOK, msg = pcall(db.execBoundStatement, [[
+		INSERT INTO UserData.Watchlist
+			(watchlistSeason, utcSecondsSinceWeekStart, url, caption)
+		VALUES
+			(?, ?, ?, ?)
+		ON CONFLICT(watchlistSeason, utcSecondsSinceWeekStart, caption) DO NOTHING;
+		]],
+		{ aWatchlistSeason, aUtcSecondsSinceWeekStart, aUrl, aCaption },
+		"addExtraToWatchlist"
+	)
+	return true
+end
+
+
+
+
+
 --- Adds the specified tags to the global Tag table
 -- aTags is an array-table of {tagId= ..., parentId = ..., name = ..., description = ..., pictureId = ..., ...}
 function db.addGlobalTags(aTags)
@@ -201,7 +226,7 @@ end
 function db.addToWatchlist(aId, aWatchlistSeason, aUtcSecondsSinceWeekStart)
 	assert(type(aId) == "number")
 	assert(type(aWatchlistSeason) == "string")
-	assert(type(aUtcSecondsSinceWeekStart) == "number")
+	assert(type(aUtcSecondsSinceWeekStart or 0) == "number")
 
 	-- Query the details:
 	local details, msg = db.getAnimeDetails(aId)

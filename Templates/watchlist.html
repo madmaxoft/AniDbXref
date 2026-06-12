@@ -138,7 +138,19 @@ end
 					<button type="submit">Remove</button>
 				</form>
 				</nobr><br />
-				<a href="/anime/<%= watchlistItem.aId %>"><%= watchlistItem.caption %></a><br />
+
+				<% if (watchlistItem.aId) then %>
+				<a href="/anime/<%= watchlistItem.aId %>">
+				<% end %>
+				<%= watchlistItem.caption %>
+				<% if (watchlistItem.aId) then %>
+				</a>
+				<% end %>
+				<br />
+
+				<% if (watchlistItem.url and (watchlistItem.url ~= "")) then %>
+				<a href="<%= watchlistItem.url %>">Go</a>
+				<% end %>
 				<%
 				if (watchlistItem.watchUrls) then
 					table.sort(watchlistItem.watchUrls, function(aWu1, aWu2)
@@ -162,7 +174,66 @@ end
 
 
 
-<h2>Available</h2>
+<h2>Add extra</h2>
+<form action="/watchlist/add/extra" method="POST">
+<input type="hidden" name="watchlistSeason" value="<%= season %>" />
+<table>
+	<tr>
+		<th>Day of week</th>
+		<td>
+			<input type="radio" id="dow_monday" name="dayofweek" value="1" />
+			<label for="dow_monday">Monday</label>
+			<input type="radio" id="dow_tuesday" name="dayofweek" value="2" />
+			<label for="dow_monday">Tuesday</label>
+			<input type="radio" id="dow_wednesday" name="dayofweek" value="3" />
+			<label for="dow_monday">Wednesday</label>
+			<input type="radio" id="dow_thursday" name="dayofweek" value="4" />
+			<label for="dow_monday">Thursday</label>
+			<input type="radio" id="dow_friday" name="dayofweek" value="5" />
+			<label for="dow_monday">Friday</label>
+			<input type="radio" id="dow_saturday" name="dayofweek" value="6" />
+			<label for="dow_monday">Saturday</label>
+			<input type="radio" id="dow_sunday" name="dayofweek" value="7" />
+			<label for="dow_monday">Sunday</label>
+			<input type="radio" id="dow_older" name="dayofweek" value="older" />
+			<label for="dow_monday">Older</label>
+		</td>
+	</tr>
+
+	<tr>
+		<th>Time</th>
+		<td>
+			<input type="text" name="timeStr" />
+		</td>
+	</tr>
+
+	<tr>
+		<th>Title</th>
+		<td>
+			<input type="text" name="caption" style="width:800px" />
+		</td>
+	</tr>
+
+	<tr>
+		<th>URL</th>
+		<td>
+			<input type="text" name="url" style="width:800px" />
+		</td>
+	</tr>
+</table>
+<input type="submit" value="Add" />
+</form>
+
+
+
+
+<h2>Add older</h2>
+
+
+
+
+
+<h2>Add from schedule</h2>
 <table>
 	<tr>
 		<th>Monday</th>

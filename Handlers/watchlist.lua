@@ -36,6 +36,10 @@ local function localizeSchedule(aSchedule, aWeekStartTimestampUtc)
 		return
 	end
 	assert(type(aSchedule) == "table")
+	if not(aSchedule.utcSecondsSinceWeekStart) then
+		aSchedule.dayOfWeek = 8  -- No schedule -> Older column
+		return
+	end
 	assert(type(aSchedule.utcSecondsSinceWeekStart) == "number")
 	assert(type(aWeekStartTimestampUtc) == "number")
 
@@ -251,6 +255,71 @@ function M.postAdd(aRequest, aResponse)
 	local isOK, err = pcall(function()
 		db.addToWatchlist(aId, watchlistSeason, numSeconds - tzOffset)
 	end)
+	if not(isOK) then
+		return aResponse:sendError(500, "Database error: " .. tostring(err))
+	end
+
+	return aResponse:sendRedirect("/watchlist/" .. watchlistSeason)
+end
+
+
+
+
+
+function M.postAddExtra(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	-- Only POST should reach here
+	assert(aRequest:method() == "POST")
+
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
+	end
+
+	local watchlistSeason = formData.watchlistseason
+	if not(watchlistSeason) then
+		return aResponse:sendError(400, "Missing or invalid watchlistSeason parameter")
+	end
+	local dayOfWeek = formData.dayofweek
+	if not(dayOfWeek and (tonumber(dayOfWeek) or (dayOfWeek == "older"))) then
+		return aResponse:sendError(400, "Missing or invalid dayofweek parameter")
+	end
+	local timeStr = formData.timestr
+	if (not(timeStr) or (timeStr == "")) then
+		timeStr = "0:00"
+	end
+	local caption = formData.caption
+	if not(caption) then
+		return aResponse:sendError(400, "Missing caption parameter")
+	end
+	if (caption == "") then
+		return aResponse:sendError(400, "Caption cannot be empty")
+	end
+	local url = formData.url or ""
+
+	-- Add to the DB:
+	local utcSecondsSinceWeekStart = nil
+	if (tonumber(dayOfWeek)) then
+		dayOfWeek = tonumber(dayOfWeek)
+		local numSeconds, msg = utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(dayOfWeek, timeStr)
+		if not(numSeconds) then
+			log("watchlist", "Failed to convert schedule [%d, %s] to numSeconds: %s", dayOfWeek, timeStr, tostring(msg))
+			return aResponse:sendError(400, "Failed to convert schedule to numSeconds")
+		end
+		local refTimestamp = utils.ymdToTimestamp(assert(utils.seasonToYmdBounds(watchlistSeason)).startDateYmd)
+		local tzOffset = utils.timezoneOffset(refTimestamp)
+		utcSecondsSinceWeekStart = numSeconds - tzOffset
+	end
+	log("watchlist", "Adding an extra item %s into watchlist season %s, dow %s, timeStr %s",
+		caption, watchlistSeason, tostring(dayOfWeek), timeStr
+	)
+	local isOK, err = db.addExtraToWatchlist(caption, watchlistSeason, utcSecondsSinceWeekStart, url)
 	if not(isOK) then
 		return aResponse:sendError(500, "Database error: " .. tostring(err))
 	end
