@@ -108,8 +108,8 @@ end
 
 
 --- Returns the parsed form data from this request
--- Parses forms in both "application/x-www-form-urlencoded" and "multipart/form-data" formats
--- NOTE: Doesn't parse the form data in GET request parameters, use parsedPathAndQuery() for that
+-- Parses forms in "application/x-www-form-urlencoded" and "multipart/form-data" formats for POST requests
+-- Parses form data in URL for GET requests
 -- NOTE: Stores both the body and the form data in memory, not suitable for large file uploads
 -- Returns a case-insensitive dict-table of the form data elements
 -- Returns nil and error message on failure
@@ -125,6 +125,18 @@ function httpRequest:formData()
 	-- If the form data parsing has been attempted previously with a failure, fail now as well:
 	if (self.mFormData == false) then
 		return nil, "Parsing the form data has failed previously"
+	end
+
+	if (self.mMethod == "GET") then
+		local path, query = self:parsedPathAndQuery()
+		local fd = caseInsensitiveDict.new()
+		for k, v in pairs(query) do
+			if (type(k) == "string") then
+				fd[k:lower()] = v
+			end
+		end
+		self.mFormData = fd
+		return fd
 	end
 
 	-- If the request doesn't have a body, report no form data (happens for empty forms as well as GET / HEAD requests)
