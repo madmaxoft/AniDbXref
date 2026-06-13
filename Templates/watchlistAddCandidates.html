@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Add to <%= seasonDescription %> watchlist - AniDbXref</title>
+	<link rel="stylesheet" href="/Static/main.css" />
+</head>
+<body> |
+
+<%
+local seasonBounds = utils.seasonToYmdBounds(season)
+%>
+
+<a href="/">Back to home</a> | <a href="/watchlist/<%= season %>">Back to Watchlist</a> |
+<h1>Add to <%= seasonDescription %> watchlist</h1>
+
+<form action="/watchlist/add/older" method="POST" />
+<input type="hidden" name="watchlistSeason" value="<%= season %>" />
+<table>
+	<tr>
+		<th />
+		<th />
+		<th />
+		<th />
+		<th>Caption</th>
+		<th>Start date</th>
+		<th>Seen</th>
+	</tr>
+
+	<% for _, candidate in ipairs(candidates) do %>
+	<tr>
+		<td>
+			<input type="checkbox" name="chb_<%- candidate.aId %>" />
+		</td>
+		<td>
+			<% if (candidate.details.pictureId) then %>
+				<img src="/picture?id=<%= candidate.details.pictureId %>&size=thumb" /> <br />
+			<% end %>
+		</td>
+		<td>
+			<a href="/anime/<%= candidate.aId %>">Details</a>
+		</td>
+		<td>
+			<a href="https://anidb.net/a<%= candidate.aId %>">AniDB</a>
+		</td>
+		<td>
+			<%= candidate.details.enTitle or "" %> <br />
+			<%= candidate.details.xjatTitle or "" %>
+			</a>
+		</td>
+
+		<td>
+			<%= candidate.details.startDate or "" %>
+		</td>
+
+		<td>
+			<% if (candidate.details.isSeen == 1) then %>
+			<%= utils.toIsoDate(candidate.details.seenDateYmd) or "" %>
+			<% end %>
+		</td>
+	</tr>
+	<% end %>
+</table>
+<input type="submit" value="Add selected" />
+</form>
+
+</body>
+</html>

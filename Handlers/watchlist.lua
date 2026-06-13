@@ -160,6 +160,62 @@ end
 
 
 
+function M.getAddSearch(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	-- Only GET should reach here
+	assert(aRequest:method() == "GET")
+
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
+	end
+	local query = formData.query
+	if not(query) then
+		return aResponse:sendError(400, "Missing query parameter")
+	end
+	local watchlistSeason = formData.watchlistseason
+	if not(watchlistSeason) then
+		return aResponse:sendError(400, "Missing watchlistseason parameter")
+	end
+
+	-- Search for the candidates:
+	local candidates = db.searchAnimeTitles(query)
+
+	-- If there are no candidates, report failure:
+	if (candidates.n == 0) then
+		return aResponse:sendMessage("No candidates found")
+	end
+
+	-- If there's only one candidate, add it:
+	if (candidates.n == 1) then
+		local isOK, err = db.addToWatchlist(candidates[1].aId, watchlistSeason, nil)
+		if not(isOK) then
+			return aResponse:sendError(500, "Database error: " .. tostring(err))
+		end
+		return aResponse:sendRedirect("/watchlist/" .. watchlistSeason)
+	end
+
+	-- Multiple candidates, let the user pick:
+	return aResponse:sendTemplate("watchlistAddCandidates",
+		{
+			candidates = candidates,
+			season = watchlistSeason,
+			seasonYear = tonumber(watchlistSeason:match("(%d+)%-")),
+			seasonDescription = utils.seasonToDescription(watchlistSeason),
+		}
+	)
+end
+
+
+
+
+
 function M.getEdit(aRequest, aResponse)
 	assert(type(aRequest) == "table")
 	assert(aResponse.sendTemplate)
@@ -252,9 +308,7 @@ function M.postAdd(aRequest, aResponse)
 	local refTimestamp = utils.ymdToTimestamp(assert(utils.seasonToYmdBounds(watchlistSeason)).startDateYmd)
 	local tzOffset = utils.timezoneOffset(refTimestamp)
 	log("watchlist", "Adding aId %d into watchlist season %s, dow %d, timeStr %s", aId, watchlistSeason, dayOfWeek, timeStr)
-	local isOK, err = pcall(function()
-		db.addToWatchlist(aId, watchlistSeason, numSeconds - tzOffset)
-	end)
+	local isOK, err = db.addToWatchlist(aId, watchlistSeason, numSeconds - tzOffset)
 	if not(isOK) then
 		return aResponse:sendError(500, "Database error: " .. tostring(err))
 	end
@@ -322,6 +376,51 @@ function M.postAddExtra(aRequest, aResponse)
 	local isOK, err = db.addExtraToWatchlist(caption, watchlistSeason, utcSecondsSinceWeekStart, url)
 	if not(isOK) then
 		return aResponse:sendError(500, "Database error: " .. tostring(err))
+	end
+
+	return aResponse:sendRedirect("/watchlist/" .. watchlistSeason)
+end
+
+
+
+
+
+function M.postAddOlder(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	-- Only POST should reach here
+	assert(aRequest:method() == "POST")
+
+	-- Parse the form data:
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
+	end
+	local watchlistSeason = formData.watchlistseason
+	if not(watchlistSeason) then
+		return aResponse:sendError(400, "Missing the watchlistseason parameter")
+	end
+	local ids = {}
+	local n = 0
+	for k, v in formData:pairs() do
+		local aId = tonumber(string.match(tostring(k), "^chb_(%d+)$"))
+		if (aId) then
+			n = n + 1
+			ids[n] = aId
+		end
+	end
+
+	-- Add to DB:
+	for _, aId in ipairs(ids) do
+		local isOK, msg = db.addToWatchlist(aId, watchlistSeason, nil)
+		if not(isOK) then
+			log("watchlist", "Failed to add to watchlist season %s: anime %d", watchlistSeason, aId)
+		end
 	end
 
 	return aResponse:sendRedirect("/watchlist/" .. watchlistSeason)

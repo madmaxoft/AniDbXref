@@ -443,6 +443,7 @@ end
 --- Calls the specified callback for each row of the executed DB statement
 -- Binds the values before executing the statement
 -- If the callback returns true, the execution is aborted
+-- Raises an error on failure
 function db.forEachRowInStatement(aSql, aValuesToBind, aDescription, aCallback)
 	assert(type(aSql) == "string")
 	assert(type(aValuesToBind) == "table")

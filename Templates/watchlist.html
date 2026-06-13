@@ -228,7 +228,11 @@ end
 
 
 <h2>Add older</h2>
-
+<form action="/watchlist/add/search" method="GET">
+<input type="hidden" name="watchlistSeason" value="<%= season %>" />
+Search: <input type="text" name="query" style="width:800px" />
+<input type="submit" value="Search to add" />
+</form>
 
 
 
