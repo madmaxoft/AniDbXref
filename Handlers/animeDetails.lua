@@ -49,8 +49,9 @@ function AD.get(aRequest, aResponse)
 	end
 
 	local timer = perf.newTimer("animeDetails.get")
-	local details = db.getAnimeDetails(aId)
+	local details, msg = db.getAnimeDetails(aId)
 	timer("Get details from DB")
+	details = details or {}
 	if not(details.description) then
 		requestQueue.add(aId)
 	end
