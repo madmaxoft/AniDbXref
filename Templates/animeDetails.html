@@ -14,6 +14,9 @@
 <p>Anime details not received yet, check back later.</p>
 <% else
 
+-- Sort the watchlist by time:
+table.sort(watchlist)
+
 -- Sort the relatedAnime as prequel-sequel-others:
 table.sort(details.relatedAnime or {},
 	function(aAnime1, aAnime2)
@@ -146,6 +149,24 @@ end
 					<% if (details.url) then %>
 					<a href="<%= details.url %>"><%= details.url %></a>
 					<% end %>
+				</td>
+			</tr>
+			<tr>
+				<th>Watchlist</th>
+				<td>
+					<% for _, ws in ipairs(watchlist) do %>
+					<a href="/watchlist/<%- ws %>"><%= utils.seasonToDescription(ws) %></a>
+					<% end %>
+
+					<form action="/anime/addToWatchlist" method="POST">
+						<input type="hidden" name="aid" value="<%= aId %>" />
+						<select name="watchlistseason">
+							<% for s in utils.seasonsBetween(nil, utils.ymdToSeason(details.startDate)) do %>
+								<option value="<%= s %>"><%= utils.seasonToDescription(s) %></option>
+							<% end %>
+						</select>
+						<input type="submit" value="Add" />
+					</form>
 				</td>
 			</tr>
 		</table>

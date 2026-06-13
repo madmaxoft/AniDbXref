@@ -2141,5 +2141,33 @@ end
 
 
 
+--- Returns an array-table of watchlistSeason strings for all the watchlist seasons that contain the specified anime
+-- Returns nil and error message on failure
+function db.watchlistSeasonsForAnime(aId)
+	assert(gDB ~= nil)
+	assert(type(aId) == "number")
+
+	-- Query the DB, arr is an array of {watchlistSeason = ...} items
+	local arr, msg = db.getArrayFromQuery(
+	[[
+		SELECT watchlistSeason FROM Watchlist
+		WHERE aId = ?
+	]], {aId}, "watchlistSeasonsForAnime")
+	if not(arr) then
+		return nil, "Failed to query watchlist item: " .. tostring(msg)
+	end
+
+	-- Flatten arr into a simple array of strings:
+	local res = {n = arr.n}
+	for i = 1, arr.n do
+		res[i] = arr[i].watchlistSeason
+	end
+	return res
+end
+
+
+
+
+
 initialize()
 return db

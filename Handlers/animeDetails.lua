@@ -56,8 +56,50 @@ function AD.get(aRequest, aResponse)
 		requestQueue.add(aId)
 	end
 
-	aResponse:sendTemplate("animeDetails", { details = details, aId = aId })
+	aResponse:sendTemplate("animeDetails",
+	{
+		details = details,
+		watchlist = db.watchlistSeasonsForAnime(aId),
+		aId = aId
+	})
 	timer("Send response")
+end
+
+
+
+
+
+function AD.postAddToWatchlist(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	-- Only POST should reach here
+	assert(aRequest:method() == "POST")
+
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
+	end
+	local aId = tonumber(formData.aid)
+	if not(aId) then
+		return aResponse:sendError(400, "Missing or invalid aid parameter")
+	end
+	local watchlistSeason = formData.watchlistSeason
+	if (not(watchlistSeason) or (watchlistSeason == "")) then
+		return aResponse:sendError(400, "Missing or invalid watchlistseason parameter")
+	end
+
+	local isOK, msg = db.addToWatchlist(aId, watchlistSeason)
+	if not(isOK) then
+		log("animeDetails", "Failed to add watchlist item into DB: %s", tostring(msg))
+		return aResponse:sendError(400, "Failed to add watchlist item into DB")
+	end
+
+	return aResponse:sendRedirect("/anime/" .. tostring(aId))
 end
 
 

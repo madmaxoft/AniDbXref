@@ -39,6 +39,7 @@ return {
 	},
 	POST =
 	{
+		{ path = "/anime/addToWatchlist", handler = require("Handlers.animeDetails").postAddToWatchlist },
 		{ path = "/anime/setSeen",        handler = require("Handlers.animeDetails").postSetSeen },
 		{ path = "/config",               handler = require("Handlers.configEditor").post },
 		{ path = "/import/review/",       handler = require("Handlers.importUI").postReview },
