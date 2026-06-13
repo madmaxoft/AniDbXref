@@ -7,6 +7,11 @@ Implements a case-insensitive dict-table of string -> any value that uses the st
 	local v = dict.SomeKey
 	assert(v == "someValue")
 
+Also supports enumerating all values using pairs() function, this enumerates keys as all-lowercase:
+	for k, v in dict:pairs() do
+		...
+	end
+
 This is used for storing parsed HTTP form data, because some browsers seem to mangle the case of the form
 fields when submitting the form.
 --]]
@@ -59,10 +64,20 @@ end
 
 
 
+--- The dict:pairs() function, works the same as pairs({...}) for regular tables
+local function cidPairs(aSelf)
+	return pairs(aSelf.mValues)
+end
+
+
+
+
+
 --- Creates a new caseInsensitiveMap instance
 function caseInsensitiveDict.new()
 	local self = {
 		mValues = {},
+		pairs = cidPairs,
 	}
 	setmetatable(self, {
 		__index = index,
