@@ -55,6 +55,57 @@ end
 
 
 
+--- Returns an iterator over all seasons from aStartSeason up to aEndSeason (inclusive).
+-- If either season is not specified, the current season is assumed.
+-- Can generate a reversed sequence if aStartSeason is later than aEndSeason
+-- This can be used to generate a list of all seasons from the specified start to end in a for loop:
+-- for season in utils.seasonsBetween("2025-1", "2026-2") do print(season) end
+function utils.seasonsBetween(aStartSeason, aEndSeason)
+	assert(type(aStartSeason or "") == "string")
+	assert(type(aEndSeason or "") == "string")
+
+	local startYear, startQuarter = string.match(aStartSeason or utils.currentSeason(), "^(%d+)%-(%d+)$")
+	assert(startYear ~= nil)
+	assert(startQuarter ~= nil)
+	startYear = tonumber(startYear)
+	startQuarter = tonumber(startQuarter)
+	assert((startQuarter >= 1) and (startQuarter <= 4))
+
+	local endYear, endQuarter = string.match(aEndSeason or utils.currentSeason(), "^(%d+)%-(%d+)$")
+	assert(endYear ~= nil)
+	assert(endQuarter ~= nil)
+	endYear = tonumber(endYear)
+	endQuarter = tonumber(endQuarter)
+	assert((endQuarter >= 1) and (endQuarter <= 4))
+
+	local currentIndex = startYear * 4 + startQuarter - 1
+	local endIndex = endYear * 4 + endQuarter - 1
+
+	local step = 1
+	if (currentIndex > endIndex) then
+		step = -1
+	end
+
+	return function ()
+		if (
+			((step > 0) and (currentIndex > endIndex)) or
+			((step < 0) and (currentIndex < endIndex))
+		) then
+			return nil
+		end
+
+		local year = math.floor(currentIndex / 4)
+		local quarter = (currentIndex % 4) + 1
+		currentIndex = currentIndex + step
+
+		return string.format("%d-%d", year, quarter)
+	end
+end
+
+
+
+
+
 --- Converts the season-string ("2026-1") into user-visible description ("2026 winter")
 -- Returns nil and error message on failure
 function utils.seasonToDescription(aSeason)

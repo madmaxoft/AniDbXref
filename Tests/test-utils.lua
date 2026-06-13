@@ -68,6 +68,56 @@ end
 
 
 
+local function test_seasonsBetween()
+	local seasons = {}
+
+	-- Check forward iteration:
+	for season in utils.seasonsBetween("2025-1", "2026-2") do
+		table.insert(seasons, season)
+	end
+	assertEqual(6, #seasons)
+	assertEqual("2025-1", seasons[1])
+	assertEqual("2025-2", seasons[2])
+	assertEqual("2025-3", seasons[3])
+	assertEqual("2025-4", seasons[4])
+	assertEqual("2026-1", seasons[5])
+	assertEqual("2026-2", seasons[6])
+
+	-- Check reverse iteration:
+	seasons = {}
+	for season in utils.seasonsBetween("2026-2", "2025-1") do
+		table.insert(seasons, season)
+	end
+	assertEqual(6, #seasons)
+	assertEqual("2026-2", seasons[1])
+	assertEqual("2026-1", seasons[2])
+	assertEqual("2025-4", seasons[3])
+	assertEqual("2025-3", seasons[4])
+	assertEqual("2025-2", seasons[5])
+	assertEqual("2025-1", seasons[6])
+
+	-- Check single season:
+	seasons = {}
+	for season in utils.seasonsBetween("2025-3", "2025-3") do
+		table.insert(seasons, season)
+	end
+	assertEqual(1, #seasons)
+	assertEqual("2025-3", seasons[1])
+
+	-- Check current season:
+	local currentSeason = utils.currentSeason()
+	seasons = {}
+	for season in utils.seasonsBetween(nil, nil) do
+		table.insert(seasons, season)
+	end
+	assertEqual(1, #seasons)
+	assertEqual(currentSeason, seasons[1])
+end
+
+
+
+
+
 local function test_utcToLocalTimestamp()
 	assertEqual(os.date("%c", utils.utcToLocalTimestamp(0)), os.date("!%c", 0))
 	assertEqual(os.date("%c", utils.utcToLocalTimestamp(1778284800)), os.date("!%c", 1778284800))  -- 2026-05-09
@@ -136,6 +186,7 @@ end
 test_dayOfWeekAndTimeStrToSecondsSinceWeekStart()
 test_localToUtcTimestamp()
 test_parseIsoDateTime()
+test_seasonsBetween()
 test_utcToLocalTimestamp()
 test_ymdAddOffset()
 test_ymdDayOfWeek()
