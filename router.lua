@@ -85,36 +85,6 @@ router.routes = require("routeTable")
 
 
 
---- Calls the specified handler safely - if an error is raised, an error page is served
-function router.dispatchHandler(aHandler, aRequest, aResponse)
-	assert(type(aHandler) == "function")
-	assert(aRequest)
-	assert(aRequest.httpVersion)
-	assert(aResponse)
-	assert(aResponse.setHeader)
-
-	-- error handler that adds traceback
-	local function onError(aErr)
-		return debug.traceback(aErr, 2)
-	end
-
-	-- run handler safely
-	local ok, result = xpcall(function()
-		return aHandler(aRequest, aResponse)
-	end, onError)
-
-	-- If an exception occurred, log and send it to the client:
-	if not(ok) then
-		local errText = result or "Unknown error"
-		log("router", "ERROR during request: %s", errText)
-		aResponse:sendError(500, errText)
-	end
-end
-
-
-
-
-
 --- Evaluates the request's auth status - auth OK, ReadOnly or Denied
 -- Returns true if auth succeeded (OK or ReadOnly)
 -- ReadOnly is marked into the request table as an isReadOnly property
@@ -154,6 +124,36 @@ local function evaluateAuth(aRequest)
 	end
 	log("router.auth", "Auth failed")
 	return false
+end
+
+
+
+
+
+--- Calls the specified handler safely - if an error is raised, an error page is served
+function router.dispatchHandler(aHandler, aRequest, aResponse)
+	assert(type(aHandler) == "function")
+	assert(aRequest)
+	assert(aRequest.httpVersion)
+	assert(aResponse)
+	assert(aResponse.setHeader)
+
+	-- error handler that adds traceback
+	local function onError(aErr)
+		return debug.traceback(aErr, 2)
+	end
+
+	-- run handler safely
+	local ok, result = xpcall(function()
+		return aHandler(aRequest, aResponse)
+	end, onError)
+
+	-- If an exception occurred, log and send it to the client:
+	if not(ok) then
+		local errText = result or "Unknown error"
+		log("router", "ERROR during request: %s", errText)
+		aResponse:sendError(500, errText)
+	end
 end
 
 

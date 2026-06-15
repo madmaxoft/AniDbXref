@@ -52,6 +52,7 @@ local log = require("logger").log
 require("Templates")
 local httpResponse = require("httpResponse")
 local httpRequest  = require("httpRequest")
+local requestTracker = require("requestTracker")
 local db = require("db")
 require("aniDbDetails")
 local requestQueue = require("requestQueue")
@@ -97,10 +98,12 @@ local function clientLoop(aSocket)
 		if not req then
 			break
 		end
+		requestTracker.beginRequest()
 		local resp = httpResponse.new(req)
 		router.handleRequest(req, resp)
 		resp:finish()
 		req:discardUnreadBody()
+		requestTracker.endRequest()
 		if not(req:shouldKeepAlive(resp)) then
 			break
 		end

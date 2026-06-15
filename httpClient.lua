@@ -22,6 +22,7 @@ local ssl = require("ssl")
 local copas = require("copas")
 local url = require("socket.url")
 local httpUtils = require("httpUtils")
+local requestTracker = require("requestTracker")
 
 
 
@@ -133,6 +134,7 @@ local function createConnection(aParsedUrl)
 	end
 
 	-- Connect to the host:
+	requestTracker.yieldUntilNoRequests()
 	local ok, err2 = sock:connect(aParsedUrl.host, aParsedUrl.port)
 	if not(ok) and (err2 ~= "timeout") then
 		return nil, err2
@@ -243,7 +245,6 @@ local function getConnection(aParsedUrl)
 				end
 			end
 		end
-
 
 		-- Create a new connection, if allowed
 		if (numActive < gMaxConnectionsPerHost) then
