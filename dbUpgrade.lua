@@ -42,7 +42,11 @@ function dbUpgrade.copyFile(aSrc, aDst)
 	assert(type(aSrc) == "string")
 	assert(type(aDst) == "string")
 
-	local inFile = assert(io.open(aSrc, "rb"))
+	local inFile, msg = io.open(aSrc, "rb")
+	if not(inFile) then
+		log("dbUpgrade", "WARNING: Cannot make a backup of %s: %s", aSrc, tostring(msg))
+		return
+	end
 	local data = inFile:read("*a")
 	inFile:close()
 
@@ -105,12 +109,13 @@ end
 local upgrades = {
 	-- Version 1:
 	{
-		scripts = {
-			[[
+		[[
 			CREATE TABLE IF NOT EXISTS Anime (
 				aId INTEGER PRIMARY KEY
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeTitle (
 				aId INTEGER NOT NULL,
 				language TEXT NOT NULL,
@@ -119,13 +124,17 @@ local upgrades = {
 				titleLower TEXT NOT NULL,
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS Seen (
 				aId INTEGER PRIMARY KEY,
 				seenDate TEXT NOT NULL,
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeBaseDetails (
 				aId INTEGER NOT NULL,
 				startDate TEXT,
@@ -139,7 +148,9 @@ local upgrades = {
 				PRIMARY KEY (aId),
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeEpisode (
 				aId INTEGER NOT NULL,
 				id INTEGER NOT NULL,
@@ -150,7 +161,9 @@ local upgrades = {
 				PRIMARY KEY (id),
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeEpisodeTitle (
 				aId INTEGER NOT NULL,
 				episodeId INTEGER NOT NULL,
@@ -158,8 +171,10 @@ local upgrades = {
 				title TEXT,
 				FOREIGN KEY (aId) REFERENCES Anime(aId),
 				FOREIGN KEY (episodeId) REFERENCES AnimeEpisode(id)
-			)
+			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeCharacter (
 				aId INTEGER NOT NULL,
 				characterTypeId TEXT,
@@ -172,22 +187,28 @@ local upgrades = {
 				ratingValue REAL,
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeVoiceActor (
 				vaId INTEGER PRIMARY KEY AUTOINCREMENT,
 				name TEXT,
 				pictureId INTEGER
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeRelated (
 				aId INTEGER,
 				relatedAid INTEGER,
-				relation TEXT
+				relation TEXT,
 				PRIMARY KEY (aId, relatedAid),
 				FOREIGN KEY (aId) REFERENCES Anime(aId),
 				FOREIGN KEY (relatedAid) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeSimilar (
 				aId INTEGER,
 				similarAid INTEGER,
@@ -195,7 +216,9 @@ local upgrades = {
 				FOREIGN KEY (aId) REFERENCES Anime(aId),
 				FOREIGN KEY (similarAid) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeRecommendation (
 				aId INTEGER,
 				uId INTEGER,
@@ -204,7 +227,9 @@ local upgrades = {
 				PRIMARY KEY (aId, uId),
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeCreator (
 				aId INTEGER,
 				id INTEGER,
@@ -213,7 +238,9 @@ local upgrades = {
 				PRIMARY KEY (aId, id),
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS AnimeTag (
 				aId INTEGER,
 				id INTEGER,
@@ -221,52 +248,59 @@ local upgrades = {
 				PRIMARY KEY (aId, id)
 				FOREIGN KEY (aId) REFERENCES Anime(aId)
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS Picture (
 				pictureId INTEGER PRIMARY KEY AUTOINCREMENT,
 				data BLOB
 			);
+		]],
 
+		[[
 			CREATE TABLE IF NOT EXISTS KeyValue (
 				key TEXT PRIMARY KEY,
 				value TEXT
 			);
+		]],
 
+		[[
 			INSERT OR IGNORE INTO KeyValue (key, value) VALUES ('schema_version', '1');
+		]],
 
+		[[
 			CREATE INDEX IF NOT EXISTS idx_AnimeTitle_titleLower ON AnimeTitle(titleLower);
 		]]
-		},
 	},
 
 	-- Version 2:
 	{
-		scripts = {[[
+		[[
 			ALTER TABLE Picture ADD COLUMN dataThumb BLOB;
-		]]},
+		]],
 	},
 
 	-- Version 3:
 	{
-		scripts = {[[
+		[[
 			CREATE INDEX IF NOT EXISTS idx_AnimeEpisode_aId_id ON AnimeEpisode(aId, id);
 			CREATE INDEX IF NOT EXISTS idx_AnimeEpisodeTitle_aId_episodeId ON AnimeEpisodeTitle(aId, episodeId);
-		]]},
+		]],
 	},
 
 	-- Version 4:
 	{
-		scripts = {[[
+		[[
 			CREATE INDEX idx_AnimeRelated_aId ON AnimeRelated(aId);
 			CREATE INDEX idx_AnimeRelated_relatedAid ON AnimeRelated(relatedAid);
 			CREATE INDEX idx_AnimeTitle_aId ON AnimeTitle(aId);
 			CREATE INDEX idx_AnimeBaseDetails_aId ON AnimeBaseDetails(aId);
-		]]},
+		]],
 	},
 
 	-- Version 5:
 	{
-		scripts = {[[
+		[[
 			DROP TABLE AnimeCharacter;
 			ALTER TABLE AnimeVoiceActor RENAME TO VoiceActor;
 			ALTER TABLE VoiceActor ADD COLUMN gender TEXT;
@@ -307,271 +341,245 @@ local upgrades = {
 			CREATE INDEX idx_AnimeCharacter_characterId ON AnimeCharacter(characterId);
 			CREATE INDEX idx_AnimeCharacterVoiceActor_acId ON AnimeCharacterVoiceActor(acId);
 			CREATE INDEX idx_AnimeCharacterVoiceActor_vaId ON AnimeCharacterVoiceActor(vaId);
-		]]},
+		]],
 	},
 
 	-- Version 6:
 	{
-		scripts =
-		{
-			[[
-				CREATE TABLE UserData.Seen (
-					aId INTEGER NOT NULL,
-					seenDate TEXT NOT NULL,
-					PRIMARY KEY (aId)
-				);
-			]],
-			[[
-				INSERT INTO UserData.Seen (aId, seenDate)
-				SELECT aId, seenDate FROM main.Seen;
-			]],
-			[[ DROP TABLE main.Seen ]],
-		},
+		[[
+			CREATE TABLE UserData.Seen (
+				aId INTEGER NOT NULL,
+				seenDate TEXT NOT NULL,
+				PRIMARY KEY (aId)
+			);
+		]],
+		[[
+			INSERT INTO UserData.Seen (aId, seenDate)
+			SELECT aId, seenDate FROM main.Seen;
+		]],
+		[[
+			DROP TABLE main.Seen
+		]],
 	},
 
 	-- Version 7:
 	{
-		scripts =
-		{
-			[[
-				CREATE TABLE Pic.Picture (
-					pictureId INTEGER PRIMARY KEY AUTOINCREMENT,
-					data BLOB,
-					dataThumb BLOB
-				);
-			]],
-			[[
-				INSERT INTO Pic.Picture (pictureId, data, dataThumb)
-				SELECT pictureId, data, dataThumb FROM main.Picture;
-			]],
-			[[
-				DROP TABLE main.Picture;
-			]],
-		},
+		[[
+			CREATE TABLE Pic.Picture (
+				pictureId INTEGER PRIMARY KEY AUTOINCREMENT,
+				data BLOB,
+				dataThumb BLOB
+			);
+		]],
+		[[
+			INSERT INTO Pic.Picture (pictureId, data, dataThumb)
+			SELECT pictureId, data, dataThumb FROM main.Picture;
+		]],
+		[[
+			DROP TABLE main.Picture;
+		]],
 	},
 
 	-- Version 8:
 	{
-		scripts =
-		{
-			-- Create the new table:
-			[[
-				CREATE TABLE Pic.Picture_new (
-					pictureId TEXT NOT NULL,
-					size TEXT NOT NULL,
-					data BLOB,
-					PRIMARY KEY (pictureId, size)
-				);
-			]],
+		-- Create the new table:
+		[[
+			CREATE TABLE Pic.Picture_new (
+				pictureId TEXT NOT NULL,
+				size TEXT NOT NULL,
+				data BLOB,
+				PRIMARY KEY (pictureId, size)
+			);
+		]],
 
-			-- Copy existing data into the new table:
-			[[
-				INSERT INTO Pic.Picture_new (pictureId, size, data)
-				SELECT CAST(pictureId AS TEXT), 'regular', data
-				FROM Pic.Picture
-				WHERE data IS NOT NULL;
-			]],
-			[[
-				INSERT INTO Pic.Picture_new (pictureId, size, data)
-				SELECT CAST(pictureId AS TEXT), 'thumb', dataThumb
-				FROM Pic.Picture
-				WHERE dataThumb IS NOT NULL;
-			]],
+		-- Copy existing data into the new table:
+		[[
+			INSERT INTO Pic.Picture_new (pictureId, size, data)
+			SELECT CAST(pictureId AS TEXT), 'regular', data
+			FROM Pic.Picture
+			WHERE data IS NOT NULL;
+		]],
+		[[
+			INSERT INTO Pic.Picture_new (pictureId, size, data)
+			SELECT CAST(pictureId AS TEXT), 'thumb', dataThumb
+			FROM Pic.Picture
+			WHERE dataThumb IS NOT NULL;
+		]],
 
-			-- Drop the old table:
-			[[ DROP TABLE Pic.Picture; ]],
+		-- Drop the old table:
+		[[
+			DROP TABLE Pic.Picture;
+		]],
 
-			-- Rename the new table to the original name:
-			[[ ALTER TABLE Pic.Picture_new RENAME TO Picture; ]],
-		},
+		-- Rename the new table to the original name:
+		[[
+			ALTER TABLE Pic.Picture_new RENAME TO Picture;
+		]],
 	},
 
 	-- Version 9:
 	{
-		scripts =
-		{
-			[[ ALTER TABLE AnimeTag RENAME COLUMN id to tagId ]],
-			[[
-				CREATE TABLE Tag (
-					tagId INTEGER PRIMARY KEY,
-					parentId INGETER,
-					name TEXT,
-					description TEXT,
-					pictureId TEXT
-				);
-			]],
-		},
+		[[
+			ALTER TABLE AnimeTag RENAME COLUMN id to tagId
+		]],
+		[[
+			CREATE TABLE Tag (
+				tagId INTEGER PRIMARY KEY,
+				parentId INGETER,
+				name TEXT,
+				description TEXT,
+				pictureId TEXT
+			);
+		]],
 	},
 
 	-- Version 10:
 	{
-		scripts =
-		{
-			[[ ALTER TABLE AnimeBaseDetails ADD COLUMN isAdultRestricted INTEGER NOT NULL DEFAULT 0]],
-			[[
-				UPDATE AnimeBaseDetails
-				SET isAdultRestricted = 1
-				WHERE aId IN (
-					SELECT at.aId
-					FROM AnimeTag AS at
-					INNER JOIN Tag AS t
-						ON t.tagId = at.tagId
-					WHERE t.name = '18 restricted'
-				);
-			]]
-		},
+		[[
+			ALTER TABLE AnimeBaseDetails ADD COLUMN isAdultRestricted INTEGER NOT NULL DEFAULT 0
+		]],
+		[[
+			UPDATE AnimeBaseDetails
+			SET isAdultRestricted = 1
+			WHERE aId IN (
+				SELECT at.aId
+				FROM AnimeTag AS at
+				INNER JOIN Tag AS t
+					ON t.tagId = at.tagId
+				WHERE t.name = '18 restricted'
+			);
+		]],
 	},
 
 	-- Version 11:
 	{
-		scripts =
-		{
-			[[
-				CREATE TABLE UserData.Watchlist (
-					itemId INTEGER PRIMARY KEY,
-					watchlistSeason TEXT,
-					dayOfWeek INTEGER,
-					time TEXT,
-					aId INTEGER,
-					caption TEXT,
-					url TEXT
-				);
-			]],
-			[[
-				CREATE INDEX UserData.idx_Watchlist_watchlistSeason ON Watchlist(watchlistSeason);
-			]],
-		}
+		[[
+			CREATE TABLE UserData.Watchlist (
+				itemId INTEGER PRIMARY KEY,
+				watchlistSeason TEXT,
+				dayOfWeek INTEGER,
+				time TEXT,
+				aId INTEGER,
+				caption TEXT,
+				url TEXT
+			);
+		]],
+		[[
+			CREATE INDEX UserData.idx_Watchlist_watchlistSeason ON Watchlist(watchlistSeason);
+		]],
 	},
 
 	-- Version 12:
 	{
-		scripts =
-		{
-			[[
-				CREATE TABLE UserData.Config
-				(
-					identifier TEXT PRIMARY KEY,
-					dbValue TEXT NOT NULL
-				);
-			]]
-		}
+		[[
+			CREATE TABLE UserData.Config
+			(
+				identifier TEXT PRIMARY KEY,
+				dbValue TEXT NOT NULL
+			);
+		]]
 	},
 
 	-- Version 13:
 	{
-		scripts =
-		{
-			-- Delete any duplicates in the Watchlist:
-			[[
-				DELETE FROM UserData.Watchlist
-				WHERE itemId NOT IN (
-					SELECT MIN(itemId)
-					FROM UserData.Watchlist
-					GROUP BY watchlistSeason, dayOfWeek, caption
-				);
-			]],
-			-- Add an index to avoid duplicates in the future:
-			[[
-				CREATE UNIQUE INDEX IF NOT EXISTS UserData.idx_watchlist_unique
-					ON Watchlist (watchlistSeason, dayOfWeek, caption);
-			]],
-		},
+		-- Delete any duplicates in the Watchlist:
+		[[
+			DELETE FROM UserData.Watchlist
+			WHERE itemId NOT IN (
+				SELECT MIN(itemId)
+				FROM UserData.Watchlist
+				GROUP BY watchlistSeason, dayOfWeek, caption
+			);
+		]],
+		-- Add an index to avoid duplicates in the future:
+		[[
+			CREATE UNIQUE INDEX IF NOT EXISTS UserData.idx_watchlist_unique
+				ON Watchlist (watchlistSeason, dayOfWeek, caption);
+		]],
 	},
 
 	-- Version 14
 	{
-		scripts =
-		{
-			[[
-				CREATE TABLE WeeklySchedule (
-					itemId INTEGER PRIMARY KEY,
-					aId INTEGER NOT NULL,
-					watchlistSeason TEXT,
-					utcSecondsSinceWeekStart INTEGER,
+		[[
+			CREATE TABLE WeeklySchedule (
+				itemId INTEGER PRIMARY KEY,
+				aId INTEGER NOT NULL,
+				watchlistSeason TEXT,
+				utcSecondsSinceWeekStart INTEGER,
 
-					UNIQUE (
-						aId,
-						watchlistSeason,
-						utcSecondsSinceWeekStart
-					),
+				UNIQUE (
+					aId,
+					watchlistSeason,
+					utcSecondsSinceWeekStart
+				),
 
-					FOREIGN KEY (aId) REFERENCES Anime(aId)
-				);
-			]],
-			[[
-				CREATE INDEX idx_WeeklySchedule_aId
-					ON WeeklySchedule (aId);
-			]],
-			[[
-				CREATE INDEX idx_WeeklySchedule_watchlistSeason
-					ON WeeklySchedule (watchlistSeason);
-			]],
-		},
+				FOREIGN KEY (aId) REFERENCES Anime(aId)
+			);
+		]],
+		[[
+			CREATE INDEX idx_WeeklySchedule_aId
+				ON WeeklySchedule (aId);
+		]],
+		[[
+			CREATE INDEX idx_WeeklySchedule_watchlistSeason
+				ON WeeklySchedule (watchlistSeason);
+		]],
 	},
 
 	-- Version 15:
 	{
-		scripts =
-		{
-			-- Drop the Watchlist, since the old code would never insert proper timestamp anyway
-			[[
-				DROP TABLE UserData.Watchlist;
-			]],
-			[[
-				CREATE TABLE UserData.Watchlist (
-					itemId INTEGER PRIMARY KEY,
-					watchlistSeason TEXT,
-					utcSecondsSinceWeekStart INTEGER,
-					aId INTEGER,
-					caption TEXT,
-					url TEXT
-				);
-			]],
-			[[
-				CREATE INDEX UserData.idx_Watchlist_watchlistSeason ON Watchlist(watchlistSeason);
-			]],
-			[[
-				CREATE UNIQUE INDEX IF NOT EXISTS UserData.idx_watchlist_unique
-					ON Watchlist (watchlistSeason, utcSecondsSinceWeekStart, caption);
-			]],
-		}
+		-- Drop the Watchlist, since the old code would never insert proper timestamp anyway
+		[[
+			DROP TABLE UserData.Watchlist;
+		]],
+		[[
+			CREATE TABLE UserData.Watchlist (
+				itemId INTEGER PRIMARY KEY,
+				watchlistSeason TEXT,
+				utcSecondsSinceWeekStart INTEGER,
+				aId INTEGER,
+				caption TEXT,
+				url TEXT
+			);
+		]],
+		[[
+			CREATE INDEX UserData.idx_Watchlist_watchlistSeason ON Watchlist(watchlistSeason);
+		]],
+		[[
+			CREATE UNIQUE INDEX IF NOT EXISTS UserData.idx_watchlist_unique
+				ON Watchlist (watchlistSeason, utcSecondsSinceWeekStart, caption);
+		]],
 	},
 
 	-- Version 16:
 	{
-		scripts =
-		{
-			[[
-				CREATE TABLE WatchUrl (
-					aId INTEGER,
-					providerName TEXT,
-					createdOnYmd TEXT,
-					url TEXT NOT NULL
-				);
-			]],
-			[[
-				CREATE INDEX idx_WatchUrl_aId ON WatchUrl(aId);
-			]],
-			[[
-				CREATE INDEX idx_WatchUrl_providerName ON WatchUrl(providerName);
-			]],
-			[[
-				CREATE UNIQUE INDEX idx_WatchUrl_aId_providerName ON WatchUrl(aId, providerName);
-			]],
-		},
+		[[
+			CREATE TABLE WatchUrl (
+				aId INTEGER,
+				providerName TEXT,
+				createdOnYmd TEXT,
+				url TEXT NOT NULL
+			);
+		]],
+		[[
+			CREATE INDEX idx_WatchUrl_aId ON WatchUrl(aId);
+		]],
+		[[
+			CREATE INDEX idx_WatchUrl_providerName ON WatchUrl(providerName);
+		]],
+		[[
+			CREATE UNIQUE INDEX idx_WatchUrl_aId_providerName ON WatchUrl(aId, providerName);
+		]],
 	},
 
 	-- Version 17:
 	{
-		scripts =
-		{
-			[[
-				CREATE TABLE WatchUrlLastQuery (
-					aId INTEGER PRIMARY KEY,
-					lastQueryTimestamp INTEGER NOT NULL
-				);
-			]],
-		},
+		[[
+			CREATE TABLE WatchUrlLastQuery (
+				aId INTEGER PRIMARY KEY,
+				lastQueryTimestamp INTEGER NOT NULL
+			);
+		]],
 	},
 	-- Future upgrades can be added here
 }
@@ -598,7 +606,7 @@ function dbUpgrade.upgradeIfNeeded(aConn, aDbPath)
 		if (version > current) then
 			log("dbUpgrade", "Applying upgrade to v%d", version)
 			executeSql(aConn, "BEGIN TRANSACTION", string.format("Upgrade.v%d", version))
-			for idx, cmd in ipairs(upg.scripts) do
+			for idx, cmd in ipairs(upg) do
 				executeSql(aConn, cmd, string.format("Upgrade.v%d.%d", version, idx))
 			end
 			dbUpgrade.setSchemaVersion(aConn, version)
