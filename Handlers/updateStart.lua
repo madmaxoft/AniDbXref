@@ -6,6 +6,7 @@ Starts the AniDB dump update in background
 
 local log = require("logger").log
 local db = require("db")
+local requestTracker = require("requestTracker")
 
 
 
@@ -17,27 +18,21 @@ local function updateThread()
 	local ltn12 = require("ltn12")
 	local zlib = require("zlib")
 
-	-- Download dump
-	local tmpFile = "anime-titles.xml.gz"
-	if not(isLocal) then
-		log("update", "Downloading AniDB dump...")
-		local f = assert(io.open(tmpFile, "wb"))
-		local code, headers, body = httpClient.get("http://anidb.net/api/anime-titles.xml.gz")
-		if (code ~= 200) then
-			log("update", "Failed to download AniDB dump: %s / %s", tostring(code), tostring(headers))
-			return
-		end
+	-- Download dump:
+	log("update", "Downloading AniDB dump...")
+	local code, headers, body = httpClient.get("https://anidb.net/api/anime-titles.xml.gz")
+	if (code ~= 200) then
+		log("update", "Failed to download AniDB dump: %s / %s", tostring(code), tostring(headers))
+		return
 	end
 
 	-- Decompress
 	log("update", "Decompressing AniDB dump...")
-	local gzFile = assert(io.open(tmpFile, "rb"))
-	local gzData = gzFile:read("*a")
-	gzFile:close()
-
+	local gzData = body
 	local xmlString = zlib.inflate()(gzData)
 
 	-- Update DB using module-local connection
+	requestTracker.yieldUntilNoRequests()  -- Wait until there are no more requests
 	log("update", "Updating the AniDB data in the DB...")
 	db.updateAniDbDataFromDump(xmlString)
 	log("update", "Update finished.")
