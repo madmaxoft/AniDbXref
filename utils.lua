@@ -123,7 +123,7 @@ function utils.seasonToDescription(aSeason)
 	elseif (idx == "3") then
 		return year .. " summer"
 	elseif (idx == "4") then
-		return year .. " autumn"
+		return year .. " fall"
 	end
 	return nil, "Invalid season specification: " .. aSeason
 end
@@ -132,7 +132,7 @@ end
 
 
 
---- Converts the season-string ("2026-1") into {startDateYmd = "2025-12-01", endDateYmd = "2026-02-29"}
+--- Converts the season-string ("2026-1") into {startDateYmd = "2026-01-01", endDateYmd = "2026-03-31"}
 -- Returns nil and error message on failure
 function utils.seasonToYmdBounds(aSeason)
 	assert(type(aSeason) == "string")
@@ -145,21 +145,21 @@ function utils.seasonToYmdBounds(aSeason)
 
 	local startDateYmd, endDateYmd
 	if (idx == "1") then
-		-- Winter season, starts at previous year:
-		startDateYmd = tostring(tonumber(year) - 1) .. "-12-01"
-		endDateYmd = year .. "-02-29"
+		-- Winter season:
+		startDateYmd = year .. "-01-01"
+		endDateYmd = year .. "-03-31"
 	elseif (idx == "2") then
 		-- Spring season:
-		startDateYmd = year .. "-03-01"
-		endDateYmd = year .. "-05-31"
+		startDateYmd = year .. "-04-01"
+		endDateYmd = year .. "-06-30"
 	elseif (idx == "3") then
 		-- Summer season:
-		startDateYmd = year .. "-06-01"
-		endDateYmd = year .. "-08-31"
+		startDateYmd = year .. "-07-01"
+		endDateYmd = year .. "-09-30"
 	elseif (idx == "4") then
 		-- Autumn season:
-		startDateYmd = year .. "-09-01"
-		endDateYmd = year .. "-11-30"
+		startDateYmd = year .. "-10-01"
+		endDateYmd = year .. "-12-31"
 	else
 		return nil, "Invalid season specification: " .. aSeason
 	end
@@ -322,23 +322,20 @@ function utils.ymdToSeason(aDateYmd)
 		return nil, "Invalid YMD date: " .. aDateYmd
 	end
 
-	-- Decide the season, breaking at the start of months 3, 6, 9, 12:
+	-- Decide the season, breaking at the end of months 3, 6, 9, 12:
 	m = tonumber(m)
-	if (m < 3) then
+	if (m <= 3) then
 		-- Winter season of this year
 		return y .. "-1"
-	elseif (m < 6) then
+	elseif (m <= 6) then
 		-- Spring season of this year
 		return y .. "-2"
-	elseif (m < 9) then
+	elseif (m <= 9) then
 		-- Summer season of this year
 		return y .. "-3"
-	elseif (m < 12) then
+	elseif (m <= 12) then
 		-- Autumn season of this year
 		return y .. "-4"
-	elseif (m == 12) then
-		-- Winter season of the next year
-		return tostring(tonumber(y) + 1) .. "-1"
 	end
 	return nil, "Invalid month: " .. aDateYmd
 end
