@@ -127,9 +127,15 @@ function AD.postSetSeen(aRequest, aResponse)
 		if not(seenDate) then
 			return aResponse:sendError(400, "Bad or missing seenDateYmd")
 		end
-		db.markAnimeSeen(aId, seenDate)
+		local isOK, msg = db.markAnimeSeen(aId, seenDate)
+		if not(isOK) then
+			log("animeDetails", "Failed to mark anime as seen: %s", tostring(msg))
+		end
 	else
-		db.markAnimeNotSeen(aId)
+		local isOK, msg = db.markAnimeNotSeen(aId)
+		if not(isOK) then
+			log("animeDetails", "Failed to mark anime as not seen: %s", tostring(msg))
+		end
 	end
 
 	aResponse:sendRedirect("/anime/" .. aId)

@@ -1126,33 +1126,99 @@ end
 
 
 
---- Removes the anime from the Seen table
-function db.markAnimeNotSeen(aId)
+--- Returns the season in which the anime was initially aired
+-- Returns nil if the season cannot be determined
+-- Returns nil and error message on failure
+-- Guesses the season from the anime's startDate + 40 days
+function db.initialAiringSeason(aId)
+	assert(gDB ~= nil)
 	assert(type(aId) == "number")
 
-	db.execBoundStatement(
-		"DELETE FROM Seen WHERE aId = ?",
-		{aId},
-		"markAnimeNotSeen"
-	)
+	local arr, msg = db.getAnimeDetails_base(aId)
+	if not(arr) then
+		return nil, "Failed to query base details: " .. tostring(msg)
+	end
+	if not(arr.startDate) then
+		return nil
+	end
+	local midAiringDate = utils.ymdAddOffset(arr.startDate, 40)
+	return utils.ymdToSeason(midAiringDate)
 end
 
 
 
 
 
---- Marks an anime as seen
+--- Removes the anime from the Seen table
+-- Returns true on success, nil and error message on failure
+function db.markAnimeNotSeen(aId)
+	assert(type(aId) == "number")
+
+	local isOK, msg = db.execBoundStatement(
+		"DELETE FROM Seen WHERE aId = ?",
+		{aId},
+		"markAnimeNotSeen"
+	)
+	if not(isOK) then
+		return nil, "Failed to delete from Seen: " .. tostring(msg)
+	end
+	return true
+end
+
+
+
+
+
+--- Marks an anime as seen, adds it to the watchlist of the seen date, if not already there
+-- Returns true on success, nil and error message on failure
 function db.markAnimeSeen(aId, aDateTime)
 	assert(type(aId) == "number")
 	if not(aDateTime) then
 		aDateTime = os.time()
 	end
 	assert(type(aDateTime) == "number")
-	db.execBoundStatement(
+
+	-- Add a Seen record:
+	local isOK, msg = pcall(db.execBoundStatement,
 		"INSERT OR REPLACE INTO Seen (aId, seenDate) VALUES (?, ?)",
 		{aId, aDateTime},
 		"markAnimeSeen"
 	)
+	if not(isOK) then
+		log("db", "Failed to add a Seen(%d) record: %S", aId, tostring(msg))
+		return nil, "Failed to add a Seen record to the DB: " .. tostring(msg)
+	end
+
+	local initialAiringSeason = db.initialAiringSeason(aId) or utils.currentSeason()
+	local watchlistSeason = utils.ymdToSeason(utils.timestampToYmd(aDateTime))
+	local utcSecondsSinceWeekStart = nil
+	if (initialAiringSeason ~= watchlistSeason) then
+		utcSecondsSinceWeekStart = 8
+	end
+	local titles = db.getAnimeDetails_titles(aId) or {n = 0}
+	local enTitle = db.pickBestTitle(titles, "en")
+	isOK, msg = pcall(db.execBoundStatement,
+		[[
+			INSERT INTO Watchlist (
+				aId,
+				watchlistSeason,
+				utcSecondsSinceWeekStart,
+				caption
+			)
+			SELECT ?, ?, ?, ?
+			WHERE NOT EXISTS (
+				SELECT 1
+				FROM Watchlist
+				WHERE (aId = ?) AND (watchlistSeason = ?)
+			);
+		]],
+		{aId, watchlistSeason, utcSecondsSinceWeekStart, enTitle, aId, watchlistSeason}, "markAnimeSeen.addToWatchlist"
+	)
+	if not(isOK) then
+		log("db", "Failed to add Seen %d / %s to watchlist %s: %s", aId, enTitle, watchlistSeason, tostring(msg))
+		return "Failed to add Seen to Watchlist: " .. tostring(msg)
+	end
+	return true
 end
 
 

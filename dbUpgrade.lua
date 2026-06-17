@@ -581,6 +581,15 @@ local upgrades = {
 			);
 		]],
 	},
+
+	-- Version 18:
+	{
+		-- Add an index for quickly locating anime + season
+		[[
+			CREATE INDEX idx_watchlist_aId_watchlistSeason ON Watchlist(aId, watchlistSeason);
+		]],
+	},
+
 	-- Future upgrades can be added here
 }
 
