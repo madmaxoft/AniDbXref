@@ -616,7 +616,12 @@ function dbUpgrade.upgradeIfNeeded(aConn, aDbPath)
 			log("dbUpgrade", "Applying upgrade to v%d", version)
 			executeSql(aConn, "BEGIN TRANSACTION", string.format("Upgrade.v%d", version))
 			for idx, cmd in ipairs(upg) do
-				executeSql(aConn, cmd, string.format("Upgrade.v%d.%d", version, idx))
+				local t = type(cmd)
+				if (t == "string") then
+					executeSql(aConn, cmd, string.format("Upgrade.v%d.%d", version, idx))
+				elseif (t == "function") then
+					cmd(aConn)
+				end
 			end
 			dbUpgrade.setSchemaVersion(aConn, version)
 			executeSql(aConn, "COMMIT", string.format("Upgrade.v%d", version))
