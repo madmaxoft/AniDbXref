@@ -491,9 +491,9 @@ function db.getAnimeDetails(aId)
 	result.titles = db.getAnimeDetails_titles(aId)
 
 	-- Get the most useful titles:
-	result.enTitle = db.pickBestTitle(result.titles, "en")
-	result.jaTitle = db.pickBestTitle(result.titles, "ja")
-	result.xjatTitle = db.pickBestTitle(result.titles, "x-jat")
+	result.enTitle = utils.pickBestTitle(result.titles, "en")
+	result.jaTitle = utils.pickBestTitle(result.titles, "ja")
+	result.xjatTitle = utils.pickBestTitle(result.titles, "x-jat")
 
 	return result
 end
@@ -946,9 +946,9 @@ function db.getSeenAnimeForHomepage()
 	local result = {}
 	local n = 0
 	for _, a in pairs(animeById) do
-		a.enTitle = db.pickBestTitle(a.titles, "en")
-		a.jaTitle = db.pickBestTitle(a.titles, "ja")
-		a.xjatTitle = db.pickBestTitle(a.titles, "x-jat")
+		a.enTitle = utils.pickBestTitle(a.titles, "en")
+		a.jaTitle = utils.pickBestTitle(a.titles, "ja")
+		a.xjatTitle = utils.pickBestTitle(a.titles, "x-jat")
 		n = n + 1
 		result[n] = a
 	end
@@ -1049,9 +1049,9 @@ function db.getVoiceActorDetails(aVoiceActorId)
 	for _, ch in ipairs(result.characters) do
 		ch.isSeen = (ch.isSeen == "1") or (ch.isSeen == 1)
 		ch.animeTitles = titleByAnime[ch.aId]
-		ch.enTitle = db.pickBestTitle(titleByAnime[ch.aId], "en")
-		ch.jpTitle = db.pickBestTitle(titleByAnime[ch.aId], "jp")
-		ch.xjatTitle = db.pickBestTitle(titleByAnime[ch.aId], "x-jat")
+		ch.enTitle = utils.pickBestTitle(titleByAnime[ch.aId], "en")
+		ch.jpTitle = utils.pickBestTitle(titleByAnime[ch.aId], "jp")
+		ch.xjatTitle = utils.pickBestTitle(titleByAnime[ch.aId], "x-jat")
 	end
 
 	return result
@@ -1196,7 +1196,7 @@ function db.markAnimeSeen(aId, aDateTime)
 		utcSecondsSinceWeekStart = 8
 	end
 	local titles = db.getAnimeDetails_titles(aId) or {n = 0}
-	local enTitle = db.pickBestTitle(titles, "en")
+	local enTitle = utils.pickBestTitle(titles, "en")
 	isOK, msg = pcall(db.execBoundStatement,
 		[[
 			INSERT INTO Watchlist (
@@ -1219,26 +1219,6 @@ function db.markAnimeSeen(aId, aDateTime)
 		return "Failed to add Seen to Watchlist: " .. tostring(msg)
 	end
 	return true
-end
-
-
-
-
-
---- Returns the "best" title from those specified, limited to the specified language
--- Returns nil if none found.
--- Prefers main title, then official title, then synonyms and last shorts
-function db.pickBestTitle(aTitlesFromDb, aLanguage)
-	assert(type(aTitlesFromDb) == "table")
-	assert(type(aLanguage) == "string")
-
-	local titles = {}
-	for _, row in ipairs(aTitlesFromDb) do
-		if (row.language == aLanguage) then
-			titles[row.kind] = row.title
-		end
-	end
-	return titles["main"] or titles["official"] or titles["syn"] or titles["short"]
 end
 
 
