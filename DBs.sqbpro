@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sqlb_project>
+	<db path="anime.sqlite" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000"/>
+	<attached>
+		<db schema="UserData" path="userData.sqlite"/>
+		<db schema="Pic" path="picture.sqlite"/>
+	</attached>
+</sqlb_project>
