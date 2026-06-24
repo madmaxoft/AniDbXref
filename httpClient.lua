@@ -23,6 +23,7 @@ local copas = require("copas")
 local url = require("socket.url")
 local httpUtils = require("httpUtils")
 local requestTracker = require("requestTracker")
+local log = require("logger").log
 
 
 
@@ -119,10 +120,12 @@ end
 
 
 --- Creates a connection to the host in the parsed Url table
+-- aRequest is the originating request specification
 -- Returns the connection usable in the pool
-local function createConnection(aParsedUrl)
+local function createConnection(aParsedUrl, aRequest)
 	assert(type(aParsedUrl) == "table")
 	assert(type(aParsedUrl.host) == "string")
+	assert(type(aRequest) == "table")
 
 	-- Create the socket:
 	local sock, err = socket.tcp()
@@ -134,7 +137,10 @@ local function createConnection(aParsedUrl)
 	end
 
 	-- Connect to the host:
-	requestTracker.yieldUntilNoRequests()
+	if not(aRequest.shouldSkipYields) then
+		requestTracker.yieldUntilNoRequests()
+	end
+	log("httpClient", "Connecting to %s:%d...", aParsedUrl.host, aParsedUrl.port)
 	local ok, err2 = sock:connect(aParsedUrl.host, aParsedUrl.port)
 	if not(ok) and (err2 ~= "timeout") then
 		return nil, err2
@@ -205,9 +211,10 @@ end
 
 
 --- Returns a connection that can handle the specified parsed Url table
-local function getConnection(aParsedUrl)
+local function getConnection(aParsedUrl, aRequest)
 	assert(type(aParsedUrl) == "table")
 	assert(type(aParsedUrl.host) == "string")
+	assert(type(aRequest) == "table")
 
 	-- Create a pool if not exists yet:
 	local key = connectionKey(aParsedUrl)
@@ -248,7 +255,7 @@ local function getConnection(aParsedUrl)
 
 		-- Create a new connection, if allowed
 		if (numActive < gMaxConnectionsPerHost) then
-			local conn, err = createConnection(aParsedUrl)
+			local conn, err = createConnection(aParsedUrl, aRequest)
 			if not(conn) then
 				return nil, err
 			end
@@ -410,6 +417,8 @@ The aRequest is a table containing the following members:
 	- url: The URL to request. Required.
 	- headers: dict-table of request headers
 	- body: The body of the request to send
+	- shouldSkipYields: if true, the connection is made without yielding until all incoming requests
+		are processed (used for foreground downloads)
 --]]
 function httpClient.request(aRequest)
 	assert(type(aRequest) == "table")
@@ -424,7 +433,7 @@ function httpClient.request(aRequest)
 
 	local shouldRetry = true
 	for attempt = 1, 2 do
-		local conn, err2 = getConnection(parsed)
+		local conn, err2 = getConnection(parsed, aRequest)
 		if not(conn) then
 			gMetrics.numFailedRequests = gMetrics.numFailedRequests + 1
 			return nil, err2

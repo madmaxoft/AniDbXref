@@ -124,9 +124,8 @@ local function requestFromAniDb(aPictureId, aSize)
 	end
 
 	-- Request the picture from the URL:
-	local statusCode, headers, body = httpClient.get(picUrl)
+	local statusCode, headers, body = httpClient.request({url = picUrl, method = "GET", shouldSkipYields = true})
 	if not(statusCode) then
-		-- DEBUG:
 		log("picture", "Failed to read picture %s from AniDB. statusCode = %s, err = %s",
 			aPictureId,
 			tostring(statusCode),
@@ -135,7 +134,6 @@ local function requestFromAniDb(aPictureId, aSize)
 		return nil, headers
 	end
 	if ((statusCode ~= "200") and (statusCode ~= 200)) then
-		-- DEBUG:
 		log("picture", "Failed to read picture %s from AniDB. statusCode = %s",
 			aPictureId,
 			tostring(statusCode)
