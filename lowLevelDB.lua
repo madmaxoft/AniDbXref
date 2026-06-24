@@ -1,0 +1,124 @@
+-- lowLevelDB.lua
+
+--[[
+Implements low-level DB access functions for executing sql statements
+--]]
+
+
+
+
+
+local sqlite3 = require("lsqlite3")
+
+
+
+
+--- Compatibility between Lua 5.1 and LuaJIT
+local unpack = unpack or table.unpack
+
+--- The API returned by this module
+local lldb = {}
+
+
+
+
+
+--- Checks SQLite result codes and raises errors if not success
+-- aContext is a string description of where the check is happenning, for logging purposes
+-- NOTE: Duplicated from db.lua
+function lldb.checkSql(aResultCode, aContext)
+	assert(type(aContext) == "string")
+
+	if (
+		(aResultCode ~= sqlite3.OK) and
+		(aResultCode ~= sqlite3.DONE) and
+		(aResultCode ~= sqlite3.ROW)
+	) then
+		error(string.format("SQLite error in %s: %s (%s)",
+			aContext or "unknown",
+			tostring(aResultCode),
+			gDB:errmsg()
+		))
+	end
+end
+
+
+
+
+
+--- Executes an SQL command and raises an error if the command fails.
+-- aConn is the DB connection on which to execute the command
+-- aContext is a string description of where the check is happenning, for logging purposes
+function lldb.executeSql(aDB, aSql, aContext)
+	assert(aDB ~= nil)
+	assert(type(aSql) == "string")
+	assert(type(aContext) == "string")
+
+	lldb.checkSql(aDB:exec(aSql), "executeSql." .. tostring(aContext) .. "; SQL: " .. tostring(aSql))
+end
+
+
+
+
+
+--- Executes an SQL command bound to the specified values and raises an error if the command fails.
+-- aDB is the DB connection on which to execute the command
+-- aContext is a string description of where the check is happenning, for logging purposes
+function lldb.executeBoundSql(aDB, aSql, aValuesToBind, aContext)
+	assert(aDB ~= nil)
+	assert(type(aSql) == "string")
+	assert(type(aContext) == "string")
+
+	local stmt = aDB:prepare(aSql)
+	if not(stmt) then
+		error("Failed to prepare statement (" .. aContext .. "): " .. aConn:errmsg())
+	end
+	lldb.checkSql(stmt:bind_values(unpack(aValuesToBind)), aContext .. ".bind")
+	lldb.checkSql(stmt:step(), aContext .. ".step")
+	lldb.checkSql(stmt:finalize(), aContext .. ".finalize")
+end
+
+
+
+
+
+--- Calls the specified callback for each row of the executed DB statement
+-- Binds the values before executing the statement
+-- If the callback returns true, the execution is aborted
+-- Raises an error on failure
+function lldb.forEachRowInStatement(aDB, aSql, aValuesToBind, aDescription, aCallback)
+	assert(aDB ~= nil)
+	assert(type(aSql) == "string")
+	assert(type(aValuesToBind) == "table")
+	assert(type(aDescription) == "string")
+	assert(aCallback)
+
+	local stmt = aDB:prepare(aSql)
+	if not(stmt) then
+		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
+	end
+	if ((aValuesToBind) and (aValuesToBind[1])) then
+		lldb.checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
+	end
+	for row in stmt:nrows() do
+		if (aCallback(row)) then
+			break
+		end
+	end
+	lldb.checkSql(stmt:finalize(), aDescription .. ".finalize")
+end
+
+
+
+
+
+--- Converts the specified value from DB representation to a boolean
+function lldb.toBool(aValue)
+	return (aValue == "1") or (aValue == 1) or (aValue == true)
+end
+
+
+
+
+
+return lldb

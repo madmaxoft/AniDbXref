@@ -4,34 +4,15 @@
 local sqlite3 = require("lsqlite3")
 local lfs = require("lfs")
 local log = require("logger").log
+local utils = require("utils")
+local lldb = require("lowLevelDB")
 
+
+
+
+
+--- The API returned by this module
 local dbUpgrade = {}
-
-
-
-
---- Executes an SQL command and throws if the command fails.
--- aConn is the DB connection on which to execute the command
--- aContext is a string description of where the check is happenning, for logging purposes
-local function executeSql(aConn, aSql, aContext)
-	assert(aConn)
-	assert(type(aSql) == "string")
-	assert(type(aContext) == "string")
-
-	local resultCode = aConn:exec(aSql)
-	if (
-		(resultCode ~= sqlite3.OK) and
-		(resultCode ~= sqlite3.DONE) and
-		(resultCode ~= sqlite3.ROW)
-	) then
-		error(string.format("SQLite error in %s: %s (%s) (SQL: %s)",
-			aContext or "unknown",
-			tostring(resultCode),
-			aConn:errmsg(),
-			aSql
-		))
-	end
-end
 
 
 
@@ -609,12 +590,12 @@ function dbUpgrade.upgradeIfNeeded(aConn, aDbPath)
 	log("dbUpgrade", "Current schema v%d, latest v%d - upgrading...", current, latest)
 
 	-- Ensure KeyValue table exists early for first-time DBs
-	executeSql(aConn, "CREATE TABLE IF NOT EXISTS KeyValue (key TEXT PRIMARY KEY, value TEXT);", "CreateKeyValue")
+	lldb.executeSql(aConn, "CREATE TABLE IF NOT EXISTS KeyValue (key TEXT PRIMARY KEY, value TEXT);", "CreateKeyValue")
 
 	for version, upg in ipairs(upgrades) do
 		if (version > current) then
 			log("dbUpgrade", "Applying upgrade to v%d", version)
-			executeSql(aConn, "BEGIN TRANSACTION", string.format("Upgrade.v%d", version))
+			lldb.executeSql(aConn, "BEGIN TRANSACTION", string.format("Upgrade.v%d", version))
 			for idx, cmd in ipairs(upg) do
 				local t = type(cmd)
 				if (t == "string") then

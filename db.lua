@@ -6,6 +6,7 @@ local perf = require("perf")
 local log = require("logger").log
 local utils = require("utils")
 local titleSearch = require("titleSearch")
+local lldb = require("lowLevelDB")
 
 local db = {}
 local gDB = nil  -- The actual DB connection object
@@ -22,28 +23,6 @@ local unpack = unpack or table.unpack  -- Compatibility between Lua 5.1 and LuaJ
 
 
 
---- Checks SQLite result codes and throws errors
--- aContext is a string description of where the check is happenning, for logging purposes
-local function checkSql(aResultCode, aContext)
-	assert(type(aContext) == "string")
-
-	if (
-		(aResultCode ~= sqlite3.OK) and
-		(aResultCode ~= sqlite3.DONE) and
-		(aResultCode ~= sqlite3.ROW)
-	) then
-		error(string.format("SQLite error in %s: %s (%s)",
-			aContext or "unknown",
-			tostring(aResultCode),
-			gDB:errmsg()
-		))
-	end
-end
-
-
-
-
-
 --- Ensures DB schema exists and upgrades if needed
 local function initialize()
 	assert(gDB == nil)
@@ -55,9 +34,9 @@ local function initialize()
 	-- Reopen fresh connection after backup
 	gDB = sqlite3.open("anime.sqlite")
 	gDB:busy_timeout(1000)
-	checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "initialize.fkon")
-	checkSql(gDB:exec([[ ATTACH 'userData.sqlite' AS UserData ]]), "initialize.attachUserData")
-	checkSql(gDB:exec([[ ATTACH 'picture.sqlite' AS Pic ]]), "initialize.attachPic")
+	lldb.checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "initialize.fkon")
+	lldb.checkSql(gDB:exec([[ ATTACH 'userData.sqlite' AS UserData ]]), "initialize.attachUserData")
+	lldb.checkSql(gDB:exec([[ ATTACH 'picture.sqlite' AS Pic ]]), "initialize.attachPic")
 
 	-- Now safely run the upgrade
 	dbUpgrade.upgradeIfNeeded(gDB, "anime.sqlite")
@@ -87,7 +66,8 @@ function db.addExtraToWatchlist(aCaption, aWatchlistSeason, aUtcSecondsSinceWeek
 	assert(type(aUtcSecondsSinceWeekStart or 0) == "number")
 	assert(type(aUrl or "") == "string")
 
-	local isOK, msg = pcall(db.execBoundStatement, [[
+	local isOK, msg = pcall(lldb.executeBoundSql, gDB,
+		[[
 		INSERT INTO UserData.Watchlist
 			(watchlistSeason, utcSecondsSinceWeekStart, url, caption)
 		VALUES
@@ -127,11 +107,11 @@ function db.addGlobalTags(aTags)
 	end
 
 	for _, tag in ipairs(aTags) do
-		checkSql(stmt:bind_values(tag.tagId, tag.parentId, tag.name, tag.description, tag.pictureId), "addGlobalTags.bind")
-		checkSql(stmt:step(), "addGlobalTags.step")
-		checkSql(stmt:reset(), "addGlobalTags.reset")
+		lldb.checkSql(stmt:bind_values(tag.tagId, tag.parentId, tag.name, tag.description, tag.pictureId), "addGlobalTags.bind")
+		lldb.checkSql(stmt:step(), "addGlobalTags.step")
+		lldb.checkSql(stmt:reset(), "addGlobalTags.reset")
 	end
-	checkSql(stmt:finalize(), "addGlobalTags.finalize")
+	lldb.checkSql(stmt:finalize(), "addGlobalTags.finalize")
 end
 
 
@@ -161,9 +141,9 @@ function db.addRawSeenIds(aRawSeen)
 	local numIgnored = 0
 	for _, s in ipairs(aRawSeen) do
 		if (s.aId and s.seenDate) then
-			checkSql(stmt:bind_values(s.aId, s.seenDate), "addRawSeenIds.bind")
-			checkSql(stmt:step(), "addRawSeenIds.step")
-			checkSql(stmt:reset(), "addRawSeenIds.reset")
+			lldb.checkSql(stmt:bind_values(s.aId, s.seenDate), "addRawSeenIds.bind")
+			lldb.checkSql(stmt:step(), "addRawSeenIds.step")
+			lldb.checkSql(stmt:reset(), "addRawSeenIds.reset")
 		else
 			numIgnored = numIgnored + 1
 		end
@@ -171,7 +151,7 @@ function db.addRawSeenIds(aRawSeen)
 	if (numIgnored > 0) then
 		log("db.addRawSeenIds", "Ignored %d records out of %s", numIgnored, tostring(aRawSeen.n or "<unknown>"))
 	end
-	checkSql(stmt:finalize(), "addRawSeenIds.finalize")
+	lldb.checkSql(stmt:finalize(), "addRawSeenIds.finalize")
 	return true
 end
 
@@ -203,9 +183,9 @@ function db.addRawWatchlist(aRawWatchlist)
 	local numIgnored = 0
 	for _, w in ipairs(aRawWatchlist) do
 		if (w.watchlistSeason) then
-			checkSql(stmt:bind_values(w.dayOfWeek, w.time, w.caption, w.aId, w.watchlistSeason), "addRawWatchlist.bind")
-			checkSql(stmt:step(), "addRawWatchlist.step")
-			checkSql(stmt:reset(), "addRawWatchlist.reset")
+			lldb.checkSql(stmt:bind_values(w.dayOfWeek, w.time, w.caption, w.aId, w.watchlistSeason), "addRawWatchlist.bind")
+			lldb.checkSql(stmt:step(), "addRawWatchlist.step")
+			lldb.checkSql(stmt:reset(), "addRawWatchlist.reset")
 		else
 			numIgnored = numIgnored + 1
 		end
@@ -213,7 +193,7 @@ function db.addRawWatchlist(aRawWatchlist)
 	if (numIgnored > 0) then
 		log("db.addRawWatchlist", "Ignored %d records out of %s", numIgnored, tostring(aRawWatchlist.n or "<unknown>"))
 	end
-	checkSql(stmt:finalize(), "addRawWatchlist.finalize")
+	lldb.checkSql(stmt:finalize(), "addRawWatchlist.finalize")
 	return true
 end
 
@@ -223,6 +203,7 @@ end
 
 --- Adds the specified anime to the user's watchlist
 -- Queries the details to add them into the watchlist along the anime
+-- Returns true on success, nil and message on failure
 function db.addToWatchlist(aId, aWatchlistSeason, aUtcSecondsSinceWeekStart)
 	assert(type(aId) == "number")
 	assert(type(aWatchlistSeason) == "string")
@@ -235,16 +216,21 @@ function db.addToWatchlist(aId, aWatchlistSeason, aUtcSecondsSinceWeekStart)
 	end
 
 	local caption = utils.pickBestTitle(details.titles, "en") or tostring(aId)
-	db.execBoundStatement([[
-		INSERT INTO UserData.Watchlist
-			(watchlistSeason, utcSecondsSinceWeekStart, aId, url, caption)
-		VALUES
-			(?, ?, ?, ?, ?)
-		ON CONFLICT(watchlistSeason, utcSecondsSinceWeekStart, caption) DO NOTHING;
+	local isOK, msg = pcall(lldb.executeBoundSql,
+		gDB,
+		[[
+			INSERT INTO UserData.Watchlist
+				(watchlistSeason, utcSecondsSinceWeekStart, aId, url, caption)
+			VALUES
+				(?, ?, ?, ?, ?)
+			ON CONFLICT(watchlistSeason, utcSecondsSinceWeekStart, caption) DO NOTHING;
 		]],
 		{ aWatchlistSeason, aUtcSecondsSinceWeekStart, aId, url, caption },
 		"addToWatchlist"
 	)
+	if not(isOK) then
+		return nil, "Failed to add record to Watchlist: " .. tostring(msg)
+	end
 	return true
 end
 
@@ -311,7 +297,7 @@ function db.animeInSeason(aSeason)
 	local byId = {}  -- dict of aId -> anime
 	for _, anime in ipairs(res) do
 		byId[anime.aId] = anime
-		anime.isSeen = (anime.isSeen == "1") or (anime.isSeen == 1)
+		anime.isSeen = lldb.toBool(anime.isSeen)
 	end
 
 	-- Query titles:
@@ -334,21 +320,24 @@ function db.animeInSeason(aSeason)
 
 	-- Enrich with schedule information, if available:
 	local n = res.n
-	db.forEachRowInStatement("SELECT * FROM WeeklySchedule WHERE watchlistSeason = ?",
+	lldb.forEachRowInStatement(gDB, "SELECT * FROM WeeklySchedule WHERE watchlistSeason = ?",
 		{aSeason}, "animeInSeason.schedule",
 		function(sch)
 			local ani = byId[sch.aId]
 			if not(ani) then
 				ani, msg = db.getAnimeDetails_base(sch.aId)
 				if not(ani) then
-					log("db", "animeInSeason: Failed to query base details for watchlist item %s: %s",
-						tostring(sch.aId), tostring(msg)
-					)
+					if (msg) then
+						log("db", "animeInSeason: Failed to query base details for watchlist item %s: %s",
+							tostring(sch.aId), tostring(msg)
+						)
+					end
 					return
 				end
 				ani.titles = db.getAnimeDetails_titles(sch.aId)
 				n = n + 1
 				res[n] = ani
+				ani.isSeen = lldb.toBool(ani.isSeen)
 				byId[sch.aId] = ani
 			end
 			assert(type(ani) == "table")
@@ -371,7 +360,7 @@ end
 function db.beginTransaction(aOptionalName)
 	assert(gDB ~= nil)
 
-	checkSql(gDB:exec("BEGIN TRANSACTION"), "beginTransaction." .. tostring(aOptionalName))
+	lldb.checkSql(gDB:exec("BEGIN TRANSACTION"), "beginTransaction." .. tostring(aOptionalName))
 end
 
 
@@ -396,7 +385,7 @@ function db.collectAndDropIndices()
 	-- Drop the actual indices:
 	for _, row in ipairs (result) do
 		assert(type(row.name) == "string")
-		checkSql(gDB:exec(string.format("DROP INDEX IF EXISTS \"%s\";", row.name)), "dropIndex." .. row.name or "<nil>")
+		lldb.checkSql(gDB:exec(string.format("DROP INDEX IF EXISTS \"%s\";", row.name)), "dropIndex." .. row.name or "<nil>")
 	end
 
 	return result
@@ -412,58 +401,7 @@ end
 function db.commitTransaction(aOptionalName)
 	assert(gDB ~= nil)
 
-	checkSql(gDB:exec("COMMIT"), "commitTransaction." .. tostring(aOptionalName))
-end
-
-
-
-
-
---- Executes the specified statement, binding the specified values to it.
--- aDescription is used for error logging.
--- An error is raised on failure
-function db.execBoundStatement(aSql, aValuesToBind, aDescription)
-	assert(type(aSql) == "string")
-	assert(type(aValuesToBind) == "table")
-	assert(type(aDescription) == "string")
-	assert(gDB ~= nil)
-
-	local stmt = gDB:prepare(aSql)
-	if not(stmt) then
-		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
-	end
-	checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
-	checkSql(stmt:step(), aDescription .. ".step")
-	checkSql(stmt:finalize(), aDescription .. ".finalize")
-end
-
-
-
-
---- Calls the specified callback for each row of the executed DB statement
--- Binds the values before executing the statement
--- If the callback returns true, the execution is aborted
--- Raises an error on failure
-function db.forEachRowInStatement(aSql, aValuesToBind, aDescription, aCallback)
-	assert(type(aSql) == "string")
-	assert(type(aValuesToBind) == "table")
-	assert(type(aDescription) == "string")
-	assert(aCallback)
-	assert(gDB ~= nil)
-
-	local stmt = gDB:prepare(aSql)
-	if not(stmt) then
-		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
-	end
-	if ((aValuesToBind) and (aValuesToBind[1])) then
-		checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
-	end
-	for row in stmt:nrows() do
-		if (aCallback(row)) then
-			break
-		end
-	end
-	checkSql(stmt:finalize(), aDescription .. ".finalize")
+	lldb.checkSql(gDB:exec("COMMIT"), "commitTransaction." .. tostring(aOptionalName))
 end
 
 
@@ -472,6 +410,7 @@ end
 
 --- Gets full details for a single anime
 function db.getAnimeDetails(aId)
+	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
 	-- Get the base details:
@@ -505,6 +444,7 @@ end
 --- Returns the base details about the anime (AnimeBaseDetails table) combined with the Seen table
 -- Returns nil and error message on failure
 function db.getAnimeDetails_base(aId)
+	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
 	local result, msg = db.getArrayFromQuery([[
@@ -525,9 +465,13 @@ function db.getAnimeDetails_base(aId)
 		WHERE abd.aId = ? LIMIT 1;
 	]], {aId}, "getAnimeDetails.BaseDetails")
 	if (not(result) or not(result[1])) then
-		log("db", "Failed to query base details for aId %s: %s", tostring(aId), tostring(msg))
-		return nil, "Base details query failed: " .. tostring(msg)
+		if (msg) then
+			log("db", "Failed to query base details for aId %s: %s", tostring(aId), tostring(msg))
+			return nil, "Base details query failed: " .. tostring(msg)
+		end
+		return nil, nil  -- No error details / no results
 	end
+	result[1].isSeen = lldb.toBool(result[1].isSeen)
 	return result[1]
 end
 
@@ -535,8 +479,9 @@ end
 
 
 
---- Returns the characters for the specified anime, as the details-table
+--- Returns the characters for the specified anime as an array-table suitable for anime details
 function db.getAnimeDetails_characters(aId)
+	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
 	-- Query bare characers:
@@ -603,8 +548,9 @@ end
 
 
 
---- Returns the creators for the specified anime, as the details-table
+--- Returns the creators for the specified anime, as an array-table suitable for anime details
 function db.getAnimeDetails_creators(aId)
+	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
 	return db.getArrayFromQuery("SELECT * FROM AnimeCreator WHERE aId = ?", {aId}, "getAnimeDetails_creators")
@@ -614,8 +560,9 @@ end
 
 
 
---- Returns the episodes for the specified anime, as the details-table
+--- Returns the episodes for the specified anime, as an array-table suitable for anime details
 function db.getAnimeDetails_episodes(aId)
+	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
 	local rows = db.getArrayFromQuery([[
@@ -639,6 +586,7 @@ function db.getAnimeDetails_episodes(aId)
 		if (row.id ~= lastId) then
 			cur = {
 				id = row.id,
+				aId = row.aId,
 				episodeNumber = row.episodeNumber,
 				kind = row.kind,
 				length = row.length,
@@ -654,6 +602,7 @@ function db.getAnimeDetails_episodes(aId)
 			cur.titles.n = cur.titles.n + 1
 			cur.titles[cur.titles.n] =
 			{
+				aId = row.aId,
 				title = row.title,
 				language = row.language,
 			}
@@ -668,7 +617,7 @@ end
 
 
 
---- Returns the recommendations for the specified anime, as the details-table
+--- Returns the recommendations for the specified anime, as an array-table suitable for anime details
 function db.getAnimeDetails_recommendations(aId)
 	assert(tonumber(aId))
 
@@ -679,7 +628,7 @@ end
 
 
 
---- Returns the relatedAnime for the specified anime, as the details-table
+--- Returns the relatedAnime for the specified anime, as an array-table suitable for anime details
 function db.getAnimeDetails_relatedAnime(aId)
 	assert(tonumber(aId))
 
@@ -738,7 +687,7 @@ end
 
 
 
---- Returns the X for the specified anime, as the details-table
+--- Returns the similar anime for the specified anime, as an array-table suitable for anime details
 function db.getAnimeDetails_similarAnime(aId)
 	assert(tonumber(aId))
 
@@ -796,7 +745,7 @@ end
 
 
 
---- Returns the X for the specified anime, as the details-table
+--- Returns the tags for the specified anime, as an array-table suitable for anime details
 function db.getAnimeDetails_tags(aId)
 	assert(tonumber(aId))
 
@@ -816,7 +765,7 @@ end
 
 
 
---- Returns the X for the specified anime, as the details-table
+--- Returns the titles for the specified anime, as an array-table suitable for anime details
 function db.getAnimeDetails_titles(aId)
 	assert(tonumber(aId))
 
@@ -842,7 +791,7 @@ function db.getArrayFromQuery(aSql, aValuesToBind, aDescription)
 		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
 	end
 	if ((aValuesToBind) and (aValuesToBind[1])) then
-		checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
+		lldb.checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
 	end
 	local result = {}
 	local n = 0
@@ -851,7 +800,7 @@ function db.getArrayFromQuery(aSql, aValuesToBind, aDescription)
 		result[n] = row
 	end
 	result.n = n
-	checkSql(stmt:finalize(), aDescription .. ".finalize")
+	lldb.checkSql(stmt:finalize(), aDescription .. ".finalize")
 
 	return result
 end
@@ -1094,7 +1043,7 @@ function db.hasBaseAniDbData()
 			return true
 		end
 	end
-	checkSql(stmt:finalize(), "hasBaseAniDbData.finalize")
+	lldb.checkSql(stmt:finalize(), "hasBaseAniDbData.finalize")
 	return false
 end
 
@@ -1112,13 +1061,13 @@ function db.hasDetails(aId)
 	if not(stmt) then
 		error("SQL prepare failed (hasBaseAniDbData): " .. gDB:errmsg())
 	end
-	checkSql(stmt:bind_values(aId), "hasDetails.bind")
+	lldb.checkSql(stmt:bind_values(aId), "hasDetails.bind")
 	for row in stmt:nrows() do
 		if (row.cnt > 0) then
 			return true
 		end
 	end
-	checkSql(stmt:finalize(), "hasDetails.finalize")
+	lldb.checkSql(stmt:finalize(), "hasDetails.finalize")
 	return false
 end
 
@@ -1152,9 +1101,11 @@ end
 --- Removes the anime from the Seen table
 -- Returns true on success, nil and error message on failure
 function db.markAnimeNotSeen(aId)
+	assert(gDB ~= nil)
 	assert(type(aId) == "number")
 
-	local isOK, msg = db.execBoundStatement(
+	local isOK, msg = pcall(lldb.executeBoundSql,
+		gDB,
 		"DELETE FROM Seen WHERE aId = ?",
 		{aId},
 		"markAnimeNotSeen"
@@ -1179,7 +1130,7 @@ function db.markAnimeSeen(aId, aDateTime)
 	assert(type(aDateTime) == "number")
 
 	-- Add a Seen record:
-	local isOK, msg = pcall(db.execBoundStatement,
+	local isOK, msg = pcall(lldb.executeBoundSql, gDB,
 		"INSERT OR REPLACE INTO Seen (aId, seenDate) VALUES (?, ?)",
 		{aId, aDateTime},
 		"markAnimeSeen"
@@ -1197,7 +1148,8 @@ function db.markAnimeSeen(aId, aDateTime)
 	end
 	local titles = db.getAnimeDetails_titles(aId) or {n = 0}
 	local enTitle = utils.pickBestTitle(titles, "en")
-	isOK, msg = pcall(db.execBoundStatement,
+	isOK, msg = pcall(lldb.executeBoundSql,
+		gDB,
 		[[
 			INSERT INTO Watchlist (
 				aId,
@@ -1278,7 +1230,7 @@ function db.recreateIndices(aIndexDefs)
 
 	for _, def in ipairs(aIndexDefs) do
 		assert(type(def.sql) == "string")
-		checkSql(db:exec(def.sql), "recreateIndices." .. tostring(def.name))
+		lldb.checkSql(db:exec(def.sql), "recreateIndices." .. tostring(def.name))
 	end
 end
 
@@ -1292,7 +1244,7 @@ function db.removeWatchlistItem(aItemId)
 	assert(gDB ~= nil)
 	assert(type(aItemId) == "number")
 
-	local isOK, msg = pcall(db.execBoundStatement, "DELETE FROM Watchlist WHERE itemId = ?", {aItemId}, "removeWatchlistItem")
+	local isOK, msg = pcall(lldb.executeBoundSql, gDB, "DELETE FROM Watchlist WHERE itemId = ?", {aItemId}, "removeWatchlistItem")
 	if not(isOK) then
 		return nil, tostring(msg)
 	end
@@ -1359,7 +1311,7 @@ function db.setConfigValue(aIdentifier, aDbValue)
 		stmt:reset()
 		stmt:finalize()
 	else
-		db.execBoundStatement([[DELETE FROM Config WHERE identifier = ?]], {aIdentifier}, "setConfigValue")
+		lldb.executeBoundSql(gDB, [[DELETE FROM Config WHERE identifier = ?]], {aIdentifier}, "setConfigValue")
 	end
 end
 
@@ -1372,9 +1324,9 @@ function db.setLastAniDbUpdate(aTimestamp)
 	assert(gDB ~= nil)
 
 	local stmt = gDB:prepare("INSERT OR REPLACE INTO KeyValue (key, value) VALUES ('lastAniDbUpdate', ?);")
-	checkSql(stmt:bind_values(tostring(aTimestamp)), "setLastAniDbUpdate.bind")
-	checkSql(stmt:step(), "setLastAniDbUpdate.step")
-	checkSql(stmt:finalize(), "setLastAniDbUpdate.finalize")
+	lldb.checkSql(stmt:bind_values(tostring(aTimestamp)), "setLastAniDbUpdate.bind")
+	lldb.checkSql(stmt:step(), "setLastAniDbUpdate.step")
+	lldb.checkSql(stmt:finalize(), "setLastAniDbUpdate.finalize")
 end
 
 
@@ -1405,7 +1357,7 @@ function db.storeAnimeBaseDetails(aDetails)
 	if not(stmt) then
 		error("Failed to prepare statement for storeAnimeBaseDetails: " .. gDB:errmsg())
 	end
-	checkSql(stmt:bind_values(
+	lldb.checkSql(stmt:bind_values(
 		aDetails.aId,
 		aDetails.startDate,
 		aDetails.endDate,
@@ -1415,8 +1367,8 @@ function db.storeAnimeBaseDetails(aDetails)
 		aDetails.description,
 		aDetails.pictureId
 	), "storeAnimeBaseDetails.bind")
-	checkSql(stmt:step(), "storeAnimeBaseDetails.step")
-	checkSql(stmt:finalize(), "storeAnimeBaseDetails.finalize")
+	lldb.checkSql(stmt:step(), "storeAnimeBaseDetails.step")
+	lldb.checkSql(stmt:finalize(), "storeAnimeBaseDetails.finalize")
 end
 
 
@@ -1441,7 +1393,8 @@ function db.storeAnimeCharacters(aDetails)
 	timer("VoiceActors")
 
 	-- Delete any existing relations:
-	db.execBoundStatement([[
+	lldb.executeBoundSql(gDB,
+		[[
 		DELETE FROM AnimeCharacterVoiceActor
 		WHERE acId IN (
 			SELECT acId FROM AnimeCharacter WHERE aId = ?
@@ -1449,7 +1402,7 @@ function db.storeAnimeCharacters(aDetails)
 		{aDetails.aId}, "storeAnimeCharacters.delACVA"
 	)
 	timer("delACVA")
-	db.execBoundStatement("DELETE FROM AnimeCharacter WHERE aId = ?", {aDetails.aId}, "storeAnimeCharacters.delAC")
+	lldb.executeBoundSql(gDB, "DELETE FROM AnimeCharacter WHERE aId = ?", {aDetails.aId}, "storeAnimeCharacters.delAC")
 	timer("delAC")
 
 	-- Insert Anime characters:
@@ -1462,17 +1415,17 @@ function db.storeAnimeCharacters(aDetails)
 	end
 	for _, ch in ipairs(aDetails.characters) do
 		assert(ch.characterId)
-		checkSql(stmtInsertAnimeCharacters:bind_values(
+		lldb.checkSql(stmtInsertAnimeCharacters:bind_values(
 			ch.characterId,
 			aDetails.aId,
 			ch.notes,
 			ch.pictureId
 		), "storeAnimeCharacters.AC.bind")
-		checkSql(stmtInsertAnimeCharacters:step(), "storeAnimeCharacters.AC.step")
-		checkSql(stmtInsertAnimeCharacters:reset(), "storeAnimeCharacters.AC.reset")
+		lldb.checkSql(stmtInsertAnimeCharacters:step(), "storeAnimeCharacters.AC.step")
+		lldb.checkSql(stmtInsertAnimeCharacters:reset(), "storeAnimeCharacters.AC.reset")
 		ch.acId = gDB:last_insert_rowid()
 	end
-	checkSql(stmtInsertAnimeCharacters:finalize(), "storeAnimeCharacters.AC.finalize")
+	lldb.checkSql(stmtInsertAnimeCharacters:finalize(), "storeAnimeCharacters.AC.finalize")
 	timer("storeAC")
 
 	-- Insert Anime characters' voice actors:
@@ -1485,18 +1438,18 @@ function db.storeAnimeCharacters(aDetails)
 	end
 	for _, ch in ipairs(aDetails.characters) do
 		for _, va in ipairs(ch.voiceActors) do
-			checkSql(stmtInsertACVA:bind_values(
+			lldb.checkSql(stmtInsertACVA:bind_values(
 				ch.acId,
 				va.vaId,
 				va.language,
 				va.episodes,
 				va.notes
 			), "storeAnimeCharacters.ACVA.bind")
-			checkSql(stmtInsertACVA:step(), "storeAnimeCharacters.ACVA.step")
-			checkSql(stmtInsertACVA:reset(), "storeAnimeCharacters.ACVA.reset")
+			lldb.checkSql(stmtInsertACVA:step(), "storeAnimeCharacters.ACVA.step")
+			lldb.checkSql(stmtInsertACVA:reset(), "storeAnimeCharacters.ACVA.reset")
 		end
 	end
-	checkSql(stmtInsertACVA:finalize(), "storeAnimeCharacters.ACVA.finalize")
+	lldb.checkSql(stmtInsertACVA:finalize(), "storeAnimeCharacters.ACVA.finalize")
 	timer("storeACVA")
 end
 
@@ -1543,7 +1496,7 @@ function db.storeAnimeCharacters_Characters(aDetails)
 		error("Failed to prepare statement for global character insertion: " .. gDB:errmsg())
 	end
 	for _, ch in ipairs(aDetails.characters) do
-		checkSql(stmtInsertGlobalCharacter:bind_values(
+		lldb.checkSql(stmtInsertGlobalCharacter:bind_values(
 			ch.characterId,
 			ch.characterTypeId,
 			ch.name,
@@ -1553,10 +1506,10 @@ function db.storeAnimeCharacters_Characters(aDetails)
 			ch.ratingNumVotes,
 			ch.ratingValue
 		), "storeAnimeCharacters_globalCharacters.step")
-		checkSql(stmtInsertGlobalCharacter:step(), "storeAnimeCharacters_Characters.step")
-		checkSql(stmtInsertGlobalCharacter:reset(), "storeAnimeCharacters_Characters.reset")
+		lldb.checkSql(stmtInsertGlobalCharacter:step(), "storeAnimeCharacters_Characters.step")
+		lldb.checkSql(stmtInsertGlobalCharacter:reset(), "storeAnimeCharacters_Characters.reset")
 	end
-	checkSql(stmtInsertGlobalCharacter:finalize(), "storeAnimeCharacters_Characters.finalize")
+	lldb.checkSql(stmtInsertGlobalCharacter:finalize(), "storeAnimeCharacters_Characters.finalize")
 end
 
 
@@ -1598,7 +1551,7 @@ function db.storeAnimeCharacters_VoiceActors(aDetails)
 	for _, ch in ipairs(aDetails.characters) do
 		if ch.voiceActors then
 			for _, va in ipairs(ch.voiceActors) do
-				checkSql(stmtInsertGlobalVoiceActor:bind_values(
+				lldb.checkSql(stmtInsertGlobalVoiceActor:bind_values(
 					va.vaId,
 					va.name,
 					va.gender,
@@ -1608,13 +1561,13 @@ function db.storeAnimeCharacters_VoiceActors(aDetails)
 					va.birthdate
 				), "storeAnimeCharacters_VoiceActors.bind")
 
-				checkSql(stmtInsertGlobalVoiceActor:step(), "storeAnimeCharacters_VoiceActors.step")
-				checkSql(stmtInsertGlobalVoiceActor:reset(), "storeAnimeCharacters_VoiceActors.reset")
+				lldb.checkSql(stmtInsertGlobalVoiceActor:step(), "storeAnimeCharacters_VoiceActors.step")
+				lldb.checkSql(stmtInsertGlobalVoiceActor:reset(), "storeAnimeCharacters_VoiceActors.reset")
 			end
 		end
 	end
 
-	checkSql(stmtInsertGlobalVoiceActor:finalize(), "storeAnimeCharacters_VoiceActors.finalize")
+	lldb.checkSql(stmtInsertGlobalVoiceActor:finalize(), "storeAnimeCharacters_VoiceActors.finalize")
 end
 
 
@@ -1631,7 +1584,7 @@ function db.storeAnimeCreators(aDetails)
 		return
 	end
 
-	db.execBoundStatement("DELETE FROM AnimeCreator WHERE aId = ?", {aDetails.aId}, "storeAnimeCreators")
+	lldb.executeBoundSql(gDB, "DELETE FROM AnimeCreator WHERE aId = ?", {aDetails.aId}, "storeAnimeCreators")
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO AnimeCreator(aId, id, kind, name)
 		VALUES (?, ?, ?, ?)
@@ -1641,11 +1594,11 @@ function db.storeAnimeCreators(aDetails)
 	end
 	for _, c in ipairs(aDetails.creators) do
 		assert(tonumber(c.id))
-		checkSql(stmt:bind_values(aDetails.aId, c.id, c.kind, c.name), "storeAnimeCreators.bind")
-		checkSql(stmt:step(), "storeAnimeCreators.step")
-		checkSql(stmt:reset(), "storeAnimeCreators.reset")
+		lldb.checkSql(stmt:bind_values(aDetails.aId, c.id, c.kind, c.name), "storeAnimeCreators.bind")
+		lldb.checkSql(stmt:step(), "storeAnimeCreators.step")
+		lldb.checkSql(stmt:reset(), "storeAnimeCreators.reset")
 	end
-	checkSql(stmt:finalize(), "storeAnimeCreators.finalize")
+	lldb.checkSql(stmt:finalize(), "storeAnimeCreators.finalize")
 end
 
 
@@ -1659,7 +1612,7 @@ function db.storeAnimeDetails(aDetails)
 	assert(type(aDetails) == "table")
 	local timer = perf.newTimer("db.storeAnimeDetails")
 
-	checkSql(gDB:exec("SAVEPOINT anime_details"), "storeAnimeDetails.savepoint")
+	lldb.checkSql(gDB:exec("SAVEPOINT anime_details"), "storeAnimeDetails.savepoint")
 	db.storeAnimeBaseDetails(aDetails)
 	timer("BaseDetails")
 	db.storeAnimeRelated(aDetails)
@@ -1676,7 +1629,7 @@ function db.storeAnimeDetails(aDetails)
 	timer("Tags")
 	db.storeAnimeEpisodes(aDetails)
 	timer("Episodes")
-	checkSql(gDB:exec("RELEASE SAVEPOINT anime_details"), "storeAnimeDetails.release")
+	lldb.checkSql(gDB:exec("RELEASE SAVEPOINT anime_details"), "storeAnimeDetails.release")
 end
 
 
@@ -1695,9 +1648,9 @@ function db.storeAnimeEpisodes(aDetails)
 
 	local timer = perf.newTimer("db.storeAnimeEpisodes")
 
-	db.execBoundStatement("DELETE FROM AnimeEpisodeTitle WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.title")
+	lldb.executeBoundSql(gDB, "DELETE FROM AnimeEpisodeTitle WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.title")
 	timer("delEpisodeTitles")
-	db.execBoundStatement("DELETE FROM AnimeEpisode WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.episode")
+	lldb.executeBoundSql(gDB, "DELETE FROM AnimeEpisode WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.episode")
 	timer("delEpisodes")
 	local stmt = gDB:prepare([[
 		INSERT INTO AnimeEpisode(aId, id, kind, episodeNumber, length, airDate)
@@ -1715,17 +1668,17 @@ function db.storeAnimeEpisodes(aDetails)
 	end
 	for _, epi in ipairs(aDetails.episodes) do
 		assert(tonumber(epi.id))
-		checkSql(stmt:bind_values(aDetails.aId, epi.id, epi.kind, epi.episodeNumber, epi.length, epi.airDate), "storeAnimeEpisodes.bind")
-		checkSql(stmt:step(), "storeAnimeEpisodes.step")
-		checkSql(stmt:reset(), "storeAnimeEpisodes.reset")
+		lldb.checkSql(stmt:bind_values(aDetails.aId, epi.id, epi.kind, epi.episodeNumber, epi.length, epi.airDate), "storeAnimeEpisodes.bind")
+		lldb.checkSql(stmt:step(), "storeAnimeEpisodes.step")
+		lldb.checkSql(stmt:reset(), "storeAnimeEpisodes.reset")
 		for _, title in ipairs(epi.titles) do
-			checkSql(stmtTitles:bind_values(aDetails.aId, epi.id, title.language, title.title), "storeAnimeEpisodesT.bind")
-			checkSql(stmtTitles:step(), "storeAnimeEpisodesT.step")
-			checkSql(stmtTitles:reset(), "storeAnimeEpisodesT.reset")
+			lldb.checkSql(stmtTitles:bind_values(aDetails.aId, epi.id, title.language, title.title), "storeAnimeEpisodesT.bind")
+			lldb.checkSql(stmtTitles:step(), "storeAnimeEpisodesT.step")
+			lldb.checkSql(stmtTitles:reset(), "storeAnimeEpisodesT.reset")
 		end
 	end
-	checkSql(stmtTitles:finalize(), "storeAnimeEpisodesT.finalize")
-	checkSql(stmt:finalize(), "storeAnimeEpisodes.finalize")
+	lldb.checkSql(stmtTitles:finalize(), "storeAnimeEpisodesT.finalize")
+	lldb.checkSql(stmt:finalize(), "storeAnimeEpisodes.finalize")
 	timer("inserted")
 end
 
@@ -1743,7 +1696,7 @@ function db.storeAnimeRecommendations(aDetails)
 		return
 	end
 
-	db.execBoundStatement("DELETE FROM AnimeRecommendation WHERE aId = ?", {aDetails.aId}, "storeAnimeRecommendations")
+	lldb.executeBoundSql(gDB, "DELETE FROM AnimeRecommendation WHERE aId = ?", {aDetails.aId}, "storeAnimeRecommendations")
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO AnimeRecommendation(aId, uId, kind, text)
 		VALUES (?, ?, ?, ?)
@@ -1753,11 +1706,11 @@ function db.storeAnimeRecommendations(aDetails)
 	end
 	for _, rec in ipairs(aDetails.recommendations) do
 		assert(tonumber(rec.uId))
-		checkSql(stmt:bind_values(aDetails.aId, rec.uId, rec.kind, rec.text), "storeAnimeRecommendations.bind")
-		checkSql(stmt:step(), "storeAnimeRecommendations.step")
-		checkSql(stmt:reset(), "storeAnimeRecommendations.reset")
+		lldb.checkSql(stmt:bind_values(aDetails.aId, rec.uId, rec.kind, rec.text), "storeAnimeRecommendations.bind")
+		lldb.checkSql(stmt:step(), "storeAnimeRecommendations.step")
+		lldb.checkSql(stmt:reset(), "storeAnimeRecommendations.reset")
 	end
-	checkSql(stmt:finalize(), "storeAnimeRecommendations.finalize")
+	lldb.checkSql(stmt:finalize(), "storeAnimeRecommendations.finalize")
 end
 
 
@@ -1774,7 +1727,7 @@ function db.storeAnimeRelated(aDetails)
 		return
 	end
 
-	db.execBoundStatement("DELETE FROM AnimeRelated WHERE aId = ?", {aDetails.aId}, "storeAnimeRelated")
+	lldb.executeBoundSql(gDB, "DELETE FROM AnimeRelated WHERE aId = ?", {aDetails.aId}, "storeAnimeRelated")
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO AnimeRelated(aId, relatedAid, relation)
 		VALUES (?, ?, ?)
@@ -1784,11 +1737,11 @@ function db.storeAnimeRelated(aDetails)
 	end
 	for _, rel in ipairs(aDetails.relatedAnime) do
 		assert(tonumber(rel.aId))
-		checkSql(stmt:bind_values(aDetails.aId, rel.aId, rel.relation), "storeAnimeRelated.bind")
-		checkSql(stmt:step(), "storeAnimeRelated.step")
-		checkSql(stmt:reset(), "storeAnimeRelated.reset")
+		lldb.checkSql(stmt:bind_values(aDetails.aId, rel.aId, rel.relation), "storeAnimeRelated.bind")
+		lldb.checkSql(stmt:step(), "storeAnimeRelated.step")
+		lldb.checkSql(stmt:reset(), "storeAnimeRelated.reset")
 	end
-	checkSql(stmt:finalize(), "storeAnimeRelated.finalize")
+	lldb.checkSql(stmt:finalize(), "storeAnimeRelated.finalize")
 end
 
 
@@ -1805,7 +1758,7 @@ function db.storeAnimeSimilar(aDetails)
 		return
 	end
 
-	db.execBoundStatement("DELETE FROM AnimeSimilar WHERE aId = ?", {aDetails.aId}, "storeAnimeSimilar")
+	lldb.executeBoundSql(gDB, "DELETE FROM AnimeSimilar WHERE aId = ?", {aDetails.aId}, "storeAnimeSimilar")
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO AnimeSimilar(aId, similarAid)
 		VALUES (?, ?)
@@ -1815,11 +1768,11 @@ function db.storeAnimeSimilar(aDetails)
 	end
 	for _, rel in ipairs(aDetails.similarAnime) do
 		assert(tonumber(rel.aId))
-		checkSql(stmt:bind_values(aDetails.aId, rel.aId), "storeAnimeSimilar.bind")
-		checkSql(stmt:step(), "storeAnimeSimilar.step")
-		checkSql(stmt:reset(), "storeAnimeSimilar.reset")
+		lldb.checkSql(stmt:bind_values(aDetails.aId, rel.aId), "storeAnimeSimilar.bind")
+		lldb.checkSql(stmt:step(), "storeAnimeSimilar.step")
+		lldb.checkSql(stmt:reset(), "storeAnimeSimilar.reset")
 	end
-	checkSql(stmt:finalize(), "storeAnimeSimilar.finalize")
+	lldb.checkSql(stmt:finalize(), "storeAnimeSimilar.finalize")
 end
 
 
@@ -1840,7 +1793,7 @@ function db.storeAnimeTags(aDetails)
 	db.addGlobalTags(aDetails.tags)
 
 	-- Then add the per-anime tags:
-	db.execBoundStatement("DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
+	lldb.executeBoundSql(gDB, "DELETE FROM AnimeTag WHERE aId = ?", {aDetails.aId}, "storeAnimeTags")
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO AnimeTag(aId, tagId, weight)
 		VALUES (?, ?, ?)
@@ -1852,12 +1805,12 @@ function db.storeAnimeTags(aDetails)
 		assert(tonumber(tag.tagId))
 		local weight = tonumber(tag.weight) or 0
 		if (weight >= 0) then
-			checkSql(stmt:bind_values(aDetails.aId, tag.tagId, weight), "storeAnimeTags.bind")
-			checkSql(stmt:step(), "storeAnimeTags.step")
-			checkSql(stmt:reset(), "storeAnimeTags.reset")
+			lldb.checkSql(stmt:bind_values(aDetails.aId, tag.tagId, weight), "storeAnimeTags.bind")
+			lldb.checkSql(stmt:step(), "storeAnimeTags.step")
+			lldb.checkSql(stmt:reset(), "storeAnimeTags.reset")
 		end
 	end
-	checkSql(stmt:finalize(), "storeAnimeTags.finalize")
+	lldb.checkSql(stmt:finalize(), "storeAnimeTags.finalize")
 
 	-- Based on the tags, update the 18+ restriction detail:
 	db.updateAnimeBaseDetailsIsAdultRestricted(aDetails.aId)
@@ -1883,10 +1836,10 @@ function db.storePictureData(aPictureId, aPictureSize, aPictureData)
 	if not(stmt) then
 		error("Failed to prepare statement for storePictureData: " .. gDB:errmsg())
 	end
-	checkSql(stmt:bind_values(aPictureId, aPictureSize, aPictureData), "storePictureData.bind")
-	checkSql(stmt:step(), "storePictureData.step")
-	checkSql(stmt:reset(), "storePictureData.reset")
-	checkSql(stmt:finalize(), "storePictureData.finalize")
+	lldb.checkSql(stmt:bind_values(aPictureId, aPictureSize, aPictureData), "storePictureData.bind")
+	lldb.checkSql(stmt:step(), "storePictureData.step")
+	lldb.checkSql(stmt:reset(), "storePictureData.reset")
+	lldb.checkSql(stmt:finalize(), "storePictureData.finalize")
 end
 
 
@@ -1909,13 +1862,13 @@ function db.storeWatchUrls(aId, aUrls)
 	end
 	local currentYmd = utils.timestampToYmd(os.time())
 	for _, u in ipairs(aUrls) do
-		checkSql(stmt:bind_values(aId, u.providerName, u.url, currentYmd), "storeWatchUrls.bind")
-		checkSql(stmt:step(), "storeWatchUrls.step")
-		checkSql(stmt:reset(), "storeWatchUrls.reset")
+		lldb.checkSql(stmt:bind_values(aId, u.providerName, u.url, currentYmd), "storeWatchUrls.bind")
+		lldb.checkSql(stmt:step(), "storeWatchUrls.step")
+		lldb.checkSql(stmt:reset(), "storeWatchUrls.reset")
 	end
-	checkSql(stmt:finalize(), "storeWatchUrls.finalize")
+	lldb.checkSql(stmt:finalize(), "storeWatchUrls.finalize")
 
-	db.execBoundStatement([[
+	lldb.executeBoundSql(gDB, [[
 		INSERT OR REPLACE INTO WatchUrlLastQuery(aId, lastQueryTimestamp)
 		VALUES(?, ?)
 	]], {aId, os.time()}, "storeWatchUrls.lastQuery")
@@ -1941,11 +1894,11 @@ function db.storeWeeklySchedule(aWatchlistSeason, aSchedule)
 		error("Failed to prepare statement for storeWeeklySchedule: " .. gDB:errmsg())
 	end
 	for _, sch in ipairs(aSchedule) do
-		checkSql(stmt:bind_values(sch.aId, sch.utcSecondsSinceWeekStart, aWatchlistSeason), "storeWeeklySchedule.bind")
-		checkSql(stmt:step(), "storeWeeklySchedule.step")
-		checkSql(stmt:reset(), "storeWeeklySchedule.reset")
+		lldb.checkSql(stmt:bind_values(sch.aId, sch.utcSecondsSinceWeekStart, aWatchlistSeason), "storeWeeklySchedule.bind")
+		lldb.checkSql(stmt:step(), "storeWeeklySchedule.step")
+		lldb.checkSql(stmt:reset(), "storeWeeklySchedule.reset")
 	end
-	checkSql(stmt:finalize(), "storeWeeklySchedule.finalize")
+	lldb.checkSql(stmt:finalize(), "storeWeeklySchedule.finalize")
 end
 
 
@@ -1966,10 +1919,10 @@ function db.updateAniDbDataFromDump(aXmlString)
 	assert(gDB ~= nil)
 
 	-- Disable foreign keys during replacement
-	checkSql(gDB:exec("PRAGMA foreign_keys = OFF;"), "updateAniDbDataFromDump.fkoff")
-	checkSql(gDB:exec("BEGIN TRANSACTION"),          "updateAniDbDataFromDump.begin")
-	checkSql(gDB:exec("DELETE FROM AnimeTitle;"),    "updateAniDbDataFromDump.delTitle")
-	checkSql(gDB:exec("DELETE FROM Anime;"),         "updateAniDbDataFromDump.delAnime")
+	lldb.checkSql(gDB:exec("PRAGMA foreign_keys = OFF;"), "updateAniDbDataFromDump.fkoff")
+	lldb.checkSql(gDB:exec("BEGIN TRANSACTION"),          "updateAniDbDataFromDump.begin")
+	lldb.checkSql(gDB:exec("DELETE FROM AnimeTitle;"),    "updateAniDbDataFromDump.delTitle")
+	lldb.checkSql(gDB:exec("DELETE FROM Anime;"),         "updateAniDbDataFromDump.delAnime")
 
 	local lxp = require("lxp")
 	local stmtInsertAnime = assert(gDB:prepare("INSERT INTO Anime(aId) VALUES(?);"))
@@ -1986,9 +1939,9 @@ function db.updateAniDbDataFromDump(aXmlString)
 		StartElement = function(_, aName, aAttr)
 			if (aName == "anime") then
 				curAnimeId = tonumber(aAttr.aid)
-				checkSql(stmtInsertAnime:bind_values(curAnimeId), "updateAniDbDataFromDump.insertAnime.bind")
-				checkSql(stmtInsertAnime:step(),  "updateAniDbDataFromDump.insertAnime.step")
-				checkSql(stmtInsertAnime:reset(), "updateAniDbDataFromDump.insertAnime.reset")
+				lldb.checkSql(stmtInsertAnime:bind_values(curAnimeId), "updateAniDbDataFromDump.insertAnime.bind")
+				lldb.checkSql(stmtInsertAnime:step(),  "updateAniDbDataFromDump.insertAnime.step")
+				lldb.checkSql(stmtInsertAnime:reset(), "updateAniDbDataFromDump.insertAnime.reset")
 			elseif (aName == "title") then
 				curTitleLang = aAttr["xml:lang"]
 				curTitleKind = aAttr.type
@@ -1999,12 +1952,12 @@ function db.updateAniDbDataFromDump(aXmlString)
 
 		EndElement = function(_, aName)
 			if (aName == "title" and insideTitle and curAnimeId) then
-				checkSql(stmtInsertTitle:bind_values(
+				lldb.checkSql(stmtInsertTitle:bind_values(
 					curAnimeId, curTitleLang, curTitleKind,
 					curTitleText, curTitleText:lower()
 				), "updateAniDb.insertTitle.bind")
-				checkSql(stmtInsertTitle:step(), "updateAniDbDataFromDump.insertTitle.step")
-				checkSql(stmtInsertTitle:reset(), "updateAniDbDataFromDump.insertTitle.reset")
+				lldb.checkSql(stmtInsertTitle:step(), "updateAniDbDataFromDump.insertTitle.step")
+				lldb.checkSql(stmtInsertTitle:reset(), "updateAniDbDataFromDump.insertTitle.reset")
 				insideTitle = false
 			end
 		end,
@@ -2024,8 +1977,8 @@ function db.updateAniDbDataFromDump(aXmlString)
 
 	-- Re-enable foreign keys
 	db.setLastAniDbUpdate(os.time())
-	checkSql(gDB:exec("COMMIT TRANSACTION"), "updateAniDbDataFromDump.commit")
-	checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "updateAniDbDataFromDump.fkon")
+	lldb.checkSql(gDB:exec("COMMIT TRANSACTION"), "updateAniDbDataFromDump.commit")
+	lldb.checkSql(gDB:exec("PRAGMA foreign_keys = ON;"), "updateAniDbDataFromDump.fkon")
 end
 
 
@@ -2037,7 +1990,8 @@ function db.updateAnimeBaseDetailsIsAdultRestricted(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
-	db.execBoundStatement([[
+	lldb.executeBoundSql(gDB,
+		[[
 		UPDATE AnimeBaseDetails
 		SET isAdultRestricted =
 			EXISTS (
@@ -2066,7 +2020,8 @@ function db.updateWatchlistItem(aItemId, aUtcSecondsSinceWeekStart, aCaption, aU
 	assert(type(aCaption) == "string")
 	assert(type(aUrl or "") == "string")
 
-	local isOK, msg = pcall(db.execBoundStatement, [[
+	local isOK, msg = pcall(lldb.executeBoundSql, gDB,
+		[[
 		UPDATE Watchlist SET
 			utcSecondsSinceWeekStart = ?,
 			url = ?,
@@ -2087,7 +2042,7 @@ end
 
 --- Returns an array of WatchUrl entries for the specified anime
 -- Each item is { aId = ..., url = ..., providerName = ..., createdOnYmd = ... }
-function db.watchUrlForAnime(aId)
+function db.watchUrlsForAnime(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
@@ -2095,7 +2050,7 @@ function db.watchUrlForAnime(aId)
 	[[
 		SELECT * FROM WatchUrl
 		WHERE aId = ?
-	]], {aId}, "watchUrlForAnime")
+	]], {aId}, "watchUrlsForAnime")
 end
 
 
@@ -2127,7 +2082,8 @@ function db.watchlistInSeason(aSeason)
 	end
 
 	-- Enrich with WatchUrlLastQuery:
-	db.forEachRowInStatement(
+	lldb.forEachRowInStatement(
+		gDB,
 		[[
 			SELECT * FROM WatchUrlLastQuery
 			LEFT JOIN Watchlist ON Watchlist.aId = WatchUrlLastQuery.aId
@@ -2142,7 +2098,8 @@ function db.watchlistInSeason(aSeason)
 	)
 
 	-- Enrich with WatchUrls:
-	db.forEachRowInStatement(
+	lldb.forEachRowInStatement(
+		gDB,
 		[[
 			SELECT *, WatchUrl.url AS watchUrl FROM WatchUrl
 			LEFT JOIN Watchlist ON Watchlist.aId = WatchUrl.aId
