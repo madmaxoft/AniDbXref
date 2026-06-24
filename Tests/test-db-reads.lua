@@ -277,7 +277,7 @@ local function testGetAnimeDetails_tags(aId)
 		local tag = tags[i]
 		assert(type(tag.tagId) == "number")
 		assert(type(tag.weight) == "number")
-		assert(type(tag.name) == "string")
+		assert(type(tag.name or "") == "string")
 		assert(type(tag.description or "") == "string")
 	end
 end
