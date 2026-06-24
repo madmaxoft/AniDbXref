@@ -567,7 +567,7 @@ local upgrades = {
 	{
 		-- Add an index for quickly locating anime + season
 		[[
-			CREATE INDEX idx_watchlist_aId_watchlistSeason ON Watchlist(aId, watchlistSeason);
+			CREATE INDEX UserData.idx_watchlist_aId_watchlistSeason ON Watchlist(aId, watchlistSeason);
 		]],
 	},
 
