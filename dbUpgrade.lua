@@ -599,13 +599,13 @@ function dbUpgrade.upgradeIfNeeded(aConn, aDbPath)
 			for idx, cmd in ipairs(upg) do
 				local t = type(cmd)
 				if (t == "string") then
-					executeSql(aConn, cmd, string.format("Upgrade.v%d.%d", version, idx))
+					lldb.executeSql(aConn, cmd, string.format("Upgrade.v%d.%d", version, idx))
 				elseif (t == "function") then
 					cmd(aConn)
 				end
 			end
 			dbUpgrade.setSchemaVersion(aConn, version)
-			executeSql(aConn, "COMMIT", string.format("Upgrade.v%d", version))
+			lldb.executeSql(aConn, "COMMIT", string.format("Upgrade.v%d", version))
 			log("dbUpgrade", "Schema upgraded to v%d", version)
 		end
 	end

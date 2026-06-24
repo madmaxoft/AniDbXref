@@ -25,8 +25,9 @@ local lldb = {}
 
 --- Checks SQLite result codes and raises errors if not success
 -- aContext is a string description of where the check is happenning, for logging purposes
--- NOTE: Duplicated from db.lua
-function lldb.checkSql(aResultCode, aContext)
+function lldb.checkSql(aDB, aResultCode, aContext)
+	assert(type(aDB) == "userdata")
+	assert(type(aResultCode) == "number")
 	assert(type(aContext) == "string")
 
 	if (
@@ -37,7 +38,7 @@ function lldb.checkSql(aResultCode, aContext)
 		error(string.format("SQLite error in %s: %s (%s)",
 			aContext or "unknown",
 			tostring(aResultCode),
-			gDB:errmsg()
+			aDB:errmsg()
 		))
 	end
 end
@@ -54,7 +55,7 @@ function lldb.executeSql(aDB, aSql, aContext)
 	assert(type(aSql) == "string")
 	assert(type(aContext) == "string")
 
-	lldb.checkSql(aDB:exec(aSql), "executeSql." .. tostring(aContext) .. "; SQL: " .. tostring(aSql))
+	lldb.checkSql(aDB, aDB:exec(aSql), "executeSql." .. tostring(aContext) .. "; SQL: " .. tostring(aSql))
 end
 
 
@@ -73,9 +74,9 @@ function lldb.executeBoundSql(aDB, aSql, aValuesToBind, aContext)
 	if not(stmt) then
 		error("Failed to prepare statement (" .. aContext .. "): " .. aConn:errmsg())
 	end
-	lldb.checkSql(stmt:bind_values(unpack(aValuesToBind)), aContext .. ".bind")
-	lldb.checkSql(stmt:step(), aContext .. ".step")
-	lldb.checkSql(stmt:finalize(), aContext .. ".finalize")
+	lldb.checkSql(aDB, stmt:bind_values(unpack(aValuesToBind)), aContext .. ".bind")
+	lldb.checkSql(aDB, stmt:step(), aContext .. ".step")
+	lldb.checkSql(aDB, stmt:finalize(), aContext .. ".finalize")
 end
 
 
@@ -98,14 +99,14 @@ function lldb.forEachRowInStatement(aDB, aSql, aValuesToBind, aDescription, aCal
 		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
 	end
 	if ((aValuesToBind) and (aValuesToBind[1])) then
-		lldb.checkSql(stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
+		lldb.checkSql(aDB, stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
 	end
 	for row in stmt:nrows() do
 		if (aCallback(row)) then
 			break
 		end
 	end
-	lldb.checkSql(stmt:finalize(), aDescription .. ".finalize")
+	lldb.checkSql(aDB, stmt:finalize(), aDescription .. ".finalize")
 end
 
 
