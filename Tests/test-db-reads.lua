@@ -50,6 +50,16 @@ end
 
 
 
+--- Verifies that the specified value is an YMD date string
+local function verifyYmd(aValue)
+	assert(type(aValue) == "string")
+	assert(utils.ymdToTimestamp(aValue))
+end
+
+
+
+
+
 --- Checks that the specified table is a properly-numbered array of {title = ..., language = ...}
 local function verifyTitles(aTitles)
 	verifyArray(aTitles, "table")
@@ -242,6 +252,10 @@ local function testGetAnimeDetails_relatedAnime(aId)
 		local rel = relations[i]
 		assert(type(rel.relatedAid) == "number")
 		assert(type(rel.relation) == "string")
+		assert(type(rel.isSeen) == "boolean")
+		if (rel.isSeen) then
+			assert(type(rel.seenDateYmd) == "string")
+		end
 		verifyTitles(rel.titles)
 	end
 end
@@ -259,6 +273,10 @@ local function testGetAnimeDetails_similarAnime(aId)
 	for i = 1, similars.n do
 		local sim = similars[i]
 		assert(type(sim.similarAid) == "number")
+		assert(type(sim.isSeen) == "boolean")
+		if (sim.isSeen) then
+			assert(type(sim.seenDateYmd) == "string")
+		end
 		verifyTitles(sim.titles)
 	end
 end
@@ -342,8 +360,7 @@ local function testGetSeenAnime()
 	for i = 1, seen.n do
 		local s = seen[i]
 		assert(type(s.aId) == "number")
-		assert(type(s.seenDate) == "string")
-		assert(tonumber(s.seenDate))
+		verifyYmd(s.seenDateYmd)
 	end
 end
 
@@ -358,8 +375,7 @@ local function testGetSeenAnimeForHomepage()
 	for i = 1, seen.n do
 		local s = seen[i]
 		assert(type(s.aId) == "number")
-		assert(type(s.seenDate) == "string")
-		assert(tonumber(s.seenDate))
+		verifyYmd(s.seenDateYmd)
 		assert(type(s.startDate or "") == "string")
 		assert(type(s.endDate or "") == "string")
 		assert(type(s.numEpisodes or 0) == "number")
@@ -409,7 +425,7 @@ local function testRawSeenIdsFrom(aFrom)
 	for i = 1, ids.n do
 		local id = ids[i]
 		assert(type(id.aId) == "number")
-		assert(type(id.seenDate) == "string")
+		verifyYmd(id.seenDateYmd)
 	end
 end
 

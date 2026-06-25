@@ -68,7 +68,7 @@ end
 		</td>
 		<td><a href="/anime/<%= ani.aId %>"><%= ani.title %></a></td>
 		<td><%= ani.startDate %></td>
-		<td><%= utils.toIsoDate(ani.seenDate) %></td>
+		<td><%= ani.seenDateYmd %></td>
 	</tr>
 	<% end %>
 </table>

@@ -124,7 +124,7 @@ end
 
 
 --- Adds the specified IDs into the Seen table
--- aRawSeen is an array-table of { aId = <id>, seen = <timestamp> }
+-- aRawSeen is an array-table of { aId = <id>, seenDateYmd = <YMD> }
 -- See also rawSeenIdsFrom() that produces such a table
 -- Used when importing via remote API
 -- Returns true on success, nil and message on failure
@@ -134,7 +134,7 @@ function db.addRawSeenIds(aRawSeen)
 
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO Seen
-			(aId, seenDate)
+			(aId, seenDateYmd)
 		VALUES
 			(?, ?)
 		]]
@@ -145,8 +145,8 @@ function db.addRawSeenIds(aRawSeen)
 
 	local numIgnored = 0
 	for _, s in ipairs(aRawSeen) do
-		if (s.aId and s.seenDate) then
-			lldb.checkSql(gDB, stmt:bind_values(s.aId, s.seenDate), "addRawSeenIds.bind")
+		if (s.aId and s.seenDateYmd) then
+			lldb.checkSql(gDB, stmt:bind_values(s.aId, s.seenDateYmd), "addRawSeenIds.bind")
 			lldb.checkSql(gDB, stmt:step(), "addRawSeenIds.step")
 			lldb.checkSql(gDB, stmt:reset(), "addRawSeenIds.reset")
 		else
@@ -294,7 +294,7 @@ function db.animeInSeason(aSeason)
 		SELECT
 			AnimeBaseDetails.*,
 			CASE WHEN Seen.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
-			Seen.seenDate AS seenDate
+			Seen.seenDateYmd AS seenDateYmd
 		FROM AnimeBaseDetails
 		LEFT JOIN Seen ON (AnimeBaseDetails.aId = Seen.aId)
 		WHERE length(startDate) = 10 AND startDate >= ? AND startDate <= ?
@@ -464,7 +464,7 @@ function db.getAnimeDetails_base(aId)
 			abd.pictureId AS pictureId,
 			abd.lastUpdated AS lastUpdated,
 			CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
-			s.seenDate AS seenDateYmd
+			s.seenDateYmd AS seenDateYmd
 		FROM AnimeBaseDetails AS abd
 		LEFT JOIN Seen AS s ON (abd.aId = s.aId)
 		WHERE abd.aId = ? LIMIT 1;
@@ -647,7 +647,7 @@ function db.getAnimeDetails_relatedAnime(aId)
 				t.kind AS titleKind,
 				t.language AS titleLanguage,
 				CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
-				s.seenDate AS seenDate
+				s.seenDateYmd AS seenDateYmd
 			FROM AnimeRelated AS r
 			JOIN AnimeBaseDetails AS a ON a.aId = r.relatedAid
 			LEFT JOIN AnimeTitle AS t ON t.aId = a.aId
@@ -669,6 +669,7 @@ function db.getAnimeDetails_relatedAnime(aId)
 		if not(item) then
 			item = row
 			item.titles = {n = 0}
+			item.isSeen = lldb.toBool(row.isSeen)
 			byId[row.relatedAid] = item
 			result.n = result.n + 1
 			result[result.n] = item
@@ -705,7 +706,7 @@ function db.getAnimeDetails_similarAnime(aId)
 				t.kind AS titleKind,
 				t.language AS titleLanguage,
 				CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
-				s.seenDate AS seenDate
+				s.seenDateYmd AS seenDateYmd
 			FROM AnimeSimilar AS sim
 			JOIN AnimeBaseDetails AS a ON a.aId = sim.similarAid
 			LEFT JOIN AnimeTitle AS t ON t.aId = a.aId
@@ -727,6 +728,7 @@ function db.getAnimeDetails_similarAnime(aId)
 		if not(item) then
 			item = row
 			item.titles = {n = 0}
+			item.isSeen = lldb.toBool(row.isSeen)
 			byId[row.similarAid] = item
 			result.n = result.n + 1
 			result[result.n] = item
@@ -801,11 +803,11 @@ end
 
 
 --- Returns an array-table of all seen Anime
--- Each item is a table {aId = ..., seenDate = ...}
+-- Each item is a table {aId = ..., seenDateYmd = ...}
 function db.getSeenAnime()
 	assert(gDB ~= nil)
 
-	return lldb.arrayFromQuery(gDB, "SELECT aId, seenDate FROM Seen", {}, "getSeenAnime")
+	return lldb.arrayFromQuery(gDB, "SELECT aId, seenDateYmd FROM Seen", {}, "getSeenAnime")
 end
 
 
@@ -819,7 +821,7 @@ function db.getSeenAnimeForHomepage()
 	local rows = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			s.aId AS aId,
-			s.seenDate AS seenDate,
+			s.seenDateYmd AS seenDateYmd,
 			d.startDate AS startDate,
 			d.endDate AS endDate,
 			d.numEpisodes AS numEpisodes,
@@ -830,7 +832,6 @@ function db.getSeenAnimeForHomepage()
 		FROM Seen s
 		LEFT JOIN AnimeBaseDetails d ON d.aId = s.aId
 		LEFT JOIN AnimeTitle t ON t.aId = s.aId
-		ORDER BY s.seenDate DESC, t.language, t.kind
 	]])
 
 	-- Process the returned data - collapse multiple titles for a single anime:
@@ -841,7 +842,7 @@ function db.getSeenAnimeForHomepage()
 			a =
 			{
 				aId = row.aId,
-				seenDate = row.seenDate,
+				seenDateYmd = row.seenDateYmd,
 				startDate = row.startDate,
 				endDate = row.endDate,
 				numEpisodes = row.numEpisodes,
@@ -940,7 +941,7 @@ function db.getVoiceActorDetails(aVoiceActorId)
 			abd.startDate AS animeStartDate,
 			abd.endDate AS animeEndDate,
 			CASE WHEN s.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
-			s.seenDate AS seenDate
+			s.seenDateYmd AS seenDateYmd
 
 		FROM AnimeCharacterVoiceActor acva
 		JOIN AnimeCharacter ac    ON ac.acId = acva.acId
@@ -968,7 +969,7 @@ function db.getVoiceActorDetails(aVoiceActorId)
 		titleByAnime[title.aId][titleByAnime[title.aId].n] = title
 	end
 	for _, ch in ipairs(result.characters) do
-		ch.isSeen = (ch.isSeen == "1") or (ch.isSeen == 1)
+		ch.isSeen = lldb.toBool(ch.isSeen)
 		ch.animeTitles = titleByAnime[ch.aId]
 		ch.enTitle = utils.pickBestTitle(titleByAnime[ch.aId], "en")
 		ch.jpTitle = utils.pickBestTitle(titleByAnime[ch.aId], "jp")
@@ -1103,7 +1104,7 @@ function db.markAnimeSeen(aId, aDateTime)
 
 	-- Add a Seen record:
 	local isOK, msg = pcall(lldb.executeBoundSql, gDB,
-		"INSERT OR REPLACE INTO Seen (aId, seenDate) VALUES (?, ?)",
+		"INSERT OR REPLACE INTO Seen (aId, seenDateYmd) VALUES (?, ?)",
 		{aId, aDateTime},
 		"markAnimeSeen"
 	)
@@ -1171,13 +1172,15 @@ end
 
 
 
---- Returns an array-table of the seen IDs that are seen after the specified From string (string-compared by SQL)
-function db.rawSeenIdsFrom(aFrom)
+--- Returns an array-table of the seen IDs that are seen after the specified From string
+function db.rawSeenIdsFrom(aFromYmd)
+	assert(type(aFromYmd) == "string")
+
 	return lldb.arrayFromQuery(gDB, [[
 		SELECT * FROM Seen
-		WHERE seenDate >= ?
-		ORDER BY seenDate ASC
-	]], {aFrom}, "rawSeenIdsFrom")
+		WHERE seenDateYmd >= ?
+		ORDER BY seenDateYmd ASC
+	]], {aFromYmd}, "rawSeenIdsFrom")
 end
 
 

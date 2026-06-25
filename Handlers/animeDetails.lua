@@ -127,7 +127,7 @@ function AD.postSetSeen(aRequest, aResponse)
 		if not(seenDate) then
 			return aResponse:sendError(400, "Bad or missing seenDateYmd")
 		end
-		local isOK, msg = db.markAnimeSeen(aId, seenDate)
+		local isOK, msg = db.markAnimeSeen(aId, seenDateYmd)
 		if not(isOK) then
 			log("animeDetails", "Failed to mark anime as seen: %s", tostring(msg))
 		end

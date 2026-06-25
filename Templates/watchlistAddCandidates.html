@@ -54,8 +54,8 @@ local seasonBounds = utils.seasonToYmdBounds(season)
 		</td>
 
 		<td>
-			<% if (candidate.details.isSeen == 1) then %>
-			<%= utils.toIsoDate(candidate.details.seenDateYmd) or "" %>
+			<% if (candidate.details.isSeen) then %>
+			<%= candidate.details.seenDateYmd or "" %>
 			<% end %>
 		</td>
 	</tr>

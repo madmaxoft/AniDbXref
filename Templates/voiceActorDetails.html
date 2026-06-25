@@ -83,7 +83,7 @@ end
 				<td><%= ch.name %></td>
 				<td><a href="/anime/<%= ch.aId %>"><%= utils.pickBestTitle(ch.animeTitles, "en") %></a></td>
 				<td><%= ch.animeStartDate %></td>
-				<td><%= utils.toIsoDate(ch.seenDate) or "" %></td>
+				<td><%= ch.seenDateYmd or "" %></td>
 			</tr>
 			<% end %>
 		</table>

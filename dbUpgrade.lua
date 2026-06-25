@@ -571,6 +571,85 @@ local upgrades = {
 		]],
 	},
 
+	-- Version 19:
+	{
+		-- Convert Seen.seenDate into YMD format:
+		[[
+			CREATE TABLE UserData.SeenNew (
+				aId INTEGER PRIMARY KEY,
+				seenDateYmd TEXT
+			);
+		]],
+		[[
+			INSERT INTO UserData.SeenNew (aId, seenDateYmd)
+			SELECT aId, date(seenDate, 'unixepoch') FROM UserData.Seen;
+		]],
+		[[
+			DROP TABLE UserData.Seen;
+		]],
+		[[
+			ALTER TABLE UserData.SeenNew RENAME TO Seen;
+		]],
+	}
+
+	--[==[
+	-- Version 20:
+		--- Add Watchlist entries based on Seen entries:
+		function (aDb)
+			-- Collect Seen without a Watchlist entry:
+			local seenWithoutWatchlist = {}
+			local n = 0
+			lldb.forEachRowInStatement(aDb,
+				[[
+					SELECT
+						s.aId,
+						s.seenDate
+					FROM Seen AS s
+					WHERE NOT EXISTS (
+						SELECT 1
+						FROM Watchlist AS w
+						WHERE (
+							w.aId = s.aId
+						)
+						AND (
+							w.watchlistSeason = printf(
+								'%04d-%d',
+								CAST(strftime('%Y', datetime(s.seenDate, 'unixepoch')) AS INTEGER),
+								((CAST(strftime('%m', datetime(s.seenDate, 'unixepoch')) AS INTEGER) - 1) / 3) + 1
+							)
+						)
+					)
+				]], {}, "selectSeenWithoutWatchlist",
+				function (aRow)
+					n = n + 1
+					seenWithoutWatchlist[n] = aRow
+				end
+			)
+
+			-- Insert into Watchlist:
+			local stmt = aDb:prepare(
+				[[
+					INSERT INTO Watchlist (watchlistSeason, aId, caption)
+					VALUES (?, ?, ?)
+				]]
+			)
+			for i = 1, n do
+				local sww = seenWithoutWatchlist[i]
+				local watchlistSeason = utils.ymdToSeason(utils.timestampToYmd(tonumber(sww.seenDate)))
+				local titles = require("db").getAnimeDetails_titles(sww.aId)
+				local caption = utils.pickBestTitle(titles, "en") or tostring(sww.aId)
+			lldb.executeBoundSql(aDb,
+				{
+					watchlistSeason,
+					sww.aId,
+					caption,
+				},
+				"insertWatchlistFromSeen"
+			)
+		end,
+	},
+	--]==]
+
 	-- Future upgrades can be added here
 }
 
