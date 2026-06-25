@@ -1,5 +1,10 @@
 -- db.lua
--- Database access module
+
+--[[
+High-level Database access module. Performs object-oriented operations on the DB.
+
+The low level access (SQL execution etc.) is in lowLevelDB.lua.
+--]]
 
 local sqlite3 = require("lsqlite3")
 local perf = require("perf")
@@ -44,7 +49,7 @@ local function initialize()
 	gTitleSearch = titleSearch.new()
 	if not(gDbSkipInitTitleSearch) then
 		log("db", "Initializing titleSearch...")
-		local allTitles = db.getArrayFromQuery("SELECT aId, language, title FROM AnimeTitle", {}, "allTitles")
+		local allTitles = lldb.arrayFromQuery(gDB, "SELECT aId, language, title FROM AnimeTitle", {}, "allTitles")
 		for _, title in ipairs(allTitles) do
 			if ((title.language == "en") or (title.language == "x-jat")) then
 				gTitleSearch:insert(title.title, title.aId)
@@ -243,7 +248,7 @@ end
 -- Returns nil and error message on error.
 function db.allAnimeIDs()
 	-- Query the DB:
-	local dictArray, msg = db.getArrayFromQuery("SELECT aId FROM Anime", {}, "allAnimeIDs")
+	local dictArray, msg = lldb.arrayFromQuery(gDB, "SELECT aId FROM Anime", {}, "allAnimeIDs")
 	if not(dictArray) then
 		return nil, "Failed to query DB: " .. tostring(msg)
 	end
@@ -266,7 +271,7 @@ end
 -- Returns an empty array on empty DB.
 -- Returns nil and error message on error.
 function db.allConfigValues()
-	return db.getArrayFromQuery("SELECT * FROM UserData.Config", {}, "allConfigValues")
+	return lldb.arrayFromQuery(gDB, "SELECT * FROM UserData.Config", {}, "allConfigValues")
 end
 
 
@@ -285,7 +290,7 @@ function db.animeInSeason(aSeason)
 	end
 
 	-- Query base details:
-	local res = db.getArrayFromQuery([[
+	local res = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			AnimeBaseDetails.*,
 			CASE WHEN Seen.aId IS NOT NULL THEN 1 ELSE 0 END AS isSeen,
@@ -301,7 +306,7 @@ function db.animeInSeason(aSeason)
 	end
 
 	-- Query titles:
-	local titles = db.getArrayFromQuery([[
+	local titles = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			AnimeTitle.aId AS aId,
 			AnimeTitle.title AS title,
@@ -374,7 +379,7 @@ function db.collectAndDropIndices()
 	assert(gDB ~= nil)
 
 	-- Query all indices:
-	local result = db.getArrayFromQuery([[
+	local result = lldb.arrayFromQuery(gDB, [[
 		SELECT name, sql
 		FROM sqlite_master
 		WHERE type = 'index'
@@ -447,7 +452,7 @@ function db.getAnimeDetails_base(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
-	local result, msg = db.getArrayFromQuery([[
+	local result, msg = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			abd.aId AS aId,
 			abd.startDate AS startDate,
@@ -485,7 +490,7 @@ function db.getAnimeDetails_characters(aId)
 	assert(tonumber(aId))
 
 	-- Query bare characers:
-	local characters = db.getArrayFromQuery([[
+	local characters = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			ac.acId,
 			ac.characterId,
@@ -512,7 +517,7 @@ function db.getAnimeDetails_characters(aId)
 	end
 
 	-- Query VoiceActors:
-	local voiceActors = db.getArrayFromQuery([[
+	local voiceActors = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			acva.vaId,
 			va.name,
@@ -553,7 +558,7 @@ function db.getAnimeDetails_creators(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery("SELECT * FROM AnimeCreator WHERE aId = ?", {aId}, "getAnimeDetails_creators")
+	return lldb.arrayFromQuery(gDB, "SELECT * FROM AnimeCreator WHERE aId = ?", {aId}, "getAnimeDetails_creators")
 end
 
 
@@ -565,7 +570,7 @@ function db.getAnimeDetails_episodes(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
-	local rows = db.getArrayFromQuery([[
+	local rows = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			epi.*,
 			title.title    AS title,
@@ -621,7 +626,7 @@ end
 function db.getAnimeDetails_recommendations(aId)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery("SELECT * FROM AnimeRecommendation WHERE aId = ?", {aId}, "getAnimeDetails_recommendations")
+	return lldb.arrayFromQuery(gDB, "SELECT * FROM AnimeRecommendation WHERE aId = ?", {aId}, "getAnimeDetails_recommendations")
 end
 
 
@@ -632,7 +637,7 @@ end
 function db.getAnimeDetails_relatedAnime(aId)
 	assert(tonumber(aId))
 
-	local related, msg = db.getArrayFromQuery(
+	local related, msg = lldb.arrayFromQuery(gDB,
 		[[
 			SELECT
 				r.relatedAid AS relatedAid,
@@ -691,7 +696,7 @@ end
 function db.getAnimeDetails_similarAnime(aId)
 	assert(tonumber(aId))
 
-	local similar, msg = db.getArrayFromQuery(
+	local similar, msg = lldb.arrayFromQuery(gDB,
 		[[
 			SELECT
 				sim.similarAid AS similarAid,
@@ -749,7 +754,7 @@ end
 function db.getAnimeDetails_tags(aId)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery([[
+	return lldb.arrayFromQuery(gDB, [[
 		SELECT
 			AnimeTag.tagId AS tagId,
 			AnimeTag.weight AS weight,
@@ -769,40 +774,7 @@ end
 function db.getAnimeDetails_titles(aId)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery("SELECT * FROM AnimeTitle WHERE aId = ?", {aId}, "getAnimeDetails_title")
-end
-
-
-
-
-
---- Runs the specified SQL query, binding the specified values to it, and returns the results as an array-table of dict-tables
--- aDescription is used for error logging.
-function db.getArrayFromQuery(aSql, aValuesToBind, aDescription)
-	assert(gDB ~= nil)
-	assert(type(aSql) == "string")
-	assert(type(aValuesToBind) == "table" or not(aValuesToBind))
-	if not(aDescription) then
-		aDescription = debug.getinfo(1, 'S').source
-	end
-
-	local stmt = gDB:prepare(aSql)
-	if not(stmt) then
-		error("Failed to prepare statement (" .. aDescription .. "): " .. gDB:errmsg())
-	end
-	if ((aValuesToBind) and (aValuesToBind[1])) then
-		lldb.checkSql(gDB, stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
-	end
-	local result = {}
-	local n = 0
-	for row in stmt:nrows() do
-		n = n + 1
-		result[n] = row
-	end
-	result.n = n
-	lldb.checkSql(gDB, stmt:finalize(), aDescription .. ".finalize")
-
-	return result
+	return lldb.arrayFromQuery(gDB, "SELECT * FROM AnimeTitle WHERE aId = ?", {aId}, "getAnimeDetails_title")
 end
 
 
@@ -833,7 +805,7 @@ end
 function db.getSeenAnime()
 	assert(gDB ~= nil)
 
-	return db.getArrayFromQuery("SELECT aId, seenDate FROM Seen", {}, "getSeenAnime")
+	return lldb.arrayFromQuery(gDB, "SELECT aId, seenDate FROM Seen", {}, "getSeenAnime")
 end
 
 
@@ -844,7 +816,7 @@ end
 function db.getSeenAnimeForHomepage()
 	assert(gDB ~= nil)
 
-	local rows = db.getArrayFromQuery([[
+	local rows = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			s.aId AS aId,
 			s.seenDate AS seenDate,
@@ -946,14 +918,14 @@ function db.getVoiceActorDetails(aVoiceActorId)
 	assert(gDB ~= nil)
 	assert(tonumber(aVoiceActorId))
 
-	local baseDetails = db.getArrayFromQuery("SELECT * FROM VoiceActor WHERE vaId = ?", {aVoiceActorId}, "getVoiceActorDetails")
+	local baseDetails = lldb.arrayFromQuery(gDB, "SELECT * FROM VoiceActor WHERE vaId = ?", {aVoiceActorId}, "getVoiceActorDetails")
 	if (not(baseDetails) or (baseDetails.n ~= 1)) then
 		return nil
 	end
 	local result = baseDetails[1]
 
 	-- Load all the characters:
-	result.characters = db.getArrayFromQuery([[
+	result.characters = lldb.arrayFromQuery(gDB, [[
 		SELECT
 			acva.language,
 			acva.episodes,
@@ -979,7 +951,7 @@ function db.getVoiceActorDetails(aVoiceActorId)
 	]], {aVoiceActorId}, "getVoiceActorDetails.characters")
 
 	-- Add titles for the anime through a subquery:
-	local titles = db.getArrayFromQuery([[
+	local titles = lldb.arrayFromQuery(gDB, [[
 		SELECT *
 		FROM AnimeTitle
 		WHERE aId IN (
@@ -1012,7 +984,7 @@ end
 
 --- Returns the voice actors currently stored in the DB, together with the number of characters they voiced
 function db.getVoiceActors()
-	return db.getArrayFromQuery([[
+	return lldb.arrayFromQuery(gDB, [[
 		SELECT
 			va.*,
 			COUNT(acva.acId) AS numCharacters,
@@ -1184,7 +1156,7 @@ function db.pictureData(aPictureId, aSize)
 	assert(type(aPictureId) == "string")
 	assert(type(aSize) == "string")
 
-	local row, msg = db.getArrayFromQuery([[
+	local row, msg = lldb.arrayFromQuery(gDB, [[
 		SELECT data FROM Picture
 		WHERE pictureId = ? AND size = ?
 	]], {aPictureId, aSize}, "pictureData")
@@ -1201,7 +1173,7 @@ end
 
 --- Returns an array-table of the seen IDs that are seen after the specified From string (string-compared by SQL)
 function db.rawSeenIdsFrom(aFrom)
-	return db.getArrayFromQuery([[
+	return lldb.arrayFromQuery(gDB, [[
 		SELECT * FROM Seen
 		WHERE seenDate >= ?
 		ORDER BY seenDate ASC
@@ -1214,7 +1186,7 @@ end
 
 --- Returns an array-table of the watchlist data
 function db.rawWatchlist()
-	return db.getArrayFromQuery([[
+	return lldb.arrayFromQuery(gDB, [[
 		SELECT * FROM Watchlist
 	]])
 end
@@ -2046,7 +2018,7 @@ function db.watchUrlsForAnime(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
-	return db.getArrayFromQuery(
+	return lldb.arrayFromQuery(gDB,
 	[[
 		SELECT * FROM WatchUrl
 		WHERE aId = ?
@@ -2066,7 +2038,7 @@ function db.watchlistInSeason(aSeason)
 	assert(type(aSeason) == "string")
 
 	-- Query the base watchlist:
-	local res, msg = db.getArrayFromQuery(
+	local res, msg = lldb.arrayFromQuery(gDB,
 	[[
 		SELECT * FROM Watchlist
 		WHERE watchlistSeason = ?
@@ -2129,7 +2101,7 @@ function db.watchlistItem(aItemId)
 	assert(gDB ~= nil)
 	assert(type(aItemId) == "number")
 
-	local arr, msg = db.getArrayFromQuery(
+	local arr, msg = lldb.arrayFromQuery(gDB,
 	[[
 		SELECT * FROM Watchlist
 		WHERE itemId = ?
@@ -2151,7 +2123,7 @@ function db.watchlistSeasonsForAnime(aId)
 	assert(type(aId) == "number")
 
 	-- Query the DB, arr is an array of {watchlistSeason = ...} items
-	local arr, msg = db.getArrayFromQuery(
+	local arr, msg = lldb.arrayFromQuery(gDB,
 	[[
 		SELECT watchlistSeason FROM Watchlist
 		WHERE aId = ?

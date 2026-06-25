@@ -23,6 +23,39 @@ local lldb = {}
 
 
 
+--- Runs the specified SQL query, binding the specified values to it, and returns the results as an array-table of dict-tables
+-- aDescription is used for error logging.
+function lldb.arrayFromQuery(aDB, aSql, aValuesToBind, aDescription)
+	assert(aDB ~= nil)
+	assert(type(aSql) == "string")
+	assert(type(aValuesToBind) == "table" or not(aValuesToBind))
+	if not(aDescription) then
+		aDescription = debug.getinfo(1, 'S').source
+	end
+
+	local stmt = aDB:prepare(aSql)
+	if not(stmt) then
+		error("Failed to prepare statement (" .. aDescription .. "): " .. aDB:errmsg())
+	end
+	if ((aValuesToBind) and (aValuesToBind[1])) then
+		lldb.checkSql(aDB, stmt:bind_values(unpack(aValuesToBind)), aDescription .. ".bind")
+	end
+	local result = {}
+	local n = 0
+	for row in stmt:nrows() do
+		n = n + 1
+		result[n] = row
+	end
+	result.n = n
+	lldb.checkSql(aDB, stmt:finalize(), aDescription .. ".finalize")
+
+	return result
+end
+
+
+
+
+
 --- Checks SQLite result codes and raises errors if not success
 -- aContext is a string description of where the check is happenning, for logging purposes
 function lldb.checkSql(aDB, aResultCode, aContext)
