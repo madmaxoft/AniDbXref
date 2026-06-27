@@ -220,7 +220,7 @@ end
 				<td><a href="/anime/<%= ani.relatedAid %>"><%= utils.pickBestTitle(ani.titles, "en") %></a></td>
 				<td><%= ani.relation %></td>
 				<td><%= ani.startDate %></td>
-				<td><%= ani.seenDateYmd %></td>
+				<td><%= ani.seenDateYmd or "" %></td>
 			</tr>
 			<% end %>
 		</table>
@@ -247,7 +247,7 @@ end
 				</td>
 				<td><a href="/anime/<%= ani.similarAid %>"><%= utils.pickBestTitle(ani.titles, "en") %></a></td>
 				<td><%= ani.startDate %></td>
-				<td><%= ani.seenDateYmd %></td>
+				<td><%= ani.seenDateYmd or "" %></td>
 			</tr>
 			<% end %>
 		</table>
