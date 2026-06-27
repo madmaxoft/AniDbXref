@@ -1095,17 +1095,17 @@ end
 
 --- Marks an anime as seen, adds it to the watchlist of the seen date, if not already there
 -- Returns true on success, nil and error message on failure
-function db.markAnimeSeen(aId, aDateTime)
+function db.markAnimeSeen(aId, aDateYmd)
 	assert(type(aId) == "number")
-	if not(aDateTime) then
-		aDateTime = os.time()
+	if not(aDateYmd) then
+		aDateYmd = utils.timestampToYmd(os.time())
 	end
-	assert(type(aDateTime) == "number")
+	assert(type(aDateYmd) == "string")
 
 	-- Add a Seen record:
 	local isOK, msg = pcall(lldb.executeBoundSql, gDB,
 		"INSERT OR REPLACE INTO Seen (aId, seenDateYmd) VALUES (?, ?)",
-		{aId, aDateTime},
+		{aId, aDateYmd},
 		"markAnimeSeen"
 	)
 	if not(isOK) then
@@ -1114,7 +1114,7 @@ function db.markAnimeSeen(aId, aDateTime)
 	end
 
 	local initialAiringSeason = db.initialAiringSeason(aId) or utils.currentSeason()
-	local watchlistSeason = utils.ymdToSeason(utils.timestampToYmd(aDateTime))
+	local watchlistSeason = utils.ymdToSeason(aDateYmd)
 	local utcSecondsSinceWeekStart = nil
 	if (initialAiringSeason ~= watchlistSeason) then
 		utcSecondsSinceWeekStart = 8
