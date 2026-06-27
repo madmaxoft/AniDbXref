@@ -50,10 +50,23 @@ end
 
 
 
---- Verifies that the specified value is an YMD date string
-local function verifyYmd(aValue)
+--- Checks that the value is a string representing a maybe-date - "2026", "2026-01", "2026-01-23" or nil
+local function verifyMaybeDate(aValue)
+	if not(aValue) then
+		return
+	end
 	assert(type(aValue) == "string")
-	assert(utils.ymdToTimestamp(aValue))
+	local len = string.len(aValue)
+	assert((len == 4) or (len == 7) or (len == 10))
+	if (len == 4) then
+		assert(tonumber(aValue))
+	elseif (len == 7) then
+		assert(tonumber(aValue:sub(1, 4)))
+		assert(aValue:sub(5, 5) == "-")
+		assert(tonumber(aValue:sub(6, 7)))
+	else
+		assert(utils.ymdToTimestamp(aValue))
+	end
 end
 
 
@@ -68,6 +81,19 @@ local function verifyTitles(aTitles)
 		assert(type(title.title) == "string")
 		assert(type(title.language) == "string")
 	end
+end
+
+
+
+
+
+--- Verifies that the specified value is an YMD date string
+local function verifyYmd(aValue)
+	if not(aValue) then
+		return
+	end
+	assert(type(aValue) == "string")
+	assert(utils.ymdToTimestamp(aValue))
 end
 
 
@@ -398,6 +424,34 @@ end
 
 
 
+local function testGetVoiceActorDetails(aVoiceActorID)
+	assert(type(aVoiceActorID) == "number")
+	print(strFormat("Testing db.getVoiceActorDetails(%d)", aVoiceActorID))
+	local details = db.getVoiceActorDetails(aVoiceActorID)
+	assert(type(details) == "table")
+	assert(type(details.name) == "string")
+	verifyArray(details.characters, "table")
+	for i = 1, details.characters.n do
+		local ch = details.characters[i]
+		assert(type(ch.language or "") == "string")
+		assert(type(ch.episodes or "") == "string")
+		assert(type(ch.vaNotes or "") == "string")
+		assert(type(ch.characterId) == "number")
+		assert(type(ch.name) == "string")
+		assert(type(ch.description or "") == "string")
+		assert(type(ch.pictureId or "") == "string")
+		assert(type(ch.aId) == "number")
+		verifyMaybeDate(ch.animeStartDate)
+		verifyMaybeDate(ch.animeEndDate)
+		assert(type(ch.isSeen) == "boolean")
+		verifyYmd(ch.seenDateYmd)
+	end
+end
+
+
+
+
+
 local function testGetVoiceActors()
 	print("Testing db.getVoiceActors()")
 	local vas = db.getVoiceActors()
@@ -553,6 +607,9 @@ testGetLastAniDbUpdate()
 testGetSeenAnime()
 testGetSeenAnimeForHomepage()
 testGetSeenWithoutDetails()
+testGetVoiceActorDetails(2296)   -- Hayami Saori
+testGetVoiceActorDetails(53526)  -- Hasegawa Ikumi
+testGetVoiceActorDetails(139)    -- Koyasu Takehito
 testGetVoiceActors()
 testRawSeenIdsFrom("2026-01-01")
 testRawSeenIdsFrom("0")
