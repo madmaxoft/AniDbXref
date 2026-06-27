@@ -595,7 +595,7 @@ function db.getAnimeDetails_episodes(aId)
 				episodeNumber = row.episodeNumber,
 				kind = row.kind,
 				length = row.length,
-				airDate = row.airDate,
+				airDateYmd = row.airDateYmd,
 				titles = {n = 0}
 			}
 			table.insert(result, cur)
@@ -1628,7 +1628,7 @@ function db.storeAnimeEpisodes(aDetails)
 	lldb.executeBoundSql(gDB, "DELETE FROM AnimeEpisode WHERE aId = ?", {aDetails.aId}, "storeAnimeEpisodes.episode")
 	timer("delEpisodes")
 	local stmt = gDB:prepare([[
-		INSERT INTO AnimeEpisode(aId, id, kind, episodeNumber, length, airDate)
+		INSERT INTO AnimeEpisode(aId, id, kind, episodeNumber, length, airDateYmd)
 		VALUES (?, ?, ?, ?, ?, ?)
 	]])
 	if not(stmt) then
@@ -1643,7 +1643,7 @@ function db.storeAnimeEpisodes(aDetails)
 	end
 	for _, epi in ipairs(aDetails.episodes) do
 		assert(tonumber(epi.id))
-		lldb.checkSql(gDB, stmt:bind_values(aDetails.aId, epi.id, epi.kind, epi.episodeNumber, epi.length, epi.airDate), "storeAnimeEpisodes.bind")
+		lldb.checkSql(gDB, stmt:bind_values(aDetails.aId, epi.id, epi.kind, epi.episodeNumber, epi.length, epi.airDateYmd), "storeAnimeEpisodes.bind")
 		lldb.checkSql(gDB, stmt:step(), "storeAnimeEpisodes.step")
 		lldb.checkSql(gDB, stmt:reset(), "storeAnimeEpisodes.reset")
 		for _, title in ipairs(epi.titles) do

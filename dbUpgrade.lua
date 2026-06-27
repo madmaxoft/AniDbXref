@@ -590,7 +590,15 @@ local upgrades = {
 		[[
 			ALTER TABLE UserData.SeenNew RENAME TO Seen;
 		]],
-	}
+	},
+
+	-- Version 20:
+	{
+		-- Rename AnimeEpisode.airDate to airDateYmd; the data is already in the correct format
+		[[
+			ALTER TABLE AnimeEpisode RENAME COLUMN airDate to airDateYmd;
+		]]
+	},
 
 	--[==[
 	-- Version 20:

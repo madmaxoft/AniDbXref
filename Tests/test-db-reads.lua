@@ -238,7 +238,7 @@ local function testGetAnimeDetails_episodes(aId)
 		assert(episode.aId == aId)
 		assert(type(episode.episodeNumber) == "string")
 		assert(type(episode.length) == "number")
-		assert(type(episode.airDate or "") == "string")
+		verifyYmd(episode.airDateYmd)
 		verifyTitles(episode.titles)
 		for j = 1, episode.titles.n do  -- Also check that each item has the corresponding aId:
 			local title = episode.titles[j]

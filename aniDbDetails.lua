@@ -610,7 +610,7 @@ local function transformParsedIntoDetails_episode(aParsedLom)
 					value = tonumber(v[1]),
 				}
 			elseif (v.tag == "airdate") then
-				result.airDate = v[1]
+				result.airDateYmd = v[1]
 			end
 		end
 	end

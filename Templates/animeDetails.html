@@ -282,7 +282,7 @@ end
 			<tr>
 				<td><%= epi.episodeNumber %></td>
 				<td><%= utils.pickBestTitle(epi.titles, "en") or tostring(epi.titles) %></td>
-				<td><%= epi.airDate %></td>
+				<td><%= epi.airDateYmd or "" %></td>
 				<td><%= epi.length %></td>
 			</tr>
 			<% end %>
