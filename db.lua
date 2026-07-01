@@ -1115,10 +1115,6 @@ function db.markAnimeSeen(aId, aDateYmd)
 
 	local initialAiringSeason = db.initialAiringSeason(aId) or utils.currentSeason()
 	local watchlistSeason = utils.ymdToSeason(aDateYmd)
-	local utcSecondsSinceWeekStart = nil
-	if (initialAiringSeason ~= watchlistSeason) then
-		utcSecondsSinceWeekStart = 8
-	end
 	local titles = db.getAnimeDetails_titles(aId) or {n = 0}
 	local enTitle = utils.pickBestTitle(titles, "en")
 	isOK, msg = pcall(lldb.executeBoundSql,
@@ -1127,17 +1123,16 @@ function db.markAnimeSeen(aId, aDateYmd)
 			INSERT INTO Watchlist (
 				aId,
 				watchlistSeason,
-				utcSecondsSinceWeekStart,
 				caption
 			)
-			SELECT ?, ?, ?, ?
+			SELECT ?, ?, ?
 			WHERE NOT EXISTS (
 				SELECT 1
 				FROM Watchlist
 				WHERE (aId = ?) AND (watchlistSeason = ?)
 			);
 		]],
-		{aId, watchlistSeason, utcSecondsSinceWeekStart, enTitle, aId, watchlistSeason}, "markAnimeSeen.addToWatchlist"
+		{aId, watchlistSeason, enTitle, aId, watchlistSeason}, "markAnimeSeen.addToWatchlist"
 	)
 	if not(isOK) then
 		log("db", "Failed to add Seen %d / %s to watchlist %s: %s", aId, enTitle, watchlistSeason, tostring(msg))
