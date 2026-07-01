@@ -55,6 +55,22 @@ end
 
 
 
+local function test_nextSeason()
+	assertEqual(utils.nextSeason("2026-2"), "2026-3")
+	assertEqual(utils.nextSeason("2026-4"), "2027-1")
+	assertEqual(utils.nextSeason("2000-1"), "2000-2")
+	assertEqual(utils.nextSeason("2026-02"), "2026-3")
+	assertEqual(pcall(utils.nextSeason, ""), false)
+	assertEqual(pcall(utils.nextSeason, 2026), false)
+	assertEqual(pcall(utils.nextSeason, "2026-0"), false)
+	assertEqual(pcall(utils.nextSeason, "2026-5"), false)
+	assertEqual(pcall(utils.nextSeason, "2026-01-01"), false)
+end
+
+
+
+
+
 local function test_parseIsoDateTime()
 	assertEqual(utils.parseIsoDateTime("1970-01-01T00:00:00"), 0)
 	assertEqual(utils.parseIsoDateTime("1970-01-02T00:00:00"), 24 * 60 * 60)
@@ -62,6 +78,31 @@ local function test_parseIsoDateTime()
 	assertEqual(utils.parseIsoDateTime("1970-05-09T14:00:00"), 11109600)
 	assertEqual(utils.parseIsoDateTime("2026-05-09T00:00:00"), 1778284800)
 	assertEqual(utils.parseIsoDateTime("2026-05-09T12:34:56"), 1778330096)
+end
+
+
+
+
+
+local function test_parseSeason()
+	local year, quarter
+	year, quarter = utils.parseSeason("2026-2")
+	assertEqual(year, 2026)
+	assertEqual(quarter, 2)
+	year, quarter = utils.parseSeason("2019-1")
+	assertEqual(year, 2019)
+	assertEqual(quarter, 1)
+	year, quarter = utils.parseSeason("2000-4")
+	assertEqual(year, 2000)
+	assertEqual(quarter, 4)
+	year, quarter = utils.parseSeason("2000-04")
+	assertEqual(year, 2000)
+	assertEqual(quarter, 4)
+	assertEqual(pcall(utils.parseSeason, ""), false)
+	assertEqual(pcall(utils.parseSeason, 2026), false)
+	assertEqual(pcall(utils.parseSeason, "2026-04-05"), false)
+	assertEqual(pcall(utils.parseSeason, "2026-5"), false)
+	assertEqual(pcall(utils.parseSeason, "2026-0"), false)
 end
 
 
@@ -185,7 +226,9 @@ end
 
 test_dayOfWeekAndTimeStrToSecondsSinceWeekStart()
 test_localToUtcTimestamp()
+test_nextSeason()
 test_parseIsoDateTime()
+test_parseSeason()
 test_seasonsBetween()
 test_utcToLocalTimestamp()
 test_ymdAddOffset()

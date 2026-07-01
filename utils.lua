@@ -55,6 +55,40 @@ end
 
 
 
+--- Returns the next season for the specified season, eg. "2025-04" -> "2026-01"
+-- If no season is specified, returns the next season for currentSeason()
+function utils.nextSeason(aSeason)
+	assert(type(aSeason or "") == "string")
+
+	local year, quarter = utils.parseSeason(aSeason or utils.currentSeason())
+	quarter = quarter + 1
+	if (quarter == 5) then
+		year = year + 1
+		quarter = 1
+	end
+	return string.format("%d-%d", year, quarter)
+end
+
+
+
+
+
+--- Returns the year and quarter from the specified season
+function utils.parseSeason(aSeason)
+	assert(type(aSeason) == "string")
+	local year, quarter = string.match(aSeason or utils.currentSeason(), "^(%d+)%-(%d+)$")
+	assert(year ~= nil)
+	assert(quarter ~= nil)
+	year = tonumber(year)
+	quarter = tonumber(quarter)
+	assert((quarter >= 1) and (quarter <= 4))
+	return year, quarter
+end
+
+
+
+
+
 --- Returns an iterator over all seasons from aStartSeason up to aEndSeason (inclusive).
 -- If either season is not specified, the current season is assumed.
 -- Can generate a reversed sequence if aStartSeason is later than aEndSeason
@@ -64,23 +98,11 @@ function utils.seasonsBetween(aStartSeason, aEndSeason)
 	assert(type(aStartSeason or "") == "string")
 	assert(type(aEndSeason or "") == "string")
 
-	local startYear, startQuarter = string.match(aStartSeason or utils.currentSeason(), "^(%d+)%-(%d+)$")
-	assert(startYear ~= nil)
-	assert(startQuarter ~= nil)
-	startYear = tonumber(startYear)
-	startQuarter = tonumber(startQuarter)
-	assert((startQuarter >= 1) and (startQuarter <= 4))
-
-	local endYear, endQuarter = string.match(aEndSeason or utils.currentSeason(), "^(%d+)%-(%d+)$")
-	assert(endYear ~= nil)
-	assert(endQuarter ~= nil)
-	endYear = tonumber(endYear)
-	endQuarter = tonumber(endQuarter)
-	assert((endQuarter >= 1) and (endQuarter <= 4))
+	local startYear, startQuarter = utils.parseSeason(aStartSeason or utils.currentSeason())
+	local endYear, endQuarter = utils.parseSeason(aEndSeason or utils.currentSeason())
 
 	local currentIndex = startYear * 4 + startQuarter - 1
 	local endIndex = endYear * 4 + endQuarter - 1
-
 	local step = 1
 	if (currentIndex > endIndex) then
 		step = -1
