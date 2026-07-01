@@ -52,6 +52,9 @@ local function loadTemplate(aTemplateName)
 	-- Compile it using etlua, remember the lineMap (for error reporting):
 	local parser = etlua.Parser()
 	local luaCode, lineMap = parser:compile_to_lua(content)
+	if not(luaCode) then
+		error("Failed to compile template: " .. tostring(lineMap))
+	end
 	local compiled = assert(loadstring(luaCode, "@" .. path))
 
 	-- Return a closure that executes the template on call and reports original template linenumbers on error:
