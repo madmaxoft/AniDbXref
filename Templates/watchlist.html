@@ -80,7 +80,9 @@ end
 
 <!-- NavBar: seasons -->
 <p>
-<% local currentSeasonDesc = utils.currentSeason()
+<%
+local currentSeason = utils.currentSeason()
+local nextSeason = utils.nextSeason(currentSeason)
 for year = seasonYear - 1, seasonYear + 1 do
 	for idx = 1, 4 do
 		local s = tostring(year) .. "-" .. tostring(idx)
@@ -89,7 +91,7 @@ for year = seasonYear - 1, seasonYear + 1 do
 %>
 | <%= sDesc %>
 <%
-		elseif (s <= currentSeasonDesc) then
+		elseif (s <= nextSeason) then
 %>
 | <a href="/watchlist/<%= s %>"><%= sDesc %></a>
 <%
