@@ -88,6 +88,30 @@ end
 
 
 
+--- Tries to parse the ID from the GraphQL episode.anime representation,
+-- string-matches it using the specified match string.
+-- If the ID is a numerical string, returns a number instead of a string
+-- Returns the parsed ID, or nil and error message on failure
+local function tryParseId(aGraphQLAnime, aGraphQLName, aMatchStr)
+	assert(type(aGraphQLAnime) == "table")
+	assert(type(aGraphQLName) == "string")
+	assert(type(aMatchStr) == "string")
+
+	local value = aGraphQLAnime[aGraphQLName]
+	if not(value) then
+		return nil, "No value in the GraphQL"
+	end
+	local matched = string.match(value, aMatchStr)
+	if not(matched) then
+		return nil, "Failed to match"
+	end
+	return tonumber(matched) or matched
+end
+
+
+
+
+
 --- Returns the LiveChart.me schedule for the specified YMD date ("2024-01-23" etc.)
 -- Returns the response parsed into a schedule table, with IDs mapped from LiveChart to AniDB
 -- Returns nil and error message on failure
@@ -130,6 +154,12 @@ function liveChartSchedule.queryDate(aDateYmd)
 								anime {
 									databaseId
 									anidbUrl
+									anilistUrl
+									animePlanetUrl
+									anisearchUrl
+									annUrl
+									kitsuUrl
+									malUrl
 								}
 							}
 						}
@@ -143,7 +173,6 @@ function liveChartSchedule.queryDate(aDateYmd)
 	end
 
 	-- TODO: Handle pagination, if we ever get any
-	-- TODO: Feed the ID mappings to a general ID map, pull any possible missing candidates from there
 
 	-- Process the response into the resulting schedule array:
 	local days = ((resp.data or {}).timetable or {}).days or {}
@@ -171,6 +200,17 @@ function liveChartSchedule.queryDate(aDateYmd)
 									aId = id,
 								}
 							end
+							local idMap =
+							{
+								aniListCoId           = tryParseId(episode.anime, "anilistUrl",     "https?://anilist%.co/anime/(%d+)"),
+								myAnimeListNetId      = tryParseId(episode.anime, "malUrl",         "https?://myanimelist%.net/anime/(%d+)"),
+								animeNewsNetworkComId = tryParseId(episode.anime, "annUrl",         "https?://www%.animenewsnetwork%.com/encyclopedia/anime%.php%?id=(%d+)"),
+								animePlanetComId      = tryParseId(episode.anime, "animePlanetUrl", "https?://www%.anime%-planet%.com/anime/(.+)"),
+								aniSearchComId        = tryParseId(episode.anime, "anisearchUrl",   "https?://www%.anisearch%.com/anime/(%d+)"),
+								kitsuAppId            = tryParseId(episode.anime, "kitsuUrl",       "https?://kitsu%.app/anime/(%d+)"),
+								liveChartMeId         = episode.anime.databaseId,
+							}
+							db.storeIdMap(id, idMap)
 						end
 					end
 				end
