@@ -600,6 +600,43 @@ local upgrades = {
 		]]
 	},
 
+	-- Version 21:
+	{
+		[[
+			CREATE TABLE AnimeIdMap (
+				aId INTEGER PRIMARY KEY,
+				aniListCoId INTEGER,
+				myAnimeListNetId INTEGER,
+				animeNewsNetworkComId INTEGER,
+				animePlanetComId TEXT,
+				aniSearchComId INTEGER,
+				kitsuAppId INTEGER,
+				liveChartMeId INTEGER
+			);
+		]],
+		[[
+			CREATE INDEX idx_AnimeIdMap_aniListCoId ON AnimeIdMap(aniListCoId);
+		]],
+		[[
+			CREATE INDEX idx_AnimeIdMap_myAnimeListNetId ON AnimeIdMap(myAnimeListNetId);
+		]],
+		[[
+			CREATE INDEX idx_AnimeIdMap_animeNewsNetworkComId ON AnimeIdMap(animeNewsNetworkComId);
+		]],
+		[[
+			CREATE INDEX idx_AnimeIdMap_animePlanetComId ON AnimeIdMap(animePlanetComId);
+		]],
+		[[
+			CREATE INDEX idx_AnimeIdMap_aniSearchComId ON AnimeIdMap(aniSearchComId);
+		]],
+		[[
+			CREATE INDEX idx_AnimeIdMap_kitsuAppId ON AnimeIdMap(kitsuAppId);
+		]],
+		[[
+			CREATE INDEX idx_AnimeIdMap_liveChartMeId ON AnimeIdMap(liveChartMeId);
+		]],
+	},
+
 	--[==[
 	-- Version 20:
 		--- Add Watchlist entries based on Seen entries:

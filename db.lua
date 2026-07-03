@@ -28,6 +28,23 @@ local unpack = unpack or table.unpack  -- Compatibility between Lua 5.1 and LuaJ
 
 
 
+--- Names of columns that are valid for IdMap operations (are in AnimeIdMap table):
+local gValidIdMapColumnNames =
+{
+	aniListCoId = true,
+	myAnimeListNetId = true,
+	animeNewsNetworkComId = true,
+	animePlanetComId = true,
+	aniSearchComId = true,
+	kitsuAppId = true,
+	liveChartMeId = true,
+}
+
+
+
+
+
+
 --- Ensures DB schema exists and upgrades if needed
 local function initialize()
 	assert(gDB == nil)
@@ -1071,6 +1088,35 @@ end
 
 
 
+--- Returns the complete ID mapping for the anime specified by its ID in any of the sites represented in the ID map
+-- The returned table is a dictionary of "columnName" -> ID for all valid site columns
+-- If there's no mapping in the DB, returns an empty table
+-- Returns nil and error message on failure
+function db.mapId(aColumnName, aSiteId)
+	assert(type(aColumnName) == "string")
+	assert(aSiteId ~= nil)
+
+	assert(
+		(aColumnName == "aId") or gValidIdMapColumnNames[aColumnName],
+		string.format("Unknown column: %s", aColumnName)
+	)
+
+	local sql = string.format("SELECT * FROM AnimeIdMap WHERE %s = ?;", aColumnName)
+	local rows, err = lldb.arrayFromQuery(gDB, sql, { aSiteId }, "mapId")
+	if not(rows) then
+		return nil, "Failed to query the DB: " .. tostring(err)
+	end
+	if (#rows == 0) then
+		return {}
+	end
+	assert(#rows == 1)
+	return rows[1]
+end
+
+
+
+
+
 --- Removes the anime from the Seen table
 -- Returns true on success, nil and error message on failure
 function db.markAnimeNotSeen(aId)
@@ -1784,6 +1830,68 @@ function db.storeAnimeTags(aDetails)
 
 	-- Based on the tags, update the 18+ restriction detail:
 	db.updateAnimeBaseDetailsIsAdultRestricted(aDetails.aId)
+end
+
+
+
+
+
+--- Stores the ID map for the specified aId
+-- Existing mapping is kept, unless aMapping specifies a new value.
+-- Returns true on success, nil and error message on failure
+-- Example: db.storeIdMap(7729, {aniListCoId = "9253"})
+--   ( 7729 is SteinsGate AniDB ID, with 9253 being the AniList.co ID )
+function db.storeIdMap(aId, aMapping)
+	assert(type(aId) == "number")
+	assert(type(aMapping) == "table")
+
+	for columnName, siteId in pairs(aMapping) do
+		assert(gValidIdMapColumnNames[columnName], string.format("Unknown column: %s", columnName))
+		assert(not(siteId == nil))
+	end
+
+	local isOK, msg = pcall(lldb.executeBoundSql,
+		gDB,
+		[[
+			INSERT INTO AnimeIdMap (
+				aniListCoId,
+				myAnimeListNetId,
+				animeNewsNetworkComId,
+				animePlanetComId,
+				aniSearchComId,
+				kitsuAppId,
+				liveChartMeId,
+				aId
+			)
+			VALUES (
+				?, ?, ?, ?, ?, ?, ?, ?
+			)
+			ON CONFLICT (aId)
+			DO UPDATE SET
+				aniListCoId = COALESCE(excluded.aniListCoId, AnimeIdMap.aniListCoId),
+				myAnimeListNetId = COALESCE(excluded.myAnimeListNetId, AnimeIdMap.myAnimeListNetId),
+				animeNewsNetworkComId = COALESCE(excluded.animeNewsNetworkComId, AnimeIdMap.animeNewsNetworkComId),
+				animePlanetComId = COALESCE(excluded.animePlanetComId, AnimeIdMap.animePlanetComId),
+				aniSearchComId = COALESCE(excluded.aniSearchComId, AnimeIdMap.aniSearchComId),
+				kitsuAppId = COALESCE(excluded.kitsuAppId, AnimeIdMap.kitsuAppId),
+				liveChartMeId = COALESCE(excluded.liveChartMeId, AnimeIdMap.liveChartMeId);
+		]],
+		{
+			aMapping.aniListCoId,
+			aMapping.myAnimeListNetId,
+			aMapping.animeNewsNetworkComId,
+			aMapping.animePlanetComId,
+			aMapping.aniSearchComId,
+			aMapping.kitsuAppId,
+			aMapping.liveChartMeId,
+			aId,
+		},
+		"storeIdMap"
+	)
+	if not(isOK) then
+		return nil, "Failed to store mapping in the DB: " .. tostring(msg)
+	end
+	return true
 end
 
 
