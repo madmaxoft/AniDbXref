@@ -22,7 +22,7 @@ local utils = require("utils")
 
 
 local bounds = utils.seasonToYmdBounds("2026-2")
-local schedule, msg = liveChartSchedule.queryDate(utils.ymdAddOffset(bounds.startDateYmd, 50))
+local schedule, msg = liveChartSchedule.queryDate(utils.ymdAddOffset(bounds.startDateYmd, 40))
 if not(schedule) then
 	print("Failed to query day schedule: " .. tostring(msg))
 	return
