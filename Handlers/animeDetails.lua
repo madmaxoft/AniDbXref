@@ -9,6 +9,7 @@ local requestQueue = require("requestQueue")
 local log = require("logger").log
 local perf = require("perf")
 local wup = require("watchUrlProviders")
+local utils = require("utils")
 
 
 
