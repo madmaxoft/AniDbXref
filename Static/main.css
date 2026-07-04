@@ -35,8 +35,10 @@ td {
 	border-right: 0;
 }
 
-table.noborder th,
-table.noborder td {
+table.noborder > tbody > tr > th,
+table.noborder > tbody > tr > td,
+table.noborder > tr > th,    /* for browsers that omit an explicit <tbody> */
+table.noborder > tr > td {
 	padding: 2px;
 	border-top: 0;
 	border-left: 0;

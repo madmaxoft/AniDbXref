@@ -116,6 +116,9 @@ end
 
 
 	<td>
+		<table border=0 class="noborder">
+		<tr>
+		<td>
 		<!-- Base details: -->
 		<table>
 			<tr>
@@ -131,6 +134,9 @@ end
 					%>
 					<a href="/season/<%= season %>">
 					<%= utils.seasonToDescription(season) %>
+					</a> |
+					<a href="/watchlist/<%= season %>">
+					Watchlist
 					</a>
 					<% end %>
 				</td>
@@ -169,6 +175,51 @@ end
 					</form>
 				</td>
 			</tr>
+		</table>
+
+		</td>
+		<td>
+
+		<!-- Links -->
+		<table>
+			<% if (idMap.aniListCoId) then %>
+			<tr>
+				<td><a href="https://anilist.co/anime/<%= idMap.aniListCoId %>">anilist.co</a></td>
+			</tr>
+			<% end %>
+			<% if (idMap.myAnimeListNetId) then %>
+			<tr>
+				<td><a href="https://myanimelist.net/anime/<%= idMap.myAnimeListNetId %>">myanimelist.net</a></td>
+			</tr>
+			<% end %>
+			<% if (idMap.animeNewsNetworkComId) then %>
+			<tr>
+				<td><a href="https://www.animenewsnetwork.com/encyclopedia/anime.php?id=<%= idMap.animeNewsNetworkComId %>">animenewsnetwork.com</a></td>
+			</tr>
+			<% end %>
+			<% if (idMap.animePlanetComId) then %>
+			<tr>
+				<td><a href="https://anime-planet.com/anime/<%= idMap.animePlanetComId %>">anime-planet.com</a></td>
+			</tr>
+			<% end %>
+			<% if (idMap.aniSearchComId) then %>
+			<tr>
+				<td><a href="https://anisearch.com/anime/<%= idMap.aniSearchComId %>">anisearch.com</a></td>
+			</tr>
+			<% end %>
+			<% if (idMap.kitsuAppId) then %>
+			<tr>
+				<td><a href="https://kitsu.app/anime/<%= idMap.kitsuAppId %>">kitsu.app</a></td>
+			</tr>
+			<% end %>
+			<% if (idMap.liveChartMeId) then %>
+			<tr>
+				<td><a href="https://livechart.me/anime/<%= idMap.liveChartMeId %>">livechart.me</a></td>
+			</tr>
+			<% end %>
+		</table>
+		</td>
+		</tr>
 		</table>
 
 		<%- utils.htmlizeDescription(details.description or "") or "" %>

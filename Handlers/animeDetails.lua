@@ -59,6 +59,7 @@ function AD.get(aRequest, aResponse)
 	aResponse:sendTemplate("animeDetails",
 	{
 		details = details,
+		idMap = db.mapId("aId", aId) or {},
 		watchlist = db.watchlistSeasonsForAnime(aId),
 		aId = aId
 	})
