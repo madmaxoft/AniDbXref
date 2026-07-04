@@ -18,30 +18,6 @@ local AD = {}
 
 
 
---- Parses an YYYY-MM-DD date into a timestamp
--- Returns nil if aDateStr is nil
--- Returns nil and error message on failure
--- Doesn't validate that the date is valid
-local function parseYmd(aDateStr)
-	if not(aDateStr) then
-		return nil
-	end
-	assert(type(aDateStr) == "string")
-	local y, m, d = string.match(aDateStr, "(%d+)%-(%d+)%-(%d+)")
-	if not(y and m and d) then
-		return nil, "Cannot parse the YMD string"
-	end
-	y, m, d = tonumber(y), tonumber(m), tonumber(d)
-	if not(y and m and d) then
-		return nil, "Cannot convert YMD to numbers"
-	end
-	return os.time({year = y, month = m, day = d})
-end
-
-
-
-
-
 function AD.get(aRequest, aResponse)
 	local aId = tonumber(aRequest:pathAndQuery():match("^/anime/(%d+)$"))
 	if not(aId) then
@@ -124,7 +100,7 @@ function AD.postSetSeen(aRequest, aResponse)
 
 	if (formData["isseen"]) then
 		local seenDateYmd = formData["seendateymd"]
-		local seenDate = parseYmd(seenDateYmd)
+		local seenDate = utils.ymdToTimestamp(seenDateYmd)
 		if not(seenDate) then
 			return aResponse:sendError(400, "Bad or missing seenDateYmd")
 		end
