@@ -5,6 +5,7 @@ Handles the request to force an update to details even when they are already in 
 --]]
 
 local requestQueue = require("requestQueue")
+local wup = require("watchUrlProviders")
 
 
 
@@ -16,6 +17,7 @@ return function(aRequest, aResponse)
 	end
 
 	requestQueue.addToFront(aId, true)
+	wup.enqueueQuery(aId)
 
 	aResponse:sendRedirect("/anime/" .. tostring(aId))
 end

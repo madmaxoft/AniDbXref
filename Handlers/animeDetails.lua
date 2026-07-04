@@ -8,6 +8,7 @@ local db = require("db")
 local requestQueue = require("requestQueue")
 local log = require("logger").log
 local perf = require("perf")
+local wup = require("watchUrlProviders")
 
 
 
@@ -31,6 +32,11 @@ function AD.get(aRequest, aResponse)
 	if not(details.description) then
 		requestQueue.add(aId)
 	end
+	local watchUrls = db.watchUrlsForAnime(aId)
+	local limitTimeStamp = os.time() - 7 * 24 * 60 * 60  -- Refresh WUPs every 7 days
+	if (not(watchUrls) or ((watchUrls.lastQueryTimestamp or 0) < limitTimeStamp)) then
+		wup.enqueueQuery(aId)
+	end
 
 	aResponse:sendTemplate("animeDetails",
 	{
@@ -38,7 +44,7 @@ function AD.get(aRequest, aResponse)
 		details = details,
 		idMap = db.mapId("aId", aId) or {},
 		watchlist = db.watchlistSeasonsForAnime(aId),
-		watchUrls = db.watchUrlsForAnime(aId),
+		watchUrls = watchUrls,
 	})
 	timer("Send response")
 end

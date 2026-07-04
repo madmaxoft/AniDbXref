@@ -590,6 +590,7 @@ local function testWatchUrlsForAnime(aId)
 		assert(utils.ymdToTimestamp(item.createdOnYmd))
 		assert(type(item.url) == "string")
 	end
+	assert(type(wurls.lastQueryTimestamp or 0) == "number")
 end
 
 

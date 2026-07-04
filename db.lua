@@ -2120,15 +2120,32 @@ end
 
 --- Returns an array of WatchUrl entries for the specified anime
 -- Each item is { aId = ..., url = ..., providerName = ..., createdOnYmd = ... }
+-- The returned table also contains a lastQueryTimestamp member specifyig the timestamp when
+-- the WatchUrlProviders were last queried
 function db.watchUrlsForAnime(aId)
 	assert(gDB ~= nil)
 	assert(tonumber(aId))
 
-	return lldb.arrayFromQuery(gDB,
+	-- Query the URLs:
+	local res, msg = lldb.arrayFromQuery(gDB,
 	[[
 		SELECT * FROM WatchUrl
 		WHERE aId = ?
 	]], {aId}, "watchUrlsForAnime")
+	if not(res) then
+		return nil, "Failed to query DB: " .. tostring(msg)
+	end
+
+	-- Query the last query timestamp:
+	local lastQueryArr = lldb.arrayFromQuery(gDB,
+		"SELECT lastQueryTimestamp FROM WatchUrlLastQuery WHERE aId = ?",
+		{aId}, "watchUrlsForAnime.lastQueryTimestamp"
+	)
+	if (lastQueryArr and lastQueryArr[1]) then
+		res.lastQueryTimestamp = lastQueryArr[1].lastQueryTimestamp
+	end
+
+	return res
 end
 
 
