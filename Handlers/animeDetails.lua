@@ -34,10 +34,11 @@ function AD.get(aRequest, aResponse)
 
 	aResponse:sendTemplate("animeDetails",
 	{
+		aId = aId,
 		details = details,
 		idMap = db.mapId("aId", aId) or {},
 		watchlist = db.watchlistSeasonsForAnime(aId),
-		aId = aId
+		watchUrls = db.watchUrlsForAnime(aId),
 	})
 	timer("Send response")
 end

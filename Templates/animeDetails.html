@@ -118,8 +118,9 @@ end
 	<td>
 		<table border=0 class="noborder">
 		<tr>
-		<td>
+
 		<!-- Base details: -->
+		<td>
 		<table>
 			<tr>
 				<th>Kind</th>
@@ -176,11 +177,10 @@ end
 				</td>
 			</tr>
 		</table>
-
 		</td>
-		<td>
 
 		<!-- Links -->
+		<td>
 		<table>
 			<% if (idMap.aniListCoId) then %>
 			<tr>
@@ -219,6 +219,20 @@ end
 			<% end %>
 		</table>
 		</td>
+
+		<!-- WatchUrls -->
+		<% if (watchUrls and watchUrls[1]) then %>
+		<td>
+		<table>
+			<% for _, wu in ipairs(watchUrls) do %>
+			<tr>
+				<td><a href="<%= wu.url %>"><%= wu.providerName %></a></td>
+			</tr>
+			<% end %>
+		</table>
+		</td>
+		<% end %>
+
 		</tr>
 		</table>
 
