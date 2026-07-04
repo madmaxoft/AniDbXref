@@ -70,6 +70,19 @@ for _, ani in ipairs(seasonAnime) do
 		end
 	end
 end
+for dow = 1, 7 do
+	table.sort(animeByDayOfWeek[dow],
+		function(aAnime1, aAnime2)
+			if not((aAnime1.schedule or {}).timeStr) then
+				return false
+			end
+			if not((aAnime2.schedule or {}).timeStr) then
+				return true
+			end
+			return (aAnime1.schedule.timeStr < aAnime2.schedule.timeStr)
+		end
+	)
+end
 %>
 
 
