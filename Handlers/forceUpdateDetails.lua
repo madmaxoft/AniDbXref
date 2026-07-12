@@ -6,6 +6,11 @@ Handles the request to force an update to details even when they are already in 
 
 local requestQueue = require("requestQueue")
 local wup = require("watchUrlProviders")
+local utils = require("utils")
+local lcs = require("liveChartSchedule")
+local db = require("db")
+local copas = require("copas")
+
 
 
 
@@ -16,8 +21,21 @@ return function(aRequest, aResponse)
 		return aResponse:sendError(400, "Invalid aId")
 	end
 
-	requestQueue.addToFront(aId, true)
-	wup.enqueueQuery(aId)
+	copas.addthread(
+		function()
+			requestQueue.addToFront(aId, true)
+			wup.enqueueQuery(aId)
+
+			-- If the start date is valid, query LiveChart.me for the schedule around that date, so that we get the ID map:
+			local baseDetails = db.getAnimeDetails_base(aId)
+			if (baseDetails) then
+				local prevDay = utils.ymdAddOffset(baseDetails.startDate or "", -2)
+				if (prevDay) then
+					lcs.queryDate(prevDay)
+				end
+			end
+		end
+	)
 
 	aResponse:sendRedirect("/anime/" .. tostring(aId))
 end
