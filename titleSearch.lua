@@ -95,6 +95,7 @@ end
 
 --- Queries the search index
 -- Returns array of: {aId = ..., title = ...}
+-- Up to 50 items are returned
 function titleSearch:query(aQuery)
 	assert(type(self) == "table")
 	assert(type(aQuery) == "string")
@@ -161,7 +162,7 @@ function titleSearch:query(aQuery)
 	)
 
 	-- Return at most 50 results:
-	for i = 50, n do
+	for i = 51, n do
 		results[i] = nil
 	end
 	results.n = math.min(50, n)

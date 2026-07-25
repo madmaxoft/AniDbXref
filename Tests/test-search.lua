@@ -16,6 +16,7 @@ local queries = {
 	"girlfriend girlfriend",
 	"atack on titan",
 	"stein gate",
+	"kimi no",
 }
 
 
@@ -47,14 +48,18 @@ end
 for idx, query in ipairs(queries) do
 	print("\n\n\nQuery: " .. query)
 	print("Found " .. results[idx].n .. " items:")
-	for _, item in ipairs(results[idx]) do
-		print("  id = " .. item.aId .. ":")
+	local r = results[idx]
+	for i = 1, r.n do
+		print("  #" .. tostring(i))
+		local item = r[i]
+		print("    id = " .. item.aId .. ":")
 		print("    score = " .. tostring(item.score))
 		print("    enTitle = " .. tostring(item.details.enTitle))
 		print("    jaTitle = " .. tostring(item.details.jatitle))
 		print("    xjatTitle = " .. tostring(item.details.xjatTitle))
 		print("    areTitlesEqual = " .. tostring(item.areTitlesEqual))
 	end
+	assert(r[r.n + 1] == nil)
 end
 
 print("All done.")
