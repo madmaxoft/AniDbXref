@@ -192,10 +192,10 @@ function db.addRawWatchlist(aRawWatchlist)
 
 	local stmt = gDB:prepare([[
 		INSERT OR IGNORE INTO Watchlist
-			(dayOfWeek, time, caption, aId, watchlistSeason)
+			(utcSecondsSinceWeekStart, caption, aId, watchlistSeason)
 		VALUES
-			(?, ?, ?, ?, ?)
-		ON CONFLICT(watchlistSeason, dayOfWeek, caption) DO NOTHING;
+			(?, ?, ?, ?)
+		ON CONFLICT(watchlistSeason, utcSecondsSinceWeekStart, caption) DO NOTHING;
 		]]
 	)
 	if not(stmt) then
@@ -205,7 +205,7 @@ function db.addRawWatchlist(aRawWatchlist)
 	local numIgnored = 0
 	for _, w in ipairs(aRawWatchlist) do
 		if (w.watchlistSeason) then
-			lldb.checkSql(gDB, stmt:bind_values(w.dayOfWeek, w.time, w.caption, w.aId, w.watchlistSeason), "addRawWatchlist.bind")
+			lldb.checkSql(gDB, stmt:bind_values(w.utcSecondsSinceWeekStart, w.caption, w.aId, w.watchlistSeason), "addRawWatchlist.bind")
 			lldb.checkSql(gDB, stmt:step(), "addRawWatchlist.step")
 			lldb.checkSql(gDB, stmt:reset(), "addRawWatchlist.reset")
 		else

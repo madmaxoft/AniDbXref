@@ -10,7 +10,22 @@ if not(status) then
 end
 
 There's generic request() function that receives all params in a table, and shorthand get(), post() and
-head() functions that call request() with the specified HTTP method.
+head() functions that call request() with the specified HTTP method and headers.
+
+Normally, the outgoing http requests are postponed (yielded) until there are no more incoming http requests.
+This is because the outgoing requests may trigger a slow DNS lookup which blocks the entire process, so
+the entire server becomes unresponsive. By yielding, the background downloads are postponed until there are
+no user-facing incoming requests. In order to download in foreground, use request() with
+shouldSkipYields = true in its parameters table.
+
+The request()'s parameter table supports the following members:
+	- method: HTTP verb to use (default: "GET")
+	- url: The URL to request. Required.
+	- headers: dict-table of request headers
+	- body: The body of the request to send
+	- shouldSkipYields: if true, the connection is made without yielding until all incoming requests
+		are processed (used for foreground downloads)
+
 --]]
 
 

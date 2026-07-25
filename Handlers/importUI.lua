@@ -87,6 +87,7 @@ local function callLuaApi(aUrl, aUsername, aPassword)
 	local responseBody = {}
 	local statusCode, headers, body = httpClient.request({
 		url = aUrl,
+		shouldSkipYields = true,
 		headers =
 		{
 			["Authorization"] = authHeaderValue,
