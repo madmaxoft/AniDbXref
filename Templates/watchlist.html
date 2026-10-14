@@ -44,13 +44,18 @@ for _, w in ipairs(watchlist) do
 		byAid[w.aId] = w
 	end
 end
-for day = 1, 8 do
+for day = 1, 7 do
 	table.sort(byDayOfWeek[day],
 		function (aWatchlist1, aWatchlist2)
 			return (((aWatchlist1.schedule or {}).timeStr or "") < ((aWatchlist2.schedule or {}).timeStr or ""))
 		end
 	)
 end
+table.sort(byDayOfWeek[8],
+	function (aWatchlist1, aWatchlist2)
+		return (((aWatchlist1.anime or {}).seenDateYmd or "") < ((aWatchlist2.anime or {}).seenDateYmd or ""))
+	end
+)
 
 -- Group and sort the (unwatched) anime by dayOfWeek:
 local animeByDayOfWeek = {}  -- dayOfWeek -> array-table of anime
