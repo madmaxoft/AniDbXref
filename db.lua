@@ -2008,6 +2008,11 @@ function db.updateAniDbDataFromDump(aXmlString)
 		INSERT INTO AnimeTitle(aId, language, kind, title, titleLower)
 		VALUES(?, ?, ?, ?, ?);
 	]]))
+	local stmtInsertBaseDetails = gDB:prepare([[
+		INSERT INTO AnimeBaseDetails(aId, lastUpdated)
+		VALUES (?, datetime('now'))
+		ON CONFLICT(aId) DO NOTHING;
+	]])
 
 	local curAnimeId
 	local curTitleLang, curTitleKind, curTitleText
@@ -2020,6 +2025,9 @@ function db.updateAniDbDataFromDump(aXmlString)
 				lldb.checkSql(gDB, stmtInsertAnime:bind_values(curAnimeId), "updateAniDbDataFromDump.insertAnime.bind")
 				lldb.checkSql(gDB, stmtInsertAnime:step(),  "updateAniDbDataFromDump.insertAnime.step")
 				lldb.checkSql(gDB, stmtInsertAnime:reset(), "updateAniDbDataFromDump.insertAnime.reset")
+				lldb.checkSql(gDB, stmtInsertBaseDetails:bind_values(curAnimeId), "updateAniDbDataFromDump.insertBaseDetails.bind")
+				lldb.checkSql(gDB, stmtInsertBaseDetails:step(),  "updateAniDbDataFromDump.insertBaseDetails.step")
+				lldb.checkSql(gDB, stmtInsertBaseDetails:reset(), "updateAniDbDataFromDump.insertBaseDetails.reset")
 			elseif (aName == "title") then
 				curTitleLang = aAttr["xml:lang"]
 				curTitleKind = aAttr.type
