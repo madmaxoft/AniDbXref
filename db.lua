@@ -1966,13 +1966,16 @@ function db.storeWeeklySchedule(aWatchlistSeason, aSchedule)
 
 	local stmt = gDB:prepare([[
 		INSERT OR REPLACE INTO WeeklySchedule(aId, utcSecondsSinceWeekStart, watchlistSeason)
-		VALUES (?, ?, ?)
+		SELECT ?, ?, ?
+		WHERE EXISTS (
+			SELECT 1 FROM Anime WHERE aId = ?
+		)
 	]])
 	if not(stmt) then
 		error("Failed to prepare statement for storeWeeklySchedule: " .. gDB:errmsg())
 	end
 	for _, sch in ipairs(aSchedule) do
-		lldb.checkSql(gDB, stmt:bind_values(sch.aId, sch.utcSecondsSinceWeekStart, aWatchlistSeason), "storeWeeklySchedule.bind")
+		lldb.checkSql(gDB, stmt:bind_values(sch.aId, sch.utcSecondsSinceWeekStart, aWatchlistSeason, sch.aId), "storeWeeklySchedule.bind")
 		lldb.checkSql(gDB, stmt:step(), "storeWeeklySchedule.step")
 		lldb.checkSql(gDB, stmt:reset(), "storeWeeklySchedule.reset")
 	end
