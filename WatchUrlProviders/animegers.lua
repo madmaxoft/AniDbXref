@@ -13,6 +13,12 @@ local url = require("socket.url")
 local utils = require("utils")
 local log = require("logger").log
 
+local params = {...}
+local wup = params[1]
+if not(wup) then
+	error("Provider must be load-called with watchUrlProviders module as first parameter")
+end
+
 
 
 
@@ -97,30 +103,7 @@ local function animegersQuery(aId, aTitleEn, aTitleXjat)
 	assert(type(aTitleEn or "") == "string")
 	assert(type(aTitleXjat or "") == "string")
 
-	if (
-		not(aTitleEn or aTitleXjat) or  -- Both are nil
-		((aTitleEn == "") and (aTitleXjat == ""))  -- Both are empty
-	) then
-		-- No idea what to search for, there's no title
-		return ""
-	end
-
-	local url, isExactMatch = querySingleTitle(aTitleEn)
-	if (url and (url ~= "") and isExactMatch) then
-		-- Valid exact match
-		return url
-	end
-	local url2, isExactMatch2 = querySingleTitle(aTitleXjat)
-	if (url2 and (url2 ~= "") and isExactMatch2) then
-		-- Valid exact match
-		return url2
-	end
-	if (url and (url == url2) and (url ~= "")) then
-		-- Both URLs are the same, strong match
-		return url
-	end
-	-- Different URLs, do not use either:
-	return ""
+	return wup.useSingleTitleQuery({aTitleEn, aTitleXjat}, querySingleTitle)
 end
 
 
@@ -148,9 +131,4 @@ end
 
 
 
-local wup = {...}
-if not(wup[1]) then
-	selfTest()
-	error("Provider must be load-called with WUP as first parameter")
-end
-wup[1].addProvider("animegers.com", animegersQuery)
+wup.addProvider("animegers.com", animegersQuery)

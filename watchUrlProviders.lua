@@ -15,6 +15,8 @@ The function should run synchronously, blocking for network requests.
 
 The main app calls watchUrlProviders.query(aId) or watchUrlProviders.enqueueQuery(aId) to query
 all the providers (synchronously or asynchronously).
+
+The providers may use helper functions from this module, such as useSingleTitleQuery().
 --]]
 
 
@@ -150,6 +152,48 @@ function M.queryAndStore(aId)
 	db.storeWatchUrls(aId, urls)
 
 	return urls
+end
+
+
+
+
+
+--- Uses a function that queries a single title to return the final URL for the two specified titles
+-- Calls the function with each of the given titles, and decides the resulting URL based on
+-- what the function returns.
+-- The SingleTitleQuery function takes a single title as a parameter and returns the URL string (empty if
+-- not found) and a bool specifying if the result was an exact match.
+-- See the animegers and miruro WUPs for usage
+function M.useSingleTitleQuery(aTitles, aSingleTitleQueryFn)
+	assert(type(aTitles) == "table")
+	assert(type(aTitles[1] or "") == "string")
+
+	local bestUrl = ""
+	for _, title in ipairs(aTitles) do
+		assert(type(title) == "string")
+		if (title ~= "") then
+			local url, isExactMatch = aSingleTitleQueryFn(title)
+			if (url) then
+				if ((url ~= "") and isExactMatch) then
+					-- Valid exact match
+					return url
+				end
+				if (bestUrl ~= "") then
+					if (url ~= bestUrl) then
+						-- Got different URLs
+						return ""
+					end
+					-- Got the same URL twice, consider this a valid result
+					return bestUrl
+				else
+					bestUrl = url
+				end
+			end  -- if (url)
+		end  -- if (title ~= "")
+	end  -- for title: aTitles[]
+
+	-- Didn't find anything
+	return ""
 end
 
 
