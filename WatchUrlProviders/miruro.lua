@@ -24,35 +24,6 @@ local wup = params[1]
 
 
 
---- Decode an "encrypted" Miruro API response into a JSON string.
--- Returns the decoded API response
--- Returns nil and error message on failure
-local function decodeMiruroResponse(aResponse)
-	assert(type(aResponse) == "string")
-
-	--- XOR the response with the repeating key:
-	local key = "miruro/catalog"
-	local numKeyBytes = #key
-	local numByte = 0
-	local xoredResponse = aResponse:gsub(".", function(aChar)
-		numByte = numByte + 1
-		local keyByte = string.byte(key, ((numByte - 1) % numKeyBytes) + 1)
-		return string.char(bit.bxor(string.byte(aChar), keyByte))
-	end)
-
-	--- Decompress the XOR-decoded GZIP data:
-	local inflate = zlib.inflate(31)
-	local result, isEof = inflate(xoredResponse)
-	if not(isEof) then
-		return nil, "Incomplete Miruro GZIP response"
-	end
-	return result
-end
-
-
-
-
-
 --- Parses the response body, returns the url suffix, if found, or empty string if not found / unclear
 -- Also returns, as second value, a bool whether the match was an exact match
 -- aTitle is the expected title, for checking the match exactness
@@ -61,21 +32,20 @@ local function parseBody(aBody, aTitle)
 	assert(type(aBody) == "string")
 	assert(type(aTitle) == "string")
 
-	local parsed, msg = json.decode(aBody)
-	if not(parsed) then
-		log("watchUrlProviders/miruro", "Failed to decode JSON: %s", tostring(msg))
-		return nil, false
-	end
-	for _, d in ipairs(parsed.data) do
-		if (d.id and d.title) then
-			for _, title in pairs(d.title) do
+	local lastCandidate = ""
+	for href, cardHtml in aBody:gmatch('<a href="(/info/[^"]+)"[^>]*>(.-)</a>') do
+		local title = cardHtml:match('<img[^>]-alt="([^"]*)"')
+		if (title) then
+			local candidate = href:match("^/info/([^/]+)")
+			if (candidate) then
 				if (utils.areTitlesEqual(title, aTitle)) then
-					return "/watch/" .. d.id .. "/watch", true  -- Miruro doesn't care about what's after the second slash
+					return "/watch/" .. candidate .. "/watch", true  -- Miruro doesn't care about what's after the second slash
 				end
+				lastCandidate = candidate
 			end
 		end
 	end
-	return "", false
+	return "/watch/" .. lastCandidate .. "/watch", false
 end
 
 
@@ -87,29 +57,21 @@ end
 -- Returns nil and error message on failure
 local function querySingleTitle(aTitle)
 	assert(type(aTitle) == "string")
-	-- local url = "https://www.miruro.tv/search?query=" .. url.escape(aTitle)
-	local url = "https://www.miruro.tv/api/v1/anime?limit=5&sort=-popularity&q=" .. url.escape(aTitle)
+
+	local url = "https://miruro.cx/search?q=" .. url.escape(aTitle)
 	log("watchUrlProviders/miruro", "HTTP request for title %s", aTitle)
-	local status, headers, body = httpClient.request({method = "GET", url = url})
+	local status, headers, body = httpClient.get(url)
 	if not(status and body) then
-		return nil, "Failed to query www.miruro.tv: " .. tostring(headers)
+		return nil, "Failed to query miruro.cx: " .. tostring(headers)
 	end
 	if (status ~= 200) then
+		log("watchUrlProviders/miruro", "HTTP request FAILED (%s) for title %s: %s", tostring(status), aTitle, tostring(body):sub(1, 200))
 		return "", false
 	end
 
 	--[[
 	-- DEBUG: Dump to file
-	local f = assert(io.open(string.format("miruro.api.search.%s.raw", aTitle), "wb"))
-	f:write(body)
-	f:close()
-	--]]
-
-	body = decodeMiruroResponse(body)
-
-	--[[
-	-- DEBUG: Dump to file
-	local f = assert(io.open(string.format("miruro.api.search.%s.decoded", aTitle), "wb"))
+	local f = assert(io.open(string.format("miruro.search.%s.raw", aTitle), "wb"))
 	f:write(body)
 	f:close()
 	--]]
@@ -118,7 +80,7 @@ local function querySingleTitle(aTitle)
 	if (not(urlSuffix) or (urlSuffix == "")) then
 		return "", false
 	end
-	return "https://www.miruro.tv" .. urlSuffix, isExactMatch
+	return "https://miruro.cx" .. urlSuffix, isExactMatch
 end
 
 
@@ -133,7 +95,7 @@ local function miruroQuery(aId, aTitleEn, aTitleXjat)
 	assert(type(aTitleEn or "") == "string")
 	assert(type(aTitleXjat or "") == "string")
 
-	return wup.useSingleTitleQuery({aTitleEn, aTitleXjat}, querySingleTitle)
+	return wup.useSingleTitleQuery("miruro", {aTitleEn, aTitleXjat}, querySingleTitle)
 end
 
 
@@ -144,7 +106,7 @@ if not(wup) then
 	-- DEBUG: Self-test when run as the main file:
 	httpClient.noCopas()
 	log("", "Miruro self-test: querying a single one")
-	local foundUrl, msg = querySingleTitle("My Ribdiculous Reincarnation")
+	local foundUrl, msg = querySingleTitle("The Exiled Heavy Knight Knows How to Game the System")
 	log("", "foundUrl = %s, msg = %s", foundUrl, msg or "nil")
 
 	-- In normal usage, we want WUP valid

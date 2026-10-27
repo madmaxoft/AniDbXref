@@ -163,8 +163,11 @@ end
 -- what the function returns.
 -- The SingleTitleQuery function takes a single title as a parameter and returns the URL string (empty if
 -- not found) and a bool specifying if the result was an exact match.
+-- aProviderName is only for logging purposes
 -- See the animegers and miruro WUPs for usage
-function M.useSingleTitleQuery(aTitles, aSingleTitleQueryFn)
+function M.useSingleTitleQuery(aProviderName, aTitles, aSingleTitleQueryFn)
+	assert(type(aProviderName) == "string")
+	assert(aProviderName ~= "")
 	assert(type(aTitles) == "table")
 	assert(type(aTitles[1] or "") == "string")
 
@@ -176,14 +179,17 @@ function M.useSingleTitleQuery(aTitles, aSingleTitleQueryFn)
 			if (url) then
 				if ((url ~= "") and isExactMatch) then
 					-- Valid exact match
+					log("watchUrlProviders/" .. aProviderName, "Found an exact match for %s: %s", title, url)
 					return url
 				end
 				if (bestUrl ~= "") then
 					if (url ~= bestUrl) then
 						-- Got different URLs
+						log("watchUrlProviders/" .. aProviderName, "Found varying matches for %s, NOT using any of them", aTitles[1])
 						return ""
 					end
 					-- Got the same URL twice, consider this a valid result
+					log("watchUrlProviders/" .. aProviderName, "Found a multi-match for %s: %s", title, url)
 					return bestUrl
 				else
 					bestUrl = url
@@ -193,6 +199,7 @@ function M.useSingleTitleQuery(aTitles, aSingleTitleQueryFn)
 	end  -- for title: aTitles[]
 
 	-- Didn't find anything
+	log("watchUrlProviders/" .. aProviderName, "Found nothing for %s", aTitles[1])
 	return ""
 end
 

@@ -103,7 +103,7 @@ local function animegersQuery(aId, aTitleEn, aTitleXjat)
 	assert(type(aTitleEn or "") == "string")
 	assert(type(aTitleXjat or "") == "string")
 
-	return wup.useSingleTitleQuery({aTitleEn, aTitleXjat}, querySingleTitle)
+	return wup.useSingleTitleQuery("animegers", {aTitleEn, aTitleXjat}, querySingleTitle)
 end
 
 

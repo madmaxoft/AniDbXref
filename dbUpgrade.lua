@@ -635,7 +635,15 @@ local upgrades = {
 		[[
 			CREATE INDEX idx_AnimeIdMap_liveChartMeId ON AnimeIdMap(liveChartMeId);
 		]],
-	},
+	},  -- Version 21
+
+	-- Version 22:
+	{
+		-- Remove all www.miruro.tv WUP URLs, they are obsolete as of 2026-10-27:
+		[[
+			DELETE FROM WatchUrl WHERE url LIKE '%www.miruro.tv%'
+		]],
+	},  -- Version 22
 
 	--[==[
 	-- Version 20:
