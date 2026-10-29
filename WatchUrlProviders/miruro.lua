@@ -112,4 +112,4 @@ if not(wup) then
 	-- In normal usage, we want WUP valid
 	error("Provider must be load-called with watchUrlProviders module as first parameter")
 end
-wup.addProvider("miruro.tv", miruroQuery)
+wup.addProvider("miruro.cx", miruroQuery)
