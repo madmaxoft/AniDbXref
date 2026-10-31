@@ -5,14 +5,15 @@
 	<title>Add to <%= seasonDescription %> watchlist - AniDbXref</title>
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
-<body> |
+<body>
+<%- utils.include("header") %>
 
 <%
 local seasonBounds = utils.seasonToYmdBounds(season)
 %>
 
-<a href="/">Back to home</a> | <a href="/watchlist/<%= season %>">Back to Watchlist</a> |
 <h1>Add to <%= seasonDescription %> watchlist</h1>
+| <a href="/watchlist/<%= season %>">Back to Watchlist</a> |
 
 <form action="/watchlist/add/older" method="POST" />
 <input type="hidden" name="watchlistSeason" value="<%= season %>" />

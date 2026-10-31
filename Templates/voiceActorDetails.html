@@ -6,7 +6,7 @@
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body>
-<a href="/">Back to home</a> |
+<%- utils.include("header") %>
 <a href="https://anidb.net/creator/<%= vaId %>">AniDB.net</a> |
 <% if not(details) then %>
 <p>No details for this voice artist.</p>

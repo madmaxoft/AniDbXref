@@ -5,8 +5,8 @@
 	<title><%= seasonDescription %> season - AniDbXref</title>
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
-<body> |
-<a href="/">Back to home</a> |
+<body>
+<%- utils.include("header") %>
 <h1><%= seasonDescription %> season</h1>
 <%
 -- Sort the anime first by seen, then by title:

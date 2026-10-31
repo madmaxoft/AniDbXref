@@ -6,14 +6,8 @@
 	<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+<%- utils.include("header") %>
 <h1>Search results for "<%= query %>"</h1>
-
-<form action="/search" method="get">
-	<input type="text" name="q" value="<%= query %>" style="width:300px">
-	<button type="submit">Search</button>
-</form>
-
-<hr>
 
 <% if (results.n == 0) then %>
 <p>No results found.</p>
@@ -41,6 +35,5 @@
 </table>
 <% end %>
 
-<p><a href="/">Back to home</a></p>
 </body>
 </html>

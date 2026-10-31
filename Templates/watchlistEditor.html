@@ -5,7 +5,8 @@
 	<title>Edit watchlist - AniDbXref</title>
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
-<body> |
+<body>
+<%- utils.include("header") %>
 
 <%
 local seasonBounds = utils.seasonToYmdBounds(season)
@@ -20,8 +21,8 @@ local function checkedByDayOfWeek(aOptionValue)
 end
 %>
 
-<a href="/">Back to home</a> | <a href="/watchlist/<%= season %>">Back to Watchlist</a> |
 <h1>Edit <%= seasonDescription %> watchlist item</h1>
+| <a href="/watchlist/<%= season %>">Back to Watchlist</a> |
 
 <form action="/watchlist/edit" method="POST">
 <input type="hidden" name="itemid" value="<%= watchlistItem.itemId %>" />

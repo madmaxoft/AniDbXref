@@ -7,31 +7,14 @@
 </head>
 
 <body>
-<h1>AniDbXref</h1>
 
 <% if not(hasAniDbData) then %>
+	<h1>AniDbXref</h1>
 	<p>The base AniDB data has not been downloaded yet. <a href="/update-confirm">Update AniDB data now.</a>
 <% else %>
 
-	<table border=1 cellspacing=0>
-	<tr>
-	<th><a href="/watchlist">Watchlist</a></th>
-	<th><a href="/season">Seasons</a></th>
-	<th>
-	<form action="/search" method="GET">
-		<input type="text" name="q" placeholder="Search anime" style="width:500px">
-		<button type="submit">Search</button>
-	</form>
-	</th>
-	<th><a href="/voiceActors">Voice actors</a></th>
-	<% if not(request.isReadOnly) then %>
-	<th><a href="/update-confirm">Update AniDB data</a></th>
-	<th><a href="/import">Import data</a></th>
-	<th><a href="/config">Configuration</a></th>
-	<th><a href="/shutdown">Shutdown</a></th>
-	<% end %>
-	</tr>
-	</table>
+	<%- utils.include("header") %>
+	<h1>AniDbXref</h1>
 
 	<% if (seenAnime.n == 0) then %>
 		<p>No anime marked as seen yet.</p>

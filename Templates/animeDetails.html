@@ -6,7 +6,7 @@
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
 <body>
-<a href="/">Back to home</a> |
+<%- utils.include("header") %>
 <a href="https://anidb.net/anime/<%= aId %>">AniDB.net</a> |
 <a href="/force-update-details/<%= aId %>">Force update details</a>
 <h1><%= utils.pickBestTitle(details.titles, "en") %></h1>

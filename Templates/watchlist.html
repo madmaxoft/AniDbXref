@@ -5,7 +5,8 @@
 	<title><%= seasonDescription %> watchlist - AniDbXref</title>
 	<link rel="stylesheet" href="/Static/main.css" />
 </head>
-<body> |
+<body>
+<%- utils.include("header") %>
 
 <%
 local seasonBounds = utils.seasonToYmdBounds(season)
@@ -20,9 +21,8 @@ local function faviconUrl(aProviderName)
 end
 %>
 
-<a href="/">Back to home</a> | <a href="https://livechart.me/schedule?date=<%= liveChartYmd %>">LiveChart.me</a> |
 <h1><%= seasonDescription %> watchlist</h1>
-
+| <a href="https://livechart.me/schedule?date=<%= liveChartYmd %>">LiveChart.me</a> |
 <%
 -- Group and sort the watchlist by dayOfWeek:
 local byDayOfWeek = {}  -- dayOfWeek -> array-table of watchlist items
