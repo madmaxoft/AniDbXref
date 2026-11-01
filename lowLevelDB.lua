@@ -105,7 +105,7 @@ function lldb.executeBoundSql(aDB, aSql, aValuesToBind, aContext)
 
 	local stmt = aDB:prepare(aSql)
 	if not(stmt) then
-		error("Failed to prepare statement (" .. aContext .. "): " .. aConn:errmsg())
+		error("Failed to prepare statement (" .. aContext .. "): " .. aDB:errmsg())
 	end
 	lldb.checkSql(aDB, stmt:bind_values(unpack(aValuesToBind)), aContext .. ".bind")
 	lldb.checkSql(aDB, stmt:step(), aContext .. ".step")
