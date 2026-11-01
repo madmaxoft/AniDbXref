@@ -1,7 +1,7 @@
 -- WatchUrlProviders/miruro.lua
 
 --[[
-Implements the WatchUrl provider for miruro.tv
+Implements the WatchUrl provider for miruro.cx
 --]]
 
 
@@ -87,7 +87,7 @@ end
 
 
 
---- Queries miruro.tv for the specified anime
+--- Queries miruro.cx for the specified anime
 -- Returns the url, if found, or empty string if not found / unclear
 -- Returns nil and error message on failure
 local function miruroQuery(aId, aTitleEn, aTitleXjat)
