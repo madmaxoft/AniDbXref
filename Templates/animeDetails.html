@@ -77,6 +77,24 @@ end
 		<hr />
 		<% end %>
 
+		<!-- wishlist editor: -->
+		<% if not(details.isSeen or request.isReadOnly) then %>
+			<% if (wishlistEntry) then %>
+				<form method="post" action="/anime/removeFromWishlist">
+					<input type="hidden" name="aid" value="<%= aId %>">
+					<textarea name="notes" disabled rows="2"><%= wishlistEntry.notes or "" %></textarea>
+					<button type="submit">Remove from wishlist</button>
+				</form>
+			<% else %>
+				<form method="post" action="/anime/addToWishlist">
+					<input type="hidden" name="aid" value="<%= aId %>">
+					<textarea name="notes" placeholder="Wishlist notes" rows="2"></textarea>
+					<button type="submit">Add to wishlist</button>
+				</form>
+			<% end %>
+			<hr />
+		<% end %>
+
 		<!-- isSeen editor: -->
 		<% if (request.isReadOnly) then %>
 			<% if (details.isSeen) then %>
@@ -96,7 +114,6 @@ end
 		</form>
 		<hr />
 		<% end %>
-
 
 		<!-- Titles table: -->
 		<h2>Titles</h2>

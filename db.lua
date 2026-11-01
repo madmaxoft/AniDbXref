@@ -260,6 +260,31 @@ end
 
 
 
+--- Adds the specified anime to the user's wishlist
+-- Returns true on success, nil and message on failure
+function db.addToWishlist(aId, aNotes)
+	assert(type(aId) == "number")
+	assert(type(aNotes) == "string")
+
+	local isOK, msg = pcall(lldb.executeBoundSql,
+		gDB,
+		[[
+			INSERT INTO UserData.Wishlist (aId, addedOnYmd, notes)
+			VALUES (?, ?, ?)
+		]],
+		{ aId, utils.currentDateYmd(), aNotes },
+		"addToWishlist"
+	)
+	if not(isOK) then
+		return nil, "Failed to add record to Wishlist: " .. tostring(msg)
+	end
+	return true
+end
+
+
+
+
+
 --- Returns an array-table of all anime IDs in the DB.
 -- Returns an empty array on empty DB.
 -- Returns nil and error message on error.
@@ -289,6 +314,55 @@ end
 -- Returns nil and error message on error.
 function db.allConfigValues()
 	return lldb.arrayFromQuery(gDB, "SELECT * FROM UserData.Config", {}, "allConfigValues")
+end
+
+
+
+
+
+--- Returns an array-table of all wishlist entries, as {aId = ..., addedOnYmd = "...", notes = "..."}
+-- Returns an empty array on empty wishlist.
+-- Returns nil and error message on error.
+function db.allWishlistEntries()
+	return lldb.arrayFromQuery(gDB, "SELECT * FROM UserData.Wishlist", {}, "allWishlistEntries")
+end
+
+
+
+
+
+--- Returns an array-table of all wishlist entries with their WatchUrls, as
+-- {aId = ..., addedOnYmd = "...", notes = "...", watchUrls = {{providerName = "...", url = "..."}, ...}}
+-- Returns an empty array on empty wishlist.
+-- Returns nil and error message on error.
+function db.allWishlistEntriesWithWatchUrls()
+	local wishlist, msg = lldb.arrayFromQuery(gDB, "SELECT * FROM UserData.Wishlist", {}, "allWishlistEntriesWithWatchUrls")
+	if not(wishlist) then
+		return nil, "Failed to query wishlist: " .. tostring(msg)
+	end
+
+	-- Build an aId -> wishlist entry map:
+	local wishlistByAid = {}
+	for _, item in ipairs(wishlist) do
+		wishlistByAid[item.aId] = item
+	end
+
+	-- Enrich the wishlist with WatchUrls:
+	lldb.forEachRowInStatement(gDB, "SELECT * FROM WatchUrl WHERE aId IN (SELECT aId FROM UserData.Wishlist)",
+		{}, "allWishlistEntriesWithWatchUrls.WatchUrl",
+		function(wu)
+			local wishlistItem = wishlistByAid[wu.aId]
+			if (wishlistItem) then
+				wishlistItem.watchUrls = wishlistItem.watchUrls or {n = 0}
+				local n = wishlistItem.watchUrls.n + 1
+				wishlistItem.watchUrls[n] = wu
+				wishlistItem.watchUrls.n = n
+				wu.watchUrl = wu.url
+			end
+		end
+	)
+
+	return wishlist
 end
 
 
@@ -1088,6 +1162,27 @@ end
 
 
 
+--- Returns the wishlist entry for the specified anime, if it is on the wishlist
+-- Returns false if not on the wishlist
+-- Returns nil and error message on error
+function db.wishlistEntry(aId)
+	assert(type(aId) == "number")
+
+	local entry, msg = lldb.arrayFromQuery(gDB, "SELECT * FROM Wishlist WHERE aId = ?", {aId}, "wishlistEntry")
+	if not(entry) then
+		return nil, "Failed to query the DB: " .. tostring(msg)
+	end
+	if not(entry[1]) then
+		-- No such entry in the wishlist
+		return false
+	end
+	return entry[1]
+end
+
+
+
+
+
 --- Returns the complete ID mapping for the anime specified by its ID in any of the sites represented in the ID map
 -- The returned table is a dictionary of "columnName" -> ID for all valid site columns
 -- If there's no mapping in the DB, returns an empty table
@@ -1248,6 +1343,23 @@ function db.recreateIndices(aIndexDefs)
 		assert(type(def.sql) == "string")
 		lldb.checkSql(gDB, db:exec(def.sql), "recreateIndices." .. tostring(def.name))
 	end
+end
+
+
+
+
+
+--- Removes the specified anime from the wishlist
+-- Returns true on success, nil and error message on failure
+function db.removeFromWishlist(aId)
+	assert(gDB ~= nil)
+	assert(type(aId) == "number")
+
+	local isOK, msg = pcall(lldb.executeBoundSql, gDB, "DELETE FROM Wishlist WHERE aId = ?", {aId}, "removeFromWishlist")
+	if not(isOK) then
+		return nil, tostring(msg)
+	end
+	return true
 end
 
 

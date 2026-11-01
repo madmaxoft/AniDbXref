@@ -645,8 +645,21 @@ local upgrades = {
 		]],
 	},  -- Version 22
 
+	-- Version 23:
+	{
+		[[
+			CREATE TABLE UserData.Wishlist (
+				itemId INTEGER PRIMARY KEY,
+				aId INTEGER NOT NULL UNIQUE,
+				addedOnYmd TEXT NOT NULL,
+				notes TEXT,
+
+				FOREIGN KEY (aId) REFERENCES Anime(aId)
+			);
+		]],
+	},  -- Version 23
+
 	--[==[
-	-- Version 20:
 		--- Add Watchlist entries based on Seen entries:
 		function (aDb)
 			-- Collect Seen without a Watchlist entry:

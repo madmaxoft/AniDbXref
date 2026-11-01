@@ -57,6 +57,15 @@ table.sort(byDayOfWeek[8],
 	end
 )
 
+-- Sort the wishlist by date added:
+if (type(wishlist) == "table") then
+	table.sort(wishlist,
+		function(aWishlist1, aWishlist2)
+			return (aWishlist1.addedOnYmd < aWishlist2.addedOnYmd)
+		end
+	)
+end
+
 -- Group and sort the (unwatched) anime by dayOfWeek:
 local animeByDayOfWeek = {}  -- dayOfWeek -> array-table of anime
 local animeMaxN = 0  -- Max number of anime in a single day-slot
@@ -114,7 +123,44 @@ for year = seasonYear - 1, seasonYear + 1 do
 end
 %>
 | </p>
+<hr />
 
+
+
+
+
+<% if (wishlist[1]) then %>
+	<h2>Wishlist</h2>
+	<table>
+		<tr>
+			<% for idx, item in ipairs(wishlist) do %>
+				<td>
+					<a href="/anime/<%= item.aId %>">
+					<%= item.details.enTitle %>
+					</a>
+					<br />
+
+					<%
+					if (item.watchUrls) then
+						table.sort(item.watchUrls, function(aWu1, aWu2)
+							return ((aWu1.providerName or "") < (aWu2.providerName or ""))
+						end)
+						for _, wu in ipairs(item.watchUrls) do
+						%>
+							<a href="<%= wu.watchUrl %>">
+							<img src="<%= faviconUrl(wu.providerName) %>" alt="<%= (wu.providerName or "[unknown]") %>" border=1 />
+							</a>
+						<% end
+					end %>
+				</td>
+				<% if ((idx % 7) == 6) then %>
+					</tr><tr>
+				<% end %>
+			<% end %>
+		</tr>
+	</table>
+	<hr />
+<% end %>
 
 
 

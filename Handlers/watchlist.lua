@@ -144,6 +144,15 @@ function M.get(aRequest, aResponse)
 	if not(watchlist) then
 		return aResponse:sendError(404, tostring(seasonAnime))
 	end
+	local wishlist, msg = db.allWishlistEntriesWithWatchUrls()
+	if not(wishlist) then
+		log("watchlist", "Failed to query wishlist: %s", tostring(msg))
+		wishlist = string.format("Failed to query wishlist: %s", tostring(msg))
+	else
+		for _, item in ipairs(wishlist) do
+			item.details = db.getAnimeDetails(item.aId)
+		end
+	end
 
 	return aResponse:sendTemplate("watchlist",
 		{
@@ -152,6 +161,7 @@ function M.get(aRequest, aResponse)
 			seasonYear = tonumber(season:match("(%d+)%-")),
 			seasonDescription = utils.seasonToDescription(season),
 			watchlist = watchlist,
+			wishlist = wishlist,
 		}
 	)
 end

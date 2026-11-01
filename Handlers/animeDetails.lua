@@ -46,6 +46,7 @@ function AD.get(aRequest, aResponse)
 		idMap = db.mapId("aId", aId) or {},
 		watchlist = db.watchlistSeasonsForAnime(aId),
 		watchUrls = watchUrls,
+		wishlistEntry = db.wishlistEntry(aId),
 	})
 	timer("Send response")
 end
@@ -82,6 +83,72 @@ function AD.postAddToWatchlist(aRequest, aResponse)
 	if not(isOK) then
 		log("animeDetails", "Failed to add watchlist item into DB: %s", tostring(msg))
 		return aResponse:sendError(400, "Failed to add watchlist item into DB")
+	end
+
+	return aResponse:sendRedirect("/anime/" .. tostring(aId))
+end
+
+
+
+
+
+function AD.postAddToWishlist(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	-- Only POST should reach here
+	assert(aRequest:method() == "POST")
+
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
+	end
+	local aId = tonumber(formData.aid)
+	if not(aId) then
+		return aResponse:sendError(400, "Missing or invalid aid parameter")
+	end
+
+	local isOK, msg = db.addToWishlist(aId, formData.notes or "")
+	if not(isOK) then
+		log("animeDetails", "Failed to add wishlist item into DB: %s", tostring(msg))
+		return aResponse:sendError(400, "Failed to add wishlist item into DB")
+	end
+
+	return aResponse:sendRedirect("/anime/" .. tostring(aId))
+end
+
+
+
+
+
+function AD.postRemoveFromWishlist(aRequest, aResponse)
+	assert(type(aRequest) == "table")
+	assert(aResponse.sendTemplate)
+
+	if (aRequest.isReadOnly) then
+		return aResponse:sendTemplate("readOnly", {})
+	end
+
+	-- Only POST should reach here
+	assert(aRequest:method() == "POST")
+
+	local formData, msg = aRequest:formData()
+	if not(formData) then
+		return aResponse:sendError(400, "Failed to parse request body: " .. tostring(msg))
+	end
+	local aId = tonumber(formData.aid)
+	if not(aId) then
+		return aResponse:sendError(400, "Missing or invalid aid parameter")
+	end
+
+	local isOK, msg = db.removeFromWishlist(aId)
+	if not(isOK) then
+		log("animeDetails", "Failed to remove %d from wishlist DB: %s", aId, tostring(msg))
+		return aResponse:sendError(400, "Failed to remove wishlist item from DB")
 	end
 
 	return aResponse:sendRedirect("/anime/" .. tostring(aId))

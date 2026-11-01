@@ -23,6 +23,15 @@ end
 
 
 
+--- Returns the current date, formatted as YYYY-MM-DD
+function utils.currentDateYmd()
+	return os.date("%Y-%m-%d")
+end
+
+
+
+
+
 --- Converts the (local) day of week and time string ("HH:MM") into the number of seconds since the start of week
 -- Returns nil and error message on failure
 function utils.dayOfWeekAndTimeStrToSecondsSinceWeekStart(aDayOfWeek, aTimeStr)
