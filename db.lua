@@ -1155,6 +1155,9 @@ function db.initialAiringSeason(aId)
 		return nil
 	end
 	local midAiringDate = utils.ymdAddOffset(arr.startDate, 40)
+	if not(midAiringDate) then
+		return nil
+	end
 	return utils.ymdToSeason(midAiringDate)
 end
 

@@ -345,7 +345,7 @@ end
 --- Returns the season to which the specified date belongs
 -- Returns nil and error message on failure
 function utils.ymdToSeason(aDateYmd)
-	assert(type(aDateYmd) == "string")
+	assert(type(aDateYmd) == "string", string.format("aDateYmd is not a string (%s; %s)", type(aDateYmd), tostring(aDateYmd)))
 
 	-- Parse the date:
 	local y, m, d = aDateYmd:match("(%d+)%-(%d+)%-(%d+)")
