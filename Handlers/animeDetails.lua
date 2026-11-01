@@ -181,12 +181,16 @@ function AD.postSetSeen(aRequest, aResponse)
 		end
 		local isOK, msg = db.markAnimeSeen(aId, seenDateYmd)
 		if not(isOK) then
-			log("animeDetails", "Failed to mark anime as seen: %s", tostring(msg))
+			log("animeDetails", "Failed to mark anime %d as seen: %s", aId, tostring(msg))
+		end
+		isOK, msg = db.removeFromWishlist(aId)
+		if not(isOK) then
+			log("animeDetails", "Failed to remove anime %d from wishlist: %s", aId, tostring(msg))
 		end
 	else
 		local isOK, msg = db.markAnimeNotSeen(aId)
 		if not(isOK) then
-			log("animeDetails", "Failed to mark anime as not seen: %s", tostring(msg))
+			log("animeDetails", "Failed to mark anime %d as not seen: %s", aId, tostring(msg))
 		end
 	end
 
