@@ -659,6 +659,26 @@ local upgrades = {
 		]],
 	},  -- Version 23
 
+	-- Version 24:
+	{
+		-- Drop the invalid FK constraint from UserData.Wishlist, SQLite doesn't support FKs across DB files:
+		[[
+			CREATE TABLE UserData.Wishlist_new (
+				itemId INTEGER PRIMARY KEY,
+				aId INTEGER NOT NULL UNIQUE,
+				addedOnYmd TEXT NOT NULL,
+				notes TEXT
+			);
+
+			INSERT INTO UserData.Wishlist_new (itemId, aId, addedOnYmd, notes)
+			SELECT itemId, aId, addedOnYmd, notes FROM UserData.Wishlist;
+
+			DROP TABLE UserData.Wishlist;
+
+			ALTER TABLE UserData.Wishlist_new RENAME TO Wishlist;
+		]],
+	},
+
 	--[==[
 		--- Add Watchlist entries based on Seen entries:
 		function (aDb)
