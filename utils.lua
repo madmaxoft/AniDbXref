@@ -64,6 +64,19 @@ end
 
 
 
+--- Logs the copas status to the log. Used for troubleshooting.
+function utils.logCopasStatus()
+	local status = require("copas").status()
+	local log = require("logger").log
+	for key, value in pairs(status) do
+		log("copas", string.format("%s = %s", key, tostring(value)))
+	end
+end
+
+
+
+
+
 --- Returns the next season for the specified season, eg. "2025-04" -> "2026-01"
 -- If no season is specified, returns the next season for currentSeason()
 function utils.nextSeason(aSeason)

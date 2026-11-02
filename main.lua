@@ -93,6 +93,8 @@ config.loadAll()
 
 --- Handles a single connected client, possibly with keep-alive:
 local function clientLoop(aSocket)
+	copas.mainServerClients = copas.mainServerClients or {}
+	copas.mainServerClients[aSocket] = true
 	while true do
 		local req, err = httpRequest.createFromSocket(aSocket)
 		if not req then
@@ -108,6 +110,7 @@ local function clientLoop(aSocket)
 			break
 		end
 	end
+	copas.mainServerClients[aSocket] = false
 	aSocket:close()
 end
 
@@ -122,9 +125,13 @@ local function startServer()
 	log("main", "Server running on http://localhost:" .. port .. "/")
 
 	copas.mainServerSocket = serverSocket
-	copas.addserver(serverSocket, function(aSocket)
-		clientLoop(copas.wrap(aSocket))
-	end)
+	copas.addserver(serverSocket,
+		function(aSocket)
+			clientLoop(copas.wrap(aSocket))
+		end,
+		nil,
+		"mainServerSocket"
+	)
 
 	copas.loop()
 	log("main", "Server loop terminated.")

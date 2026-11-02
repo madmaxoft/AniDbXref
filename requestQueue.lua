@@ -123,7 +123,7 @@ end
 function RQ.start()
 	assert(not(RQ.thread), "Only one start is allowed")
 
-	RQ.thread = copas.addthread(RQ.run)
+	RQ.thread = copas.addnamedthread("RequestQueue", RQ.run)
 end
 
 

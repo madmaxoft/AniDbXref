@@ -26,6 +26,8 @@ The request()'s parameter table supports the following members:
 	- shouldSkipYields: if true, the connection is made without yielding until all incoming requests
 		are processed (used for foreground downloads)
 
+The closeAllConnections() function should be called before exiting copas main loop, otherwise the cached
+connections may cause the termination to take several minutes (until the remote server times them out).
 --]]
 
 
@@ -149,6 +151,7 @@ local function createConnection(aParsedUrl, aRequest)
 	end
 	if not(gDisableCopas) then
 		sock:settimeout(0)
+		copas.setsocketname("HTTP client: " .. aParsedUrl.host .. ":" .. aParsedUrl.port, sock)
 	end
 
 	-- Connect to the host:
@@ -486,6 +489,23 @@ function httpClient.request(aRequest)
 	-- Should be unreachable - either we succeed -> return, or we fail either the first attempt ( -> retry)
 	-- or the second attempt (-> return)
 	assert(nil, "This shouldn't have been reached")
+end
+
+
+
+
+
+--- API: Close all cached connections
+-- Usually called just before the app terminates
+function httpClient.closeAllConnections()
+	for _, pool in pairs(gConnectionPools) do
+		for _, conn in ipairs(pool) do
+			pcall(function()
+				conn.socket:close()
+			end)
+		end
+	end
+	gConnectionPools = {}
 end
 
 
