@@ -275,3 +275,32 @@ table.noborder > tr > td {
 		display: none;
 	}
 }
+
+
+
+
+
+/* Support for the header table's 100% width, sending all the extra space into the search form */
+.headerTable {
+	width: 100%;
+	table-layout: auto;
+}
+
+.headerTable th {
+	white-space: nowrap;
+}
+
+.headerTable .searchColumn {
+	width: 100%;
+}
+
+.headerTable .searchColumn form {
+	display: flex;
+	gap: 4px;
+}
+
+.headerTable .searchColumn input {
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+}
