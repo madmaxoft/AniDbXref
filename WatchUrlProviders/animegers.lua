@@ -98,12 +98,11 @@ end
 --- Queries animegers.com for the specified anime
 -- Returns the url, if found, or empty string if not found / unclear
 -- Returns nil and error message on failure
-local function animegersQuery(aId, aTitleEn, aTitleXjat)
+local function animegersQuery(aId, aTitleArray)
 	assert(type(aId) == "number")
-	assert(type(aTitleEn or "") == "string")
-	assert(type(aTitleXjat or "") == "string")
+	assert(type(aTitleArray) == "table")
 
-	return wup.useSingleTitleQuery("animegers", {aTitleEn, aTitleXjat}, querySingleTitle)
+	return wup.useSingleTitleQuery("animegers", aTitleArray, querySingleTitle)
 end
 
 
@@ -115,7 +114,7 @@ local function selfTest()
 	print("Performing a quick self-test")
 	--[[
 	-- Full test:
-	local url = animegersQuery(7729, "Steins;Gate", "Steins;Gate")
+	local url = animegersQuery(7729, {"Steins;Gate"})
 	print("SteinsGate URL: " .. tostring(url)
 	--]]
 
@@ -123,7 +122,7 @@ local function selfTest()
 	local f = assert(io.open("animegers.search.html", "rb"))
 	local contents = f:read("*all")
 	f:close()
-	local url = parseBody(contents, "Steins;Gate", "Steins;Gate")
+	local url = parseBody(contents, "Steins;Gate")
 	print("Steins;Gate URL: " .. tostring(url))
 end
 

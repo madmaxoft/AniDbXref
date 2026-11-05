@@ -10,7 +10,8 @@ so that it can be investigated using an IDE debugger
 
 
 --- The anime ID to query
-local gId = 7729  -- Steins;Gate
+local gId = 18345  -- A Returner`s Magic Should Be Special (2026)
+-- local gId = 7729  -- Steins;Gate
 -- local gId = 17001  -- Fuufu Ijou
 
 

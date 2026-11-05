@@ -24,38 +24,41 @@ local wup = params[1]
 
 
 
---- Parses the response body, returns the url suffix, if found, or empty string if not found / unclear
--- Also returns, as second value, a bool whether the match was an exact match
--- aTitle is the expected title, for checking the match exactness
--- NOTE: Doesn't return the whole URL, only the suffix ("/watch/{slug}/{anything}")
-local function parseBody(aBody, aTitle)
+--- Parses the response body, adds the scored candidates to the specified candidate list
+-- The list is extended, existing items get their score increased
+-- aTitle is the expected title, for calculating the score
+local function parseBody(aScoredCandidateList, aBody, aTitle)
+	assert(type(aScoredCandidateList) == "table")
 	assert(type(aBody) == "string")
 	assert(type(aTitle) == "string")
 
-	local lastCandidate = ""
 	for href, cardHtml in aBody:gmatch('<a href="(/info/[^"]+)"[^>]*>(.-)</a>') do
 		local title = cardHtml:match('<img[^>]-alt="([^"]*)"')
 		if (title) then
 			local candidate = href:match("^/info/([^/]+)")
 			if (candidate) then
-				if (utils.areTitlesEqual(title, aTitle)) then
-					return "/watch/" .. candidate .. "/watch", true  -- Miruro doesn't care about what's after the second slash
-				end
-				lastCandidate = candidate
+				wup.addScoredCandidateToList(
+					aScoredCandidateList,
+					{
+						url = "https://miruro.cx/watch/" .. candidate .."/w",  -- Miruro doesn't care about what's after the second slash, as long as there's something
+						title = title,
+						score = wup.scoreTitle(aTitle, title)
+					}
+				)
 			end
 		end
 	end
-	return "/watch/" .. lastCandidate .. "/watch", false
 end
 
 
 
 
 
---- Returns the url for the specified title, and whether it was an exact match
--- Returns an empty string if not found
--- Returns nil and error message on failure
-local function querySingleTitle(aTitle)
+--- Adds the candidates for the specified title into the specified scored candidate list
+-- The list is extended, existing items get their score increased
+-- Returns true on success, nil and error message on failure
+local function addSingleTitleQuery(aScoredCandidatesList, aTitle)
+	assert(type(aScoredCandidatesList) == "table")
 	assert(type(aTitle) == "string")
 
 	local url = "https://miruro.cx/search?q=" .. url.escape(aTitle)
@@ -66,7 +69,7 @@ local function querySingleTitle(aTitle)
 	end
 	if (status ~= 200) then
 		log("watchUrlProviders/miruro", "HTTP request FAILED (%s) for title %s: %s", tostring(status), aTitle, tostring(body):sub(1, 200))
-		return "", false
+		return nil, "HTTP query to miruro.cx failed: " .. tostring(status)
 	end
 
 	--[[
@@ -76,11 +79,8 @@ local function querySingleTitle(aTitle)
 	f:close()
 	--]]
 
-	local urlSuffix, isExactMatch = parseBody(body, aTitle)
-	if (not(urlSuffix) or (urlSuffix == "")) then
-		return "", false
-	end
-	return "https://miruro.cx" .. urlSuffix, isExactMatch
+	parseBody(aScoredCandidatesList, body, aTitle)
+	return true
 end
 
 
@@ -89,13 +89,24 @@ end
 
 --- Queries miruro.cx for the specified anime
 -- Returns the url, if found, or empty string if not found / unclear
--- Returns nil and error message on failure
-local function miruroQuery(aId, aTitleEn, aTitleXjat)
+local function miruroQuery(aId, aTitleArray)
 	assert(type(aId) == "number")
-	assert(type(aTitleEn or "") == "string")
-	assert(type(aTitleXjat or "") == "string")
+	assert(type(aTitleArray or "") == "table")
 
-	return wup.useSingleTitleQuery("miruro", {aTitleEn, aTitleXjat}, querySingleTitle)
+	local scoredCandidates = {}
+	for _, title in ipairs(aTitleArray) do
+		addSingleTitleQuery(scoredCandidates, title)
+	end
+	local numCandidates = 0
+	for _, _ in pairs(scoredCandidates) do
+		numCandidates = numCandidates + 1
+	end
+	log("watchUrlProviders/miruro", "There are %d candidates", numCandidates)
+	local bestCandidate = wup.pickBestScoredCandidate(scoredCandidates)
+	if (not(bestCandidate) or (bestCandidate.score < 500)) then
+		return ""
+	end
+	return bestCandidate.url
 end
 
 
@@ -103,13 +114,6 @@ end
 
 
 if not(wup) then
-	-- DEBUG: Self-test when run as the main file:
-	httpClient.noCopas()
-	log("", "Miruro self-test: querying a single one")
-	local foundUrl, msg = querySingleTitle("The Exiled Heavy Knight Knows How to Game the System")
-	log("", "foundUrl = %s, msg = %s", foundUrl, msg or "nil")
-
-	-- In normal usage, we want WUP valid
 	error("Provider must be load-called with watchUrlProviders module as first parameter")
 end
 wup.addProvider("miruro.cx", miruroQuery)
