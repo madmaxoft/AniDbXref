@@ -11,10 +11,16 @@
 </th>
 <th><a href="/voiceActors">Voice actors</a></th>
 <% if not(request.isReadOnly) then %>
-<th><a href="/update-confirm">Update AniDB data</a></th>
-<th><a href="/import">Import data</a></th>
-<th><a href="/config">Configuration</a></th>
-<th><a href="/shutdown">Shutdown</a></th>
-<% end %>
+<th>
+<details class="maintenance">
+	<summary>Maintenance</summary>
+	<div class="maintenanceMenu">
+		<a href="/update-confirm">Update AniDB data</a>
+		<a href="/import">Import data</a>
+		<a href="/config">Configuration</a>
+		<a href="/shutdown">Shutdown</a>
+	</div>
+</details>
+</th><% end %>
 </tr>
 </table>

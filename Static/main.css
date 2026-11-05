@@ -234,3 +234,44 @@ table.noborder > tr > td {
 {
 	white-space: nowrap;
 }
+
+
+
+
+/* Support for on-hover / on-click menu, used for Maintenance links in the header */
+.maintenance {
+	position: relative;
+}
+
+.maintenance summary {
+	cursor: pointer;
+}
+
+.maintenanceMenu {
+	position: absolute;
+	z-index: 100;
+	background: white;
+	border: 1px solid black;
+	padding: 4px;
+	min-width: max-content;
+}
+
+.maintenanceMenu a {
+	display: block;
+	padding: 4px 8px;
+	text-decoration: none;
+}
+
+.maintenanceMenu a:hover {
+	background: #ddd;
+}
+
+@media (hover: hover) {
+	.maintenance:hover .maintenanceMenu {
+		display: block;
+	}
+
+	.maintenance:not([open]) .maintenanceMenu {
+		display: none;
+	}
+}
