@@ -132,9 +132,6 @@ local function startServer()
 		nil,
 		"mainServerSocket"
 	)
-
-	copas.loop()
-	log("main", "Server loop terminated.")
 end
 
 
@@ -161,4 +158,7 @@ end
 --- Entry point
 startRequestingDetails()
 startServer()
+
+copas.loop()
+
 log("main", "Finished.")
