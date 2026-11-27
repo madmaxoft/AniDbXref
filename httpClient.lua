@@ -28,6 +28,10 @@ The request()'s parameter table supports the following members:
 
 The closeAllConnections() function should be called before exiting copas main loop, otherwise the cached
 connections may cause the termination to take several minutes (until the remote server times them out).
+
+The noCopas() API function allows this module to be used outside of copas for single-threaded apps. After
+calling this function, this module makes no further use of copas. This is mainly for running tests under
+the ZBS debugger, which breaks with copas.
 --]]
 
 
